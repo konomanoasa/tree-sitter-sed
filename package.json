@@ -2,7 +2,7 @@
   "name": "tree-sitter-sed",
   "version": "0.1.0",
   "private": true,
-  "description": "Tree-sitter grammars for POSIX.1-2024 and GNU sed scripts.",
+  "description": "Tree-sitter BRE and ERE grammars for POSIX.1-2024 and GNU sed scripts.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/konomanoasa/tree-sitter-sed.git"
@@ -33,16 +33,19 @@
     "format": "biome format --write .",
     "check:biome": "biome check .",
     "check:generated": "node scripts/check-generated.js",
-    "test": "npm run test:corpus && npm run test:wasm",
+    "test": "npm run test:corpus && npm run test:wasm && npm run test:integrations",
     "test:corpus": "node scripts/run-tree-sitter.js test",
+    "test:integrations": "node scripts/check-language-integrations.js",
     "test:wasm": "node scripts/run-wasm-tests.js",
     "test:debug": "node scripts/run-tree-sitter.js test --debug-build --rebuild",
-    "test:fuzz": "node scripts/run-tree-sitter.js fuzz --iterations 100 --edits 5 --rebuild",
+    "test:fuzz": "node scripts/run-fuzz-tests.js --iterations 100 --edits 5",
     "check": "npm run check:biome && npm run check:generated && npm test"
   },
   "keywords": [
     "tree-sitter",
     "sed",
+    "bre",
+    "ere",
     "posix",
     "gnu",
     "gnu-sed"

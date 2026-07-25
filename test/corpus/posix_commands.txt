@@ -1,6 +1,6 @@
 ==================
 Parses delete, print, quit, and next commands
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 d
 p
@@ -30,7 +30,7 @@ n
 
 ==================
 Parses hold-space, multiline, line-number, and list commands
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 h
 H
@@ -90,7 +90,7 @@ l
 
 ==================
 Parses a comment followed by a command
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 # comment
 d
@@ -111,7 +111,7 @@ d
 
 ==================
 Recognizes the silent directive at the start of a script
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 #n
 p
@@ -129,7 +129,7 @@ p
 
 ==================
 Treats a later hash-n line as an ordinary comment
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 p
 #n is a comment after the first line
@@ -150,7 +150,7 @@ p
 
 ==================
 Parses labels and successful-substitution branches
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 :ok
 b

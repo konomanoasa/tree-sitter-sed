@@ -3,6 +3,7 @@ const { spawnSync } = require("node:child_process");
 const { mkdtempSync, readdirSync, rmSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
+const { variants } = require("./variants");
 
 const root = join(__dirname, "..");
 const executable = join(
@@ -36,13 +37,13 @@ function main() {
   );
 
   try {
-    for (const dialect of ["posix", "gnu"]) {
+    for (const { directory, wasmName } of variants) {
       const status = run(executable, [
         "build",
         "--wasm",
         "--output",
-        join(temporaryDirectory, `tree-sitter-sed-${dialect}.wasm`),
-        join(root, dialect),
+        join(temporaryDirectory, wasmName),
+        join(root, directory),
       ]);
       if (status !== 0) {
         return status;

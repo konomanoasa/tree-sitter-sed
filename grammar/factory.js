@@ -1,6 +1,9 @@
 const { addressOperator, commandArgument, commandName } = require("./schema");
 
-function defineGrammar(name, dialect) {
+function defineGrammar(name, dialect, regexMode) {
+  if (regexMode !== "bre" && regexMode !== "ere") {
+    throw new Error(`Unsupported regular-expression mode: ${regexMode}`);
+  }
   const commandGroups = dialect.commandGroups;
   const commandNames = dialect.commandNames;
   const dialectRules = dialect.rules;
@@ -95,9 +98,14 @@ function defineGrammar(name, dialect) {
       $.regex_escape,
       $.escaped_delimiter,
       $.escaped_newline,
-      $.raw_parenthesis,
-      $.escaped_parenthesis,
-      $.backreference_candidate,
+      $.regex_group_open,
+      $.regex_group_close,
+      $.regex_alternation_operator,
+      $.regex_zero_or_more,
+      $.regex_one_or_more,
+      $.regex_zero_or_one,
+      $.regex_interval,
+      $.regex_backreference,
       $.incomplete_escape,
       $.bracket_expression,
     ];
@@ -119,9 +127,6 @@ function defineGrammar(name, dialect) {
       $.regex_escape,
       $.escaped_delimiter,
       $.escaped_newline,
-      $.raw_parenthesis,
-      $.escaped_parenthesis,
-      $.backreference_candidate,
       $.incomplete_escape,
       $.posix_character_class,
       $.collating_symbol,
@@ -406,9 +411,14 @@ function defineGrammar(name, dialect) {
       $._regex_escape,
       $._regex_escaped_delimiter,
       $._regex_escaped_newline,
-      $._regex_raw_parenthesis,
-      $._regex_escaped_parenthesis,
-      $._regex_backreference_candidate,
+      $._regex_group_open,
+      $._regex_group_close,
+      $._regex_alternation_operator,
+      $._regex_zero_or_more,
+      $._regex_one_or_more,
+      $._regex_zero_or_one,
+      $._regex_interval,
+      $._regex_backreference,
       $._regex_bracket_open,
       $._regex_bracket_close,
       $._regex_posix_character_class,
@@ -709,11 +719,21 @@ function defineGrammar(name, dialect) {
           $._translate_escaped_newline,
         ),
 
-      raw_parenthesis: ($) => $._regex_raw_parenthesis,
+      regex_group_open: ($) => $._regex_group_open,
 
-      escaped_parenthesis: ($) => $._regex_escaped_parenthesis,
+      regex_group_close: ($) => $._regex_group_close,
 
-      backreference_candidate: ($) => $._regex_backreference_candidate,
+      regex_alternation_operator: ($) => $._regex_alternation_operator,
+
+      regex_zero_or_more: ($) => $._regex_zero_or_more,
+
+      regex_one_or_more: ($) => $._regex_one_or_more,
+
+      regex_zero_or_one: ($) => $._regex_zero_or_one,
+
+      regex_interval: ($) => $._regex_interval,
+
+      regex_backreference: ($) => $._regex_backreference,
 
       incomplete_escape: ($) =>
         choice(

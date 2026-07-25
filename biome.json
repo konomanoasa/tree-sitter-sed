@@ -2,10 +2,14 @@
   "formatter": {
     "includes": [
       "**",
-      "!gnu/src/grammar.json",
-      "!gnu/src/node-types.json",
-      "!posix/src/grammar.json",
-      "!posix/src/node-types.json"
+      "!gnu-bre/src/grammar.json",
+      "!gnu-bre/src/node-types.json",
+      "!gnu-ere/src/grammar.json",
+      "!gnu-ere/src/node-types.json",
+      "!posix-bre/src/grammar.json",
+      "!posix-bre/src/node-types.json",
+      "!posix-ere/src/grammar.json",
+      "!posix-ere/src/node-types.json"
     ]
   },
   "javascript": {

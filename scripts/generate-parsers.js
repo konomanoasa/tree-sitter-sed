@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const { spawnSync } = require("node:child_process");
 const { join } = require("node:path");
+const { variants } = require("./variants");
 
 const root = join(__dirname, "..");
 const executable = join(
@@ -9,22 +10,16 @@ const executable = join(
   "tree-sitter-cli",
   process.platform === "win32" ? "tree-sitter.exe" : "tree-sitter",
 );
-const grammars = Object.freeze([
-  Object.freeze({
-    grammarPath: join("posix", "grammar.js"),
-    outputPath: join("posix", "src"),
-  }),
-  Object.freeze({
-    grammarPath: join("gnu", "grammar.js"),
-    outputPath: join("gnu", "src"),
-  }),
-]);
-
 function generateParsers() {
-  for (const { grammarPath, outputPath } of grammars) {
+  for (const { directory } of variants) {
     const result = spawnSync(
       executable,
-      ["generate", grammarPath, "--output", outputPath],
+      [
+        "generate",
+        join(directory, "grammar.js"),
+        "--output",
+        join(directory, "src"),
+      ],
       {
         cwd: root,
         stdio: "inherit",
@@ -53,4 +48,4 @@ if (require.main === module) {
   process.exitCode = generateParsers();
 }
 
-module.exports = { generateParsers, grammars };
+module.exports = { generateParsers };

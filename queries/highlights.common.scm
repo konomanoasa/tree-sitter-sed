@@ -13,6 +13,27 @@
 (regex) @string.regexp
 
 [
+  (regex_group_open)
+  (regex_group_close)
+] @punctuation.bracket
+
+[
+  (regex_alternation_operator)
+  (regex_zero_or_more)
+  (regex_one_or_more)
+  (regex_zero_or_one)
+  (regex_interval)
+] @operator
+
+[
+  (regex_escape)
+  (escaped_delimiter)
+  (escaped_newline)
+] @string.escape
+
+(regex_backreference) @string.special
+
+[
   (replacement)
   (translate_source)
   (translate_destination)

@@ -1,5 +1,5 @@
 /**
- * @file Tree-sitter grammar for GNU sed scripts.
+ * @file Tree-sitter grammar for GNU sed scripts using BREs.
  * @author konomanoasa
  * @license MIT
  */
@@ -10,4 +10,4 @@
 const defineGrammar = require("../grammar/factory");
 const gnu = require("../grammar/gnu");
 
-module.exports = defineGrammar("sed_gnu", gnu);
+module.exports = defineGrammar("sed_gnu_bre", gnu, "bre");

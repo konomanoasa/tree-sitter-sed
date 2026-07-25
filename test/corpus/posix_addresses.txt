@@ -1,6 +1,6 @@
 ==================
 Parses numeric, last-line, regex, range, and negated addresses
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 1d
 $p
@@ -73,7 +73,7 @@ $p
 
 ==================
 Applies POSIX one-address and two-address command limits
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 1q
 $=
@@ -162,7 +162,7 @@ change range
 
 ==================
 Allows POSIX blanks after an address and before a label
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 1,2p
 1 !p

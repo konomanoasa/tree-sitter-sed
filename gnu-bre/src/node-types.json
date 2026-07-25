@@ -106,11 +106,6 @@
     "fields": {}
   },
   {
-    "type": "backreference_candidate",
-    "named": true,
-    "fields": {}
-  },
-  {
     "type": "block_command",
     "named": true,
     "fields": {
@@ -145,10 +140,6 @@
       "required": false,
       "types": [
         {
-          "type": "backreference_candidate",
-          "named": true
-        },
-        {
           "type": "collating_symbol",
           "named": true
         },
@@ -162,10 +153,6 @@
         },
         {
           "type": "escaped_newline",
-          "named": true
-        },
-        {
-          "type": "escaped_parenthesis",
           "named": true
         },
         {
@@ -186,10 +173,6 @@
         },
         {
           "type": "posix_character_class",
-          "named": true
-        },
-        {
-          "type": "raw_parenthesis",
           "named": true
         },
         {
@@ -578,11 +561,6 @@
   },
   {
     "type": "escaped_newline",
-    "named": true,
-    "fields": {}
-  },
-  {
-    "type": "escaped_parenthesis",
     "named": true,
     "fields": {}
   },
@@ -1096,11 +1074,6 @@
     }
   },
   {
-    "type": "raw_parenthesis",
-    "named": true,
-    "fields": {}
-  },
-  {
     "type": "read_command",
     "named": true,
     "fields": {
@@ -1161,10 +1134,6 @@
       "required": true,
       "types": [
         {
-          "type": "backreference_candidate",
-          "named": true
-        },
-        {
           "type": "bracket_expression",
           "named": true
         },
@@ -1174,10 +1143,6 @@
         },
         {
           "type": "escaped_newline",
-          "named": true
-        },
-        {
-          "type": "escaped_parenthesis",
           "named": true
         },
         {
@@ -1197,7 +1162,11 @@
           "named": true
         },
         {
-          "type": "raw_parenthesis",
+          "type": "regex_alternation_operator",
+          "named": true
+        },
+        {
+          "type": "regex_backreference",
           "named": true
         },
         {
@@ -1205,7 +1174,31 @@
           "named": true
         },
         {
+          "type": "regex_group_close",
+          "named": true
+        },
+        {
+          "type": "regex_group_open",
+          "named": true
+        },
+        {
+          "type": "regex_interval",
+          "named": true
+        },
+        {
           "type": "regex_literal",
+          "named": true
+        },
+        {
+          "type": "regex_one_or_more",
+          "named": true
+        },
+        {
+          "type": "regex_zero_or_more",
+          "named": true
+        },
+        {
+          "type": "regex_zero_or_one",
           "named": true
         }
       ]
@@ -1268,6 +1261,16 @@
     }
   },
   {
+    "type": "regex_alternation_operator",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "regex_backreference",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "regex_escape",
     "named": true,
     "fields": {}
@@ -1292,7 +1295,37 @@
     }
   },
   {
+    "type": "regex_group_close",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "regex_group_open",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "regex_interval",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "regex_literal",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "regex_one_or_more",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "regex_zero_or_more",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "regex_zero_or_one",
     "named": true,
     "fields": {}
   },

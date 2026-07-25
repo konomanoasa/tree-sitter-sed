@@ -1,6 +1,6 @@
 ==================
 Parses substitute operands with slash and alternate delimiters
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 s/a/b/
 s/a/b/g
@@ -110,7 +110,7 @@ s#x#y#
 
 ==================
 Applies a regex address to a substitute command
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 /^flagp:/s/^flagp:/flagp=/p
 
@@ -143,7 +143,7 @@ Applies a regex address to a substitute command
 
 ==================
 Starts another command after a completed substitute command
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 s/a/b/;p
 s#a#b#p;d
@@ -189,7 +189,7 @@ s#a#b#p;d
 
 ==================
 Starts a trailing comment after a completed substitute command
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 s#x#y#;# comment
 
@@ -217,7 +217,7 @@ s#x#y#;# comment
 
 ==================
 Retains nodes for empty substitute patterns and replacements
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 s//x/
 s/a//
@@ -249,7 +249,7 @@ s/a//
 
 ==================
 Keeps blanks and bracket expressions inside substitute patterns
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 s/ /_/g
 s/[ ][ ]*/_/g
@@ -282,7 +282,7 @@ s/[ ][ ]*/_/g
               (regex_literal))
             (bracket_expression
               (regex_literal))
-            (regex_literal))
+            (regex_zero_or_more))
           middle_delimiter: (delimiter)
           replacement: (replacement
             (replacement_literal))
@@ -293,7 +293,7 @@ s/[ ][ ]*/_/g
 
 ==================
 Parses references and escape sequences inside replacement text
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 s/^\(x\)$/literal & \1 \& \\ \//
 
@@ -308,9 +308,9 @@ s/^\(x\)$/literal & \1 \& \\ \//
           opening_delimiter: (delimiter)
           pattern: (regex
             (regex_literal)
-            (escaped_parenthesis)
+            (regex_group_open)
             (regex_literal)
-            (escaped_parenthesis)
+            (regex_group_close)
             (regex_literal))
           middle_delimiter: (delimiter)
           replacement: (replacement
@@ -329,7 +329,7 @@ s/^\(x\)$/literal & \1 \& \\ \//
 
 ==================
 Parses global, occurrence, print, and write substitute flags
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 s/a/b/g
 s/a/b/2p
@@ -404,7 +404,7 @@ s/a/b/w out.txt;p
 
 ==================
 Allows an escaped newline inside a POSIX replacement
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 s/a/one\
 two/
@@ -430,7 +430,7 @@ two/
 
 ==================
 Parses the lowercase POSIX case-insensitive flag
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 s/a/b/i
 p
@@ -460,7 +460,7 @@ p
 
 ==================
 Combines occurrence, case-insensitive, and print flags
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 s/a/b/2ip
 p

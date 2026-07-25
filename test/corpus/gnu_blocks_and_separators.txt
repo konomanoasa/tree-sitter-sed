@@ -1,6 +1,6 @@
 ==================
 Chains GNU labels and branch commands with semicolons
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 :loop ; b loop ; t loop ; T loop ; p
 
@@ -35,7 +35,7 @@ Chains GNU labels and branch commands with semicolons
 
 ==================
 Chains unlabeled GNU branch commands with semicolons
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 b ; t ; T ; p
 
@@ -62,7 +62,7 @@ b ; t ; T ; p
 
 ==================
 Chains GNU labels and branches inside a compact block
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 { :inner ; b inner ; t inner ; T inner ; p; };d
 
@@ -106,7 +106,7 @@ Chains GNU labels and branches inside a compact block
 
 ==================
 Parses compact, empty, and nested GNU blocks
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 {p}
 {}
@@ -147,7 +147,7 @@ Parses compact, empty, and nested GNU blocks
 
 ==================
 Starts another command after a compact GNU block and semicolon
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 {p;};d
 
@@ -171,7 +171,7 @@ Starts another command after a compact GNU block and semicolon
 
 ==================
 Starts a command on the line after a compact GNU block
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 {p}
 p
@@ -195,7 +195,7 @@ p
 
 ==================
 Parses an empty GNU block before another command
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 {}
 p
@@ -215,7 +215,7 @@ p
 
 ==================
 Allows compact semicolons after GNU labels and branch commands
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 b;p
 t;p

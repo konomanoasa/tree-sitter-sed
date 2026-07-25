@@ -1,6 +1,6 @@
 {
   "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json",
-  "name": "sed_posix",
+  "name": "sed_posix_bre",
   "rules": {
     "script": {
       "type": "SEQ",
@@ -1593,15 +1593,35 @@
           },
           {
             "type": "SYMBOL",
-            "name": "raw_parenthesis"
+            "name": "regex_group_open"
           },
           {
             "type": "SYMBOL",
-            "name": "escaped_parenthesis"
+            "name": "regex_group_close"
           },
           {
             "type": "SYMBOL",
-            "name": "backreference_candidate"
+            "name": "regex_alternation_operator"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "regex_zero_or_more"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "regex_one_or_more"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "regex_zero_or_one"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "regex_interval"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "regex_backreference"
           },
           {
             "type": "SYMBOL",
@@ -1656,17 +1676,37 @@
         }
       ]
     },
-    "raw_parenthesis": {
+    "regex_group_open": {
       "type": "SYMBOL",
-      "name": "_regex_raw_parenthesis"
+      "name": "_regex_group_open"
     },
-    "escaped_parenthesis": {
+    "regex_group_close": {
       "type": "SYMBOL",
-      "name": "_regex_escaped_parenthesis"
+      "name": "_regex_group_close"
     },
-    "backreference_candidate": {
+    "regex_alternation_operator": {
       "type": "SYMBOL",
-      "name": "_regex_backreference_candidate"
+      "name": "_regex_alternation_operator"
+    },
+    "regex_zero_or_more": {
+      "type": "SYMBOL",
+      "name": "_regex_zero_or_more"
+    },
+    "regex_one_or_more": {
+      "type": "SYMBOL",
+      "name": "_regex_one_or_more"
+    },
+    "regex_zero_or_one": {
+      "type": "SYMBOL",
+      "name": "_regex_zero_or_one"
+    },
+    "regex_interval": {
+      "type": "SYMBOL",
+      "name": "_regex_interval"
+    },
+    "regex_backreference": {
+      "type": "SYMBOL",
+      "name": "_regex_backreference"
     },
     "incomplete_escape": {
       "type": "CHOICE",
@@ -1712,18 +1752,6 @@
               {
                 "type": "SYMBOL",
                 "name": "escaped_newline"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "raw_parenthesis"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "escaped_parenthesis"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "backreference_candidate"
               },
               {
                 "type": "SYMBOL",
@@ -3407,15 +3435,35 @@
     },
     {
       "type": "SYMBOL",
-      "name": "_regex_raw_parenthesis"
+      "name": "_regex_group_open"
     },
     {
       "type": "SYMBOL",
-      "name": "_regex_escaped_parenthesis"
+      "name": "_regex_group_close"
     },
     {
       "type": "SYMBOL",
-      "name": "_regex_backreference_candidate"
+      "name": "_regex_alternation_operator"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_regex_zero_or_more"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_regex_one_or_more"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_regex_zero_or_one"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_regex_interval"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_regex_backreference"
     },
     {
       "type": "SYMBOL",

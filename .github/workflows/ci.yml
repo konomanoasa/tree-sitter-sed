@@ -58,19 +58,14 @@ jobs:
       - name: Generate and test
         run: npm run check
 
-      - name: Treat POSIX C compiler warnings as errors
+      - name: Treat C compiler warnings as errors
         if: matrix.os == 'ubuntu-24.04'
-        run: >-
-          cc -std=c11 -Wall -Wextra -Wpedantic -Wconversion
-          -Wsign-conversion -Wshadow -Werror -fsyntax-only
-          -Iposix/src posix/src/parser.c posix/src/scanner.c
-
-      - name: Treat GNU C compiler warnings as errors
-        if: matrix.os == 'ubuntu-24.04'
-        run: >-
-          cc -std=c11 -Wall -Wextra -Wpedantic -Wconversion
-          -Wsign-conversion -Wshadow -Werror -fsyntax-only
-          -Ignu/src gnu/src/parser.c gnu/src/scanner.c
+        run: |
+          for variant in posix-bre posix-ere gnu-bre gnu-ere; do
+            cc -std=c11 -Wall -Wextra -Wpedantic -Wconversion \
+              -Wsign-conversion -Wshadow -Werror -fsyntax-only \
+              -I"$variant/src" "$variant/src/parser.c" "$variant/src/scanner.c"
+          done
 
       - name: Test debug build
         if: matrix.debug

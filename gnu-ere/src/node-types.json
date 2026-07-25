@@ -20,6 +20,10 @@
           "named": true
         },
         {
+          "type": "periodic_address",
+          "named": true
+        },
+        {
           "type": "regex_address",
           "named": true
         }
@@ -36,6 +40,14 @@
         "types": [
           {
             "type": "address",
+            "named": true
+          },
+          {
+            "type": "next_multiple_address",
+            "named": true
+          },
+          {
+            "type": "relative_address",
             "named": true
           }
         ]
@@ -94,17 +106,12 @@
     "fields": {}
   },
   {
-    "type": "backreference_candidate",
-    "named": true,
-    "fields": {}
-  },
-  {
     "type": "block_command",
     "named": true,
     "fields": {
       "argument": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "command_list",
@@ -133,10 +140,6 @@
       "required": false,
       "types": [
         {
-          "type": "backreference_candidate",
-          "named": true
-        },
-        {
           "type": "collating_symbol",
           "named": true
         },
@@ -153,7 +156,11 @@
           "named": true
         },
         {
-          "type": "escaped_parenthesis",
+          "type": "gnu_character_escape",
+          "named": true
+        },
+        {
+          "type": "gnu_control_escape",
           "named": true
         },
         {
@@ -161,11 +168,11 @@
           "named": true
         },
         {
-          "type": "posix_character_class",
+          "type": "invalid_control_escape",
           "named": true
         },
         {
-          "type": "raw_parenthesis",
+          "type": "posix_character_class",
           "named": true
         },
         {
@@ -210,6 +217,11 @@
     }
   },
   {
+    "type": "case_conversion",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "change_command",
     "named": true,
     "fields": {
@@ -223,6 +235,22 @@
           }
         ]
       },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "command_name",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "clear_command",
+    "named": true,
+    "fields": {
       "name": {
         "multiple": false,
         "required": true,
@@ -255,6 +283,14 @@
           {
             "type": "address_range",
             "named": true
+          },
+          {
+            "type": "next_multiple_address",
+            "named": true
+          },
+          {
+            "type": "relative_address",
+            "named": true
           }
         ]
       },
@@ -279,6 +315,10 @@
             "named": true
           },
           {
+            "type": "clear_command",
+            "named": true
+          },
+          {
             "type": "comment_command",
             "named": true
           },
@@ -292,6 +332,14 @@
           },
           {
             "type": "exchange_command",
+            "named": true
+          },
+          {
+            "type": "execute_command",
+            "named": true
+          },
+          {
+            "type": "file_name_command",
             "named": true
           },
           {
@@ -355,6 +403,14 @@
             "named": true
           },
           {
+            "type": "read_line_command",
+            "named": true
+          },
+          {
+            "type": "silent_quit_command",
+            "named": true
+          },
+          {
             "type": "substitute_command",
             "named": true
           },
@@ -363,11 +419,23 @@
             "named": true
           },
           {
+            "type": "test_failure_command",
+            "named": true
+          },
+          {
             "type": "translate_command",
             "named": true
           },
           {
+            "type": "version_command",
+            "named": true
+          },
+          {
             "type": "write_command",
+            "named": true
+          },
+          {
+            "type": "write_first_line_command",
             "named": true
           }
         ]
@@ -497,11 +565,6 @@
     "fields": {}
   },
   {
-    "type": "escaped_parenthesis",
-    "named": true,
-    "fields": {}
-  },
-  {
     "type": "escaped_regex_address",
     "named": true,
     "fields": {
@@ -511,6 +574,16 @@
         "types": [
           {
             "type": "delimiter",
+            "named": true
+          }
+        ]
+      },
+      "flags": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "regex_flags",
             "named": true
           }
         ]
@@ -564,6 +637,53 @@
     }
   },
   {
+    "type": "execute_command",
+    "named": true,
+    "fields": {
+      "argument": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "shell_argument",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "command_name",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "execute_flag",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "file_name_command",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "command_name",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "get_append_command",
     "named": true,
     "fields": {
@@ -597,6 +717,16 @@
   },
   {
     "type": "global_flag",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "gnu_character_escape",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "gnu_control_escape",
     "named": true,
     "fields": {}
   },
@@ -669,6 +799,11 @@
     }
   },
   {
+    "type": "invalid_control_escape",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "label_command",
     "named": true,
     "fields": {
@@ -705,6 +840,11 @@
     "fields": {}
   },
   {
+    "type": "line_number_address",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "line_number_command",
     "named": true,
     "fields": {
@@ -721,9 +861,24 @@
     }
   },
   {
+    "type": "line_offset",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "list_command",
     "named": true,
     "fields": {
+      "argument": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "numeric_argument",
+            "named": true
+          }
+        ]
+      },
       "name": {
         "multiple": false,
         "required": true,
@@ -738,6 +893,11 @@
   },
   {
     "type": "match_reference",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "multiline_flag",
     "named": true,
     "fields": {}
   },
@@ -767,6 +927,78 @@
         "types": [
           {
             "type": "command_name",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "next_multiple_address",
+    "named": true,
+    "fields": {
+      "operator": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "address_operator",
+            "named": true
+          }
+        ]
+      },
+      "value": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "step_value",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "numeric_argument",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "occurrence_flag",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "periodic_address",
+    "named": true,
+    "fields": {
+      "operator": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "address_operator",
+            "named": true
+          }
+        ]
+      },
+      "start": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "line_number_address",
+            "named": true
+          }
+        ]
+      },
+      "step": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "step_value",
             "named": true
           }
         ]
@@ -819,6 +1051,16 @@
     "type": "quit_command",
     "named": true,
     "fields": {
+      "argument": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "numeric_argument",
+            "named": true
+          }
+        ]
+      },
       "name": {
         "multiple": false,
         "required": true,
@@ -832,12 +1074,33 @@
     }
   },
   {
-    "type": "raw_parenthesis",
+    "type": "read_command",
     "named": true,
-    "fields": {}
+    "fields": {
+      "argument": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "file_argument",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "command_name",
+            "named": true
+          }
+        ]
+      }
+    }
   },
   {
-    "type": "read_command",
+    "type": "read_line_command",
     "named": true,
     "fields": {
       "argument": {
@@ -871,10 +1134,6 @@
       "required": true,
       "types": [
         {
-          "type": "backreference_candidate",
-          "named": true
-        },
-        {
           "type": "bracket_expression",
           "named": true
         },
@@ -887,7 +1146,11 @@
           "named": true
         },
         {
-          "type": "escaped_parenthesis",
+          "type": "gnu_character_escape",
+          "named": true
+        },
+        {
+          "type": "gnu_control_escape",
           "named": true
         },
         {
@@ -895,7 +1158,15 @@
           "named": true
         },
         {
-          "type": "raw_parenthesis",
+          "type": "invalid_control_escape",
+          "named": true
+        },
+        {
+          "type": "regex_alternation_operator",
+          "named": true
+        },
+        {
+          "type": "regex_backreference",
           "named": true
         },
         {
@@ -903,7 +1174,31 @@
           "named": true
         },
         {
+          "type": "regex_group_close",
+          "named": true
+        },
+        {
+          "type": "regex_group_open",
+          "named": true
+        },
+        {
+          "type": "regex_interval",
+          "named": true
+        },
+        {
           "type": "regex_literal",
+          "named": true
+        },
+        {
+          "type": "regex_one_or_more",
+          "named": true
+        },
+        {
+          "type": "regex_zero_or_more",
+          "named": true
+        },
+        {
+          "type": "regex_zero_or_one",
           "named": true
         }
       ]
@@ -919,6 +1214,16 @@
         "types": [
           {
             "type": "delimiter",
+            "named": true
+          }
+        ]
+      },
+      "flags": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "regex_flags",
             "named": true
           }
         ]
@@ -956,7 +1261,51 @@
     }
   },
   {
+    "type": "regex_alternation_operator",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "regex_backreference",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "regex_escape",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "regex_flags",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "ignore_case_flag",
+          "named": true
+        },
+        {
+          "type": "multiline_flag",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "regex_group_close",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "regex_group_open",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "regex_interval",
     "named": true,
     "fields": {}
   },
@@ -964,6 +1313,47 @@
     "type": "regex_literal",
     "named": true,
     "fields": {}
+  },
+  {
+    "type": "regex_one_or_more",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "regex_zero_or_more",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "regex_zero_or_one",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "relative_address",
+    "named": true,
+    "fields": {
+      "operator": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "address_operator",
+            "named": true
+          }
+        ]
+      },
+      "value": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "line_offset",
+            "named": true
+          }
+        ]
+      }
+    }
   },
   {
     "type": "replacement",
@@ -975,6 +1365,10 @@
       "types": [
         {
           "type": "backreference",
+          "named": true
+        },
+        {
+          "type": "case_conversion",
           "named": true
         },
         {
@@ -1028,6 +1422,37 @@
         }
       ]
     }
+  },
+  {
+    "type": "silent_quit_command",
+    "named": true,
+    "fields": {
+      "argument": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "numeric_argument",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "command_name",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "step_value",
+    "named": true,
+    "fields": {}
   },
   {
     "type": "substitute_argument",
@@ -1150,6 +1575,10 @@
       "required": true,
       "types": [
         {
+          "type": "execute_flag",
+          "named": true
+        },
+        {
           "type": "global_flag",
           "named": true
         },
@@ -1159,6 +1588,10 @@
         },
         {
           "type": "invalid_flag",
+          "named": true
+        },
+        {
+          "type": "multiline_flag",
           "named": true
         },
         {
@@ -1178,6 +1611,32 @@
   },
   {
     "type": "test_command",
+    "named": true,
+    "fields": {
+      "argument": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "label_reference",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "command_name",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "test_failure_command",
     "named": true,
     "fields": {
       "argument": {
@@ -1382,7 +1841,64 @@
     }
   },
   {
+    "type": "version_argument",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "version_command",
+    "named": true,
+    "fields": {
+      "argument": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "version_argument",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "command_name",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "write_command",
+    "named": true,
+    "fields": {
+      "argument": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "file_argument",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "command_name",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "write_first_line_command",
     "named": true,
     "fields": {
       "argument": {
@@ -1434,7 +1950,11 @@
     }
   },
   {
-    "type": " ",
+    "type": "I",
+    "named": false
+  },
+  {
+    "type": "M",
     "named": false
   },
   {
@@ -1452,6 +1972,10 @@
   {
     "type": "delimiter",
     "named": true
+  },
+  {
+    "type": "e",
+    "named": false
   },
   {
     "type": "file_argument",
@@ -1494,15 +2018,11 @@
     "named": true
   },
   {
-    "type": "line_number_address",
-    "named": true
+    "type": "m",
+    "named": false
   },
   {
     "type": "negation",
-    "named": true
-  },
-  {
-    "type": "occurrence_flag",
     "named": true
   },
   {
@@ -1511,6 +2031,10 @@
   },
   {
     "type": "separator",
+    "named": true
+  },
+  {
+    "type": "shell_argument",
     "named": true
   },
   {

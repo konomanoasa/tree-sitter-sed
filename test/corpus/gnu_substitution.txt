@@ -1,6 +1,6 @@
 ==================
 Parses the uppercase GNU case-insensitive flag
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 s/a/b/I
 
@@ -25,7 +25,7 @@ s/a/b/I
 
 ==================
 Parses spaced GNU substitute flags in source order
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 s/a/b/I M m e p 2 g
 s/a/b/ I M e p 2 g ; p
@@ -80,7 +80,7 @@ s/a/b/ I M e p 2 g ; p
 
 ==================
 Starts another command after the GNU execute flag
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 s/a/b/e;p
 
@@ -109,7 +109,7 @@ s/a/b/e;p
 
 ==================
 Treats the rest of a GNU write flag line as the filename
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 s/a/b/g w output file;#literal
 
@@ -137,7 +137,7 @@ s/a/b/g w output file;#literal
 
 ==================
 Parses GNU case-conversion escapes inside replacement text
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 s/x/\L&\E/
 p

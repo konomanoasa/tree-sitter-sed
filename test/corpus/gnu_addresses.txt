@@ -1,6 +1,6 @@
 ==================
 Parses GNU periodic addresses with optional blanks
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 0~3p
 50~0p
@@ -50,7 +50,7 @@ Parses GNU periodic addresses with optional blanks
 
 ==================
 Parses GNU relative range endings with optional blanks
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 1,+4p
 1 , + 4 p
@@ -100,7 +100,7 @@ Parses GNU relative range endings with optional blanks
 
 ==================
 Parses GNU next-multiple range endings
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 1,~5p
 /re/,~4p
@@ -154,7 +154,7 @@ Parses GNU next-multiple range endings
 
 ==================
 Parses a GNU zero-to-regex address range
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 0,/start/p
 
@@ -179,7 +179,7 @@ Parses a GNU zero-to-regex address range
 
 ==================
 Allows zero as the second GNU range address
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 1,0p
 
@@ -200,7 +200,7 @@ Allows zero as the second GNU range address
 
 ==================
 Parses GNU regex-address flags with optional blanks
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 /x/IMp
 /x/ I M p
@@ -252,7 +252,7 @@ Parses GNU regex-address flags with optional blanks
 
 ==================
 Allows a GNU zero address on a read command
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 0r prelude.txt
 
@@ -270,7 +270,7 @@ Allows a GNU zero address on a read command
 
 ==================
 Allows a blank before a GNU address-range comma
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 1 ,2p
 p
@@ -296,7 +296,7 @@ p
 
 ==================
 Allows a blank after a GNU address-range comma
-:language(sed_gnu)
+:language(sed_gnu_bre)
 ==================
 1, 2p
 p

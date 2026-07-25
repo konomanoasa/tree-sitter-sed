@@ -1,6 +1,6 @@
 ==================
 Parses a slash-delimited translate command
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 y/abc/ABC/
 
@@ -23,7 +23,7 @@ y/abc/ABC/
 
 ==================
 Starts another command after a completed translate command
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 y/abc/ABC/;p
 
@@ -50,7 +50,7 @@ y/abc/ABC/;p
 
 ==================
 Parses a translate command with an alternate delimiter
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 y#/#_#
 
@@ -73,7 +73,7 @@ y#/#_#
 
 ==================
 Keeps blanks and delimiter characters inside translate operands
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 y/ /_/
 y#/#_#

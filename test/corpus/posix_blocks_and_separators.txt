@@ -1,6 +1,6 @@
 ==================
 Separates commands with semicolons and newlines
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 d;p
 1d
@@ -33,7 +33,7 @@ d;p
 
 ==================
 Parses a multiline block with addressed commands
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 {
   1d
@@ -69,7 +69,7 @@ Parses a multiline block with addressed commands
 
 ==================
 Closes POSIX blocks after a semicolon or newline
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 {p;}
 {
@@ -102,7 +102,7 @@ Closes POSIX blocks after a semicolon or newline
 
 ==================
 Stops POSIX branch and label arguments at line boundaries
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 d;b end
 s/a/b/g;p
@@ -176,7 +176,7 @@ t end
 
 ==================
 Keeps POSIX line-terminated commands inside their block line
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 {p;}
 {;p;}
@@ -225,7 +225,7 @@ Keeps POSIX line-terminated commands inside their block line
 
 ==================
 Allows POSIX block braces after permitted whitespace
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 {
   p
@@ -273,7 +273,7 @@ Allows POSIX block braces after permitted whitespace
 
 ==================
 Parses a negated comment without consuming the next line
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 !# comment
 p
@@ -295,7 +295,7 @@ p
 
 ==================
 Allows trailing blanks before a block newline
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 {
   p 
@@ -323,7 +323,7 @@ p
 
 ==================
 Allows trailing blanks before a block semicolon
-:language(sed_posix)
+:language(sed_posix_bre)
 ==================
 {p ;}
 p

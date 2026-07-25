@@ -1,0 +1,186 @@
+==================
+Classifies POSIX BRE groups intervals and escaped operators
+:language(sed_posix_bre)
+==================
+/\(*a\)\{2\}b\{2,\}c\{2,3\}d\+e\?f\|*g/p
+
+---
+
+(script
+  (command_list
+    (command
+      addresses: (address
+        (regex_address
+          opening_delimiter: (delimiter)
+          pattern: (regex
+            (regex_group_open)
+            (regex_zero_or_more)
+            (regex_literal)
+            (regex_group_close)
+            (regex_interval)
+            (regex_literal)
+            (regex_interval)
+            (regex_literal)
+            (regex_interval)
+            (regex_literal)
+            (regex_escape)
+            (regex_literal)
+            (regex_escape)
+            (regex_literal)
+            (regex_escape)
+            (regex_zero_or_more)
+            (regex_literal))
+          closing_delimiter: (delimiter)))
+      body: (print_command
+        name: (command_name)))
+    (separator)))
+
+==================
+Classifies GNU BRE operators and repeated stars
+:language(sed_gnu_bre)
+==================
+/\(a\+\|b\?\)\{2,3\}**/p
+
+---
+
+(script
+  (command_list
+    (command
+      addresses: (address
+        (regex_address
+          opening_delimiter: (delimiter)
+          pattern: (regex
+            (regex_group_open)
+            (regex_literal)
+            (regex_one_or_more)
+            (regex_alternation_operator)
+            (regex_literal)
+            (regex_zero_or_one)
+            (regex_group_close)
+            (regex_interval)
+            (regex_zero_or_more)
+            (regex_zero_or_more))
+          closing_delimiter: (delimiter)))
+      body: (print_command
+        name: (command_name)))
+    (separator)))
+
+==================
+Preserves POSIX ERE question-mark operator spellings
+:language(sed_posix_ere)
+==================
+/(a+?|b??){2,3}?)/p
+
+---
+
+(script
+  (command_list
+    (command
+      addresses: (address
+        (regex_address
+          opening_delimiter: (delimiter)
+          pattern: (regex
+            (regex_group_open)
+            (regex_literal)
+            (regex_one_or_more)
+            (regex_zero_or_one)
+            (regex_alternation_operator)
+            (regex_literal)
+            (regex_zero_or_one)
+            (regex_zero_or_one)
+            (regex_group_close)
+            (regex_interval)
+            (regex_zero_or_one)
+            (regex_group_close))
+          closing_delimiter: (delimiter)))
+      body: (print_command
+        name: (command_name)))
+    (separator)))
+
+==================
+Preserves adjacent GNU ERE operator spellings
+:language(sed_gnu_ere)
+==================
+/(a+|b?){2,3}**?+\t/p
+
+---
+
+(script
+  (command_list
+    (command
+      addresses: (address
+        (regex_address
+          opening_delimiter: (delimiter)
+          pattern: (regex
+            (regex_group_open)
+            (regex_literal)
+            (regex_one_or_more)
+            (regex_alternation_operator)
+            (regex_literal)
+            (regex_zero_or_one)
+            (regex_group_close)
+            (regex_interval)
+            (regex_zero_or_more)
+            (regex_zero_or_more)
+            (regex_zero_or_one)
+            (regex_one_or_more)
+            (gnu_character_escape))
+          closing_delimiter: (delimiter)))
+      body: (print_command
+        name: (command_name)))
+    (separator)))
+
+==================
+Keeps bracket delimiters and backslash-number boundaries in POSIX
+:language(sed_posix_bre)
+==================
+\#[#a][\t]\0\10#p
+
+---
+
+(script
+  (command_list
+    (command
+      addresses: (address
+        (escaped_regex_address
+          opening_delimiter: (delimiter)
+          pattern: (regex
+            (bracket_expression
+              (regex_literal))
+            (bracket_expression
+              (regex_literal)
+              (regex_literal))
+            (regex_escape)
+            (regex_backreference)
+            (regex_literal))
+          closing_delimiter: (delimiter)))
+      body: (print_command
+        name: (command_name)))
+    (separator)))
+
+==================
+Keeps GNU bracket escapes and backslash-number boundaries
+:language(sed_gnu_ere)
+==================
+\#[#a][\t]\0\10#p
+
+---
+
+(script
+  (command_list
+    (command
+      addresses: (address
+        (escaped_regex_address
+          opening_delimiter: (delimiter)
+          pattern: (regex
+            (bracket_expression
+              (regex_literal))
+            (bracket_expression
+              (gnu_character_escape))
+            (regex_escape)
+            (regex_backreference)
+            (regex_literal))
+          closing_delimiter: (delimiter)))
+      body: (print_command
+        name: (command_name)))
+    (separator)))

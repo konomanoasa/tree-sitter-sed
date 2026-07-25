@@ -1,5 +1,6 @@
 const { join } = require("node:path");
 const { Language, Parser } = require("web-tree-sitter");
+const { variants } = require("../../scripts/variants");
 
 const wasmDirectory = process.env.TREE_SITTER_SED_TEST_WASM_DIRECTORY;
 let languagesPromise;
@@ -11,11 +12,9 @@ async function initializeLanguages() {
 
   await Parser.init();
   const entries = await Promise.all(
-    ["posix", "gnu"].map(async (dialect) => [
-      dialect,
-      await Language.load(
-        join(wasmDirectory, `tree-sitter-sed-${dialect}.wasm`),
-      ),
+    variants.map(async ({ directory, wasmName }) => [
+      directory,
+      await Language.load(join(wasmDirectory, wasmName)),
     ]),
   );
   return Object.fromEntries(entries);
