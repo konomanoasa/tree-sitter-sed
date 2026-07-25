@@ -1,0 +1,166 @@
+==================
+Parses the uppercase GNU case-insensitive flag
+:language(sed_gnu)
+==================
+s/a/b/I
+
+---
+
+(script
+  (command_list
+    (command
+      body: (substitute_command
+        name: (command_name)
+        argument: (substitute_argument
+          opening_delimiter: (delimiter)
+          pattern: (regex
+            (regex_literal))
+          middle_delimiter: (delimiter)
+          replacement: (replacement
+            (replacement_literal))
+          closing_delimiter: (delimiter)
+          flags: (substitute_flags
+            (ignore_case_flag)))))
+    (separator)))
+
+==================
+Parses spaced GNU substitute flags in source order
+:language(sed_gnu)
+==================
+s/a/b/I M m e p 2 g
+s/a/b/ I M e p 2 g ; p
+
+---
+
+(script
+  (command_list
+    (command
+      body: (substitute_command
+        name: (command_name)
+        argument: (substitute_argument
+          opening_delimiter: (delimiter)
+          pattern: (regex
+            (regex_literal))
+          middle_delimiter: (delimiter)
+          replacement: (replacement
+            (replacement_literal))
+          closing_delimiter: (delimiter)
+          flags: (substitute_flags
+            (ignore_case_flag)
+            (multiline_flag)
+            (multiline_flag)
+            (execute_flag)
+            (print_flag)
+            (occurrence_flag)
+            (global_flag)))))
+    (separator)
+    (command
+      body: (substitute_command
+        name: (command_name)
+        argument: (substitute_argument
+          opening_delimiter: (delimiter)
+          pattern: (regex
+            (regex_literal))
+          middle_delimiter: (delimiter)
+          replacement: (replacement
+            (replacement_literal))
+          closing_delimiter: (delimiter)
+          flags: (substitute_flags
+            (ignore_case_flag)
+            (multiline_flag)
+            (execute_flag)
+            (print_flag)
+            (occurrence_flag)
+            (global_flag)))))
+    (separator)
+    (command
+      body: (print_command
+        name: (command_name)))
+    (separator)))
+
+==================
+Starts another command after the GNU execute flag
+:language(sed_gnu)
+==================
+s/a/b/e;p
+
+---
+
+(script
+  (command_list
+    (command
+      body: (substitute_command
+        name: (command_name)
+        argument: (substitute_argument
+          opening_delimiter: (delimiter)
+          pattern: (regex
+            (regex_literal))
+          middle_delimiter: (delimiter)
+          replacement: (replacement
+            (replacement_literal))
+          closing_delimiter: (delimiter)
+          flags: (substitute_flags
+            (execute_flag)))))
+    (separator)
+    (command
+      body: (print_command
+        name: (command_name)))
+    (separator)))
+
+==================
+Treats the rest of a GNU write flag line as the filename
+:language(sed_gnu)
+==================
+s/a/b/g w output file;#literal
+
+---
+
+(script
+  (command_list
+    (command
+      body: (substitute_command
+        name: (command_name)
+        argument: (substitute_argument
+          opening_delimiter: (delimiter)
+          pattern: (regex
+            (regex_literal))
+          middle_delimiter: (delimiter)
+          replacement: (replacement
+            (replacement_literal))
+          closing_delimiter: (delimiter)
+          flags: (substitute_flags
+            (global_flag)
+            (write_flag
+              name: (substitute_flag_name)
+              argument: (file_argument))))))
+    (separator)))
+
+==================
+Parses GNU case-conversion escapes inside replacement text
+:language(sed_gnu)
+==================
+s/x/\L&\E/
+p
+
+---
+
+(script
+  (command_list
+    (command
+      body: (substitute_command
+        name: (command_name)
+        argument: (substitute_argument
+          opening_delimiter: (delimiter)
+          pattern: (regex
+            (regex_literal))
+          middle_delimiter: (delimiter)
+          replacement: (replacement
+            (case_conversion)
+            (match_reference)
+            (case_conversion))
+          closing_delimiter: (delimiter))))
+    (separator)
+    (command
+      body: (print_command
+        name: (command_name)))
+    (separator)))

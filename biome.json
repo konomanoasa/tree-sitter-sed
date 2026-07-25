@@ -1,0 +1,23 @@
+{
+  "formatter": {
+    "includes": [
+      "**",
+      "!gnu/src/grammar.json",
+      "!gnu/src/node-types.json",
+      "!posix/src/grammar.json",
+      "!posix/src/node-types.json"
+    ]
+  },
+  "javascript": {
+    "formatter": {
+      "indentStyle": "space",
+      "indentWidth": 2
+    }
+  },
+  "json": {
+    "formatter": {
+      "indentStyle": "space",
+      "indentWidth": 2
+    }
+  }
+}

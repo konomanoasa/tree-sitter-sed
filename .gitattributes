@@ -1,0 +1,13 @@
+* text=auto eol=lf
+
+gnu/src/grammar.json linguist-generated=true
+gnu/src/node-types.json linguist-generated=true
+gnu/src/parser.c linguist-generated=true
+gnu/src/tree_sitter/*.h linguist-generated=true
+posix/src/grammar.json linguist-generated=true
+posix/src/node-types.json linguist-generated=true
+posix/src/parser.c linguist-generated=true
+posix/src/tree_sitter/*.h linguist-generated=true
+
+# Corpus inputs intentionally exercise trailing blanks.
+test/corpus/*.txt whitespace=-blank-at-eol

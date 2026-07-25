@@ -1,0 +1,59 @@
+{
+  "name": "tree-sitter-sed",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tree-sitter grammars for POSIX.1-2024 and GNU sed scripts.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/konomanoasa/tree-sitter-sed.git"
+  },
+  "bugs": {
+    "url": "https://github.com/konomanoasa/tree-sitter-sed/issues"
+  },
+  "homepage": "https://github.com/konomanoasa/tree-sitter-sed#readme",
+  "packageManager": "npm@11.16.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": ">=24.18.0",
+      "onFail": "error"
+    },
+    "packageManager": {
+      "name": "npm",
+      "version": ">=11.16.0",
+      "onFail": "error"
+    }
+  },
+  "scripts": {
+    "cli": "node scripts/run-tree-sitter.js",
+    "generate": "node scripts/generate-parsers.js",
+    "format": "biome format --write .",
+    "check:biome": "biome check .",
+    "check:generated": "node scripts/check-generated.js",
+    "test": "npm run test:corpus && npm run test:wasm",
+    "test:corpus": "node scripts/run-tree-sitter.js test",
+    "test:wasm": "node scripts/run-wasm-tests.js",
+    "test:debug": "node scripts/run-tree-sitter.js test --debug-build --rebuild",
+    "test:fuzz": "node scripts/run-tree-sitter.js fuzz --iterations 100 --edits 5 --rebuild",
+    "check": "npm run check:biome && npm run check:generated && npm test"
+  },
+  "keywords": [
+    "tree-sitter",
+    "sed",
+    "posix",
+    "gnu",
+    "gnu-sed"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@biomejs/biome": "2.5.5",
+    "tree-sitter-cli": "0.26.11",
+    "web-tree-sitter": "0.26.11"
+  },
+  "allowScripts": {
+    "tree-sitter-cli": true
+  }
+}
