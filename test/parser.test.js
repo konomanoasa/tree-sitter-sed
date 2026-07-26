@@ -627,6 +627,18 @@ test("POSIX and GNU keep their syntax boundary", () => {
   }
 });
 
+test("GNU labels stop before comments and closing braces", () => {
+  const source =
+    ":commented # definition\n{:closed}\nb commented # reference\n{t closed}\n";
+
+  for (const variant of ["gnu-bre", "gnu-ere"]) {
+    const tree = parse(variant, source);
+    assert.equal(tree.rootNode.hasError, false, tree.rootNode.toString());
+    assert.deepEqual(texts(tree, "label_definition"), ["commented", "closed"]);
+    assert.deepEqual(texts(tree, "label_reference"), ["commented", "closed"]);
+  }
+});
+
 test("source ranges use JavaScript UTF-16 offsets", () => {
   for (const variant of ["posix-bre", "gnu-bre"]) {
     const tree = parse(variant, "s|😺|犬|g");

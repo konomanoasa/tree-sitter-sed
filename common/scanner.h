@@ -576,7 +576,8 @@ static enum LineTokenScanResult scan_file_argument(TSLexer *lexer) {
 
 #if SED_DIALECT_GNU
 static bool is_line_word_boundary(int32_t character) {
-  return character == ';' || character == '\n';
+  return character == ';' || character == '#' || character == '}' ||
+         character == '\n';
 }
 
 static bool is_version_argument_boundary(int32_t character) {
