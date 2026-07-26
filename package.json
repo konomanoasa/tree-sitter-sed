@@ -11,19 +11,19 @@
     "url": "https://github.com/konomanoasa/tree-sitter-sed/issues"
   },
   "homepage": "https://github.com/konomanoasa/tree-sitter-sed#readme",
-  "packageManager": "npm@11.16.0",
+  "packageManager": "npm@10.9.4",
   "engines": {
     "node": ">=22.0.0"
   },
   "devEngines": {
     "runtime": {
       "name": "node",
-      "version": ">=24.18.0",
+      "version": ">=22.0.0",
       "onFail": "error"
     },
     "packageManager": {
       "name": "npm",
-      "version": ">=11.16.0",
+      "version": ">=10.9.0",
       "onFail": "error"
     }
   },

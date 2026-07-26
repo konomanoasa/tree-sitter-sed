@@ -4,11 +4,11 @@
 
 [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) grammars for
 POSIX.1-2024 and GNU `sed` 4.10, with separate languages for Basic Regular
-Expressions (BREs) and Extended Regular Expressions (EREs).
+Expression (BRE) and Extended Regular Expression (ERE) syntax.
 
-![A POSIX sed script with syntax highlighting in Emacs](assets/highlight-preview.png)
+![A POSIX ERE sed script with syntax highlighting in Emacs](assets/highlight-preview.png)
 
-_POSIX `sed` syntax highlighting in a customized Emacs setup._
+_POSIX ERE `sed` syntax highlighting in a customized Emacs setup._
 
 ## Grammars
 
@@ -58,6 +58,12 @@ vim.treesitter.language.register('sed_posix_bre', { 'sed' })
 
 Install it with `:TSInstall sed_posix_bre`. Use the directory and language
 names in the table above for the other three grammars.
+
+## Language server
+
+[sed-language-server](https://github.com/konomanoasa/sed-language-server) uses
+these grammars to provide diagnostics, formatting, and label navigation
+through the Language Server Protocol.
 
 ## Specifications
 
