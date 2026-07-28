@@ -2,6 +2,8 @@
   "formatter": {
     "includes": [
       "**",
+      "!src/grammar.json",
+      "!src/node-types.json",
       "!gnu-bre/src/grammar.json",
       "!gnu-bre/src/node-types.json",
       "!gnu-ere/src/grammar.json",

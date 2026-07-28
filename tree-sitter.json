@@ -2,16 +2,25 @@
   "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
   "grammars": [
     {
+      "name": "sed",
+      "camelcase": "Sed",
+      "title": "GNU sed (BRE, default)",
+      "scope": "source.sed",
+      "path": ".",
+      "external-files": ["common/scanner.h"],
+      "highlights": ["queries/highlights.scm"],
+      "injections": ["queries/sed/injections.scm"],
+      "injection-regex": "^sed$"
+    },
+    {
       "name": "sed_gnu_bre",
       "camelcase": "SedGnuBre",
       "title": "GNU sed (BRE)",
       "scope": "source.sed.gnu.bre",
       "path": "gnu-bre",
       "external-files": ["common/scanner.h"],
-      "highlights": [
-        "queries/highlights.common.scm",
-        "queries/highlights.gnu.scm"
-      ],
+      "highlights": ["gnu-bre/queries/highlights.scm"],
+      "injections": ["gnu-bre/queries/injections.scm"],
       "injection-regex": "^sed_gnu_bre$"
     },
     {
@@ -21,10 +30,8 @@
       "scope": "source.sed.gnu.ere",
       "path": "gnu-ere",
       "external-files": ["common/scanner.h"],
-      "highlights": [
-        "queries/highlights.common.scm",
-        "queries/highlights.gnu.scm"
-      ],
+      "highlights": ["gnu-ere/queries/highlights.scm"],
+      "injections": ["gnu-ere/queries/injections.scm"],
       "injection-regex": "^sed_gnu_ere$"
     },
     {
@@ -34,7 +41,7 @@
       "scope": "source.sed.posix.bre",
       "path": "posix-bre",
       "external-files": ["common/scanner.h"],
-      "highlights": ["queries/highlights.common.scm"],
+      "highlights": ["posix-bre/queries/highlights.scm"],
       "injection-regex": "^sed_posix_bre$"
     },
     {
@@ -44,7 +51,7 @@
       "scope": "source.sed.posix.ere",
       "path": "posix-ere",
       "external-files": ["common/scanner.h"],
-      "highlights": ["queries/highlights.common.scm"],
+      "highlights": ["posix-ere/queries/highlights.scm"],
       "injection-regex": "^sed_posix_ere$"
     }
   ],

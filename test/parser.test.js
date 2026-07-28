@@ -2,7 +2,7 @@ const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
 const { join } = require("node:path");
 const { before, test } = require("node:test");
-const { variants } = require("../scripts/variants");
+const { languages: languageDefinitions } = require("../scripts/variants");
 const { loadLanguages, Parser } = require("./support/wasm");
 
 let languages;
@@ -45,13 +45,13 @@ function regexParts(tree) {
   return regex.namedChildren.map((node) => [node.type, node.text]);
 }
 
-test("the four Wasm modules expose working languages", () => {
-  for (const { directory, languageName } of variants) {
-    const language = languages[directory];
+test("the five Wasm modules expose working languages", () => {
+  for (const { id, languageName } of languageDefinitions) {
+    const language = languages[id];
     assert.equal(language.name, languageName);
-    assert.equal(parsers[directory].language, language);
+    assert.equal(parsers[id].language, language);
 
-    const tree = parse(directory, "1,3s|föö|bår\\1|g\n");
+    const tree = parse(id, "1,3s|föö|bår\\1|g\n");
     assert.equal(tree.rootNode.type, "script");
     assert.equal(tree.rootNode.hasError, false, tree.rootNode.toString());
     assert.deepEqual(
@@ -59,6 +59,28 @@ test("the four Wasm modules expose working languages", () => {
       ["substitute_command"],
     );
     assert.deepEqual(texts(tree, "backreference"), ["\\1"]);
+  }
+});
+
+test("sed is the canonical GNU BRE language", () => {
+  for (const source of [
+    "e echo hi\n",
+    "1~2s/\\(foo\\)\\+/\\L\\1/\n",
+    "s/[[:alpha:]]\\{1,3\\}/x/g\n",
+    "s/\\(unfinished/\np\n",
+  ]) {
+    const canonical = parse("sed", source);
+    const explicit = parse("gnu-bre", source);
+    assert.equal(
+      canonical.rootNode.toString(),
+      explicit.rootNode.toString(),
+      source,
+    );
+    assert.equal(
+      canonical.rootNode.hasError,
+      explicit.rootNode.hasError,
+      source,
+    );
   }
 });
 
@@ -242,10 +264,10 @@ test("regexp punctuation exposes query-ready nodes and bracket fields", () => {
     ["regex_end_anchor", "$"],
   ];
 
-  for (const { directory } of variants) {
-    const tree = parse(directory, source);
+  for (const { id } of languageDefinitions) {
+    const tree = parse(id, source);
     assert.equal(tree.rootNode.hasError, false, tree.rootNode.toString());
-    assert.deepEqual(regexParts(tree), expectedParts, directory);
+    assert.deepEqual(regexParts(tree), expectedParts, id);
 
     const bracket = only(tree, "bracket_expression");
     const opening = bracket.childForFieldName("opening_delimiter");
@@ -262,7 +284,7 @@ test("regexp punctuation exposes query-ready nodes and bracket fields", () => {
         ["regex_bracket_negation", "^", 10, 11],
         ["regex_bracket_delimiter", "]", 14, 15],
       ],
-      directory,
+      id,
     );
     assert.deepEqual(texts(tree, "regex_bracket_literal"), ["a", "z"]);
     assert.deepEqual(texts(tree, "regex_bracket_hyphen"), ["-"]);
@@ -759,8 +781,8 @@ function generatedNodeTypes(variant) {
   );
 }
 
-test("generated files expose four languages with shared contracts", () => {
-  for (const { dialect, directory, languageName } of variants) {
+test("generated files expose five languages with shared contracts", () => {
+  for (const { dialect, directory, languageName } of languageDefinitions) {
     const grammar = generated(directory, "grammar");
     assert.equal(grammar.name, languageName);
 
@@ -777,7 +799,7 @@ test("generated files expose four languages with shared contracts", () => {
     }
   }
 
-  for (const { directory } of variants) {
+  for (const { directory } of languageDefinitions) {
     const types = generatedNodeTypes(directory);
     assert.deepEqual(Object.keys(types.get("command").fields).sort(), [
       "addresses",

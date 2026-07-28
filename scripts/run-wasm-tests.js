@@ -3,7 +3,7 @@ const { spawnSync } = require("node:child_process");
 const { mkdtempSync, readdirSync, rmSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
-const { variants } = require("./variants");
+const { languages } = require("./variants");
 
 const root = join(__dirname, "..");
 const executable = join(
@@ -37,7 +37,7 @@ function main() {
   );
 
   try {
-    for (const { directory, wasmName } of variants) {
+    for (const { directory, wasmName } of languages) {
       const status = run(executable, [
         "build",
         "--wasm",

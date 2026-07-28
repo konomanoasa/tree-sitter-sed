@@ -3,7 +3,7 @@ const { spawnSync } = require("node:child_process");
 const { mkdtempSync, rmSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
-const { variants } = require("./variants");
+const { languages } = require("./variants");
 
 const root = join(__dirname, "..");
 const runner = join(__dirname, "run-tree-sitter.js");
@@ -32,10 +32,10 @@ function main() {
   );
 
   try {
-    for (const { directory, languageName } of variants) {
+    for (const { directory, id, languageName } of languages) {
       const libraryPath = join(
         temporaryDirectory,
-        `tree-sitter-sed-${directory}${libraryExtension}`,
+        `tree-sitter-sed-${id}${libraryExtension}`,
       );
       const buildStatus = run([
         "build",

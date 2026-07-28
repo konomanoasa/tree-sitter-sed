@@ -10,7 +10,7 @@ const {
 } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { dirname, join } = require("node:path");
-const { variants } = require("./variants");
+const { languages } = require("./variants");
 
 const root = join(__dirname, "..");
 const executable = join(
@@ -32,6 +32,14 @@ function assertCommandSucceeded(result, description) {
     result.status,
     0,
     `${description} failed.\n${commandOutput(result)}`,
+  );
+}
+
+function assertQueryCaptured(result, capture, description) {
+  assertCommandSucceeded(result, description);
+  assert.ok(
+    commandOutput(result).includes(` - ${capture},`),
+    `${description} did not produce @${capture}.`,
   );
 }
 
@@ -76,6 +84,14 @@ function main() {
     writeFileSync(highlightFixture, "s/(a)+/x/\n");
 
     const annotatedHighlightDirectory = join(root, "test", "fixtures");
+    const structureFixture = join(
+      annotatedHighlightDirectory,
+      "comments-and-structure.sed",
+    );
+    const gnuCommandFixture = join(
+      annotatedHighlightDirectory,
+      "gnu-commands.sed",
+    );
     for (const file of readdirSync(annotatedHighlightDirectory).sort()) {
       assertCommandSucceeded(
         run([
@@ -90,8 +106,7 @@ function main() {
       );
     }
 
-    for (const { dialect, regexMode } of variants) {
-      const scope = `source.sed.${dialect}.${regexMode}`;
+    for (const { dialect, languageName, scope } of languages) {
       assertCommandSucceeded(
         run([
           "highlight",
@@ -103,6 +118,32 @@ function main() {
         ]),
         `check highlighting for ${scope}`,
       );
+
+      const queryChecks =
+        dialect === "gnu"
+          ? [
+              ["folds.scm", structureFixture, "fold"],
+              ["indents.scm", structureFixture, "indent.begin"],
+              ["injections.scm", gnuCommandFixture, "injection.content"],
+            ]
+          : [
+              ["folds.scm", structureFixture, "fold"],
+              ["indents.scm", structureFixture, "indent.begin"],
+            ];
+      for (const [queryName, fixture, capture] of queryChecks) {
+        assertQueryCaptured(
+          run([
+            "query",
+            "--captures",
+            "--scope",
+            scope,
+            join(root, "queries", languageName, queryName),
+            fixture,
+          ]),
+          capture,
+          `compile ${queryName} for ${scope}`,
+        );
+      }
     }
   } finally {
     rmSync(temporaryDirectory, { recursive: true, force: true });
