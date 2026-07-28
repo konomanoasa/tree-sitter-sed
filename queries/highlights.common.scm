@@ -13,8 +13,16 @@
 (regex) @string.regexp
 
 [
+  (regex_beginning_anchor)
+  (regex_end_anchor)
+] @operator
+
+(regex_wildcard) @character.special
+
+[
   (regex_group_open)
   (regex_group_close)
+  (regex_bracket_delimiter)
 ] @punctuation.bracket
 
 [
@@ -23,15 +31,42 @@
   (regex_one_or_more)
   (regex_zero_or_one)
   (regex_interval)
+  (regex_bracket_negation)
 ] @operator
 
 [
   (regex_escape)
+  (regex_quoted_escape)
+  (regex_newline_escape)
   (escaped_delimiter)
   (escaped_newline)
 ] @string.escape
 
 (regex_backreference) @string.special
+
+[
+  (posix_character_class)
+  (collating_symbol)
+  (equivalence_class)
+] @character.special
+
+(bracket_expression
+  [
+    (regex_bracket_literal)
+    (collating_symbol)
+  ] @character.special
+  .
+  (regex_bracket_hyphen) @character.special
+  .
+  [
+    (regex_bracket_literal)
+    (collating_symbol)
+  ] @character.special)
+
+[
+  (incomplete_escape)
+  (unclosed_bracket)
+] @error
 
 [
   (replacement)

@@ -146,10 +146,15 @@ Keeps bracket delimiters and backslash-number boundaries in POSIX
           opening_delimiter: (delimiter)
           pattern: (regex
             (bracket_expression
-              (regex_literal))
+              opening_delimiter: (regex_bracket_delimiter)
+              (regex_bracket_literal)
+              (regex_bracket_literal)
+              closing_delimiter: (regex_bracket_delimiter))
             (bracket_expression
-              (regex_literal)
-              (regex_literal))
+              opening_delimiter: (regex_bracket_delimiter)
+              (regex_bracket_literal)
+              (regex_bracket_literal)
+              closing_delimiter: (regex_bracket_delimiter))
             (regex_escape)
             (regex_backreference)
             (regex_literal))
@@ -174,12 +179,180 @@ Keeps GNU bracket escapes and backslash-number boundaries
           opening_delimiter: (delimiter)
           pattern: (regex
             (bracket_expression
-              (regex_literal))
+              opening_delimiter: (regex_bracket_delimiter)
+              (regex_bracket_literal)
+              (regex_bracket_literal)
+              closing_delimiter: (regex_bracket_delimiter))
             (bracket_expression
-              (gnu_character_escape))
+              opening_delimiter: (regex_bracket_delimiter)
+              (gnu_character_escape)
+              closing_delimiter: (regex_bracket_delimiter))
             (regex_escape)
             (regex_backreference)
             (regex_literal))
+          closing_delimiter: (delimiter)))
+      body: (print_command
+        name: (command_name)))
+    (separator)))
+
+==================
+Exposes anchors wildcards and quoted ERE characters
+:language(sed_posix_ere)
+==================
+/^a.$\+\n/p
+
+---
+
+(script
+  (command_list
+    (command
+      addresses: (address
+        (regex_address
+          opening_delimiter: (delimiter)
+          pattern: (regex
+            (regex_beginning_anchor)
+            (regex_literal)
+            (regex_wildcard)
+            (regex_end_anchor)
+            (regex_quoted_escape)
+            (regex_newline_escape))
+          closing_delimiter: (delimiter)))
+      body: (print_command
+        name: (command_name)))
+    (separator)))
+
+==================
+Exposes bracket delimiters negation ranges and POSIX expressions
+:language(sed_posix_ere)
+==================
+/[^a-z][]-a][[:digit:]][[.ch.]][[=a=]]/p
+
+---
+
+(script
+  (command_list
+    (command
+      addresses: (address
+        (regex_address
+          opening_delimiter: (delimiter)
+          pattern: (regex
+            (bracket_expression
+              opening_delimiter: (regex_bracket_delimiter)
+              negation: (regex_bracket_negation)
+              (regex_bracket_literal)
+              (regex_bracket_hyphen)
+              (regex_bracket_literal)
+              closing_delimiter: (regex_bracket_delimiter))
+            (bracket_expression
+              opening_delimiter: (regex_bracket_delimiter)
+              (regex_bracket_literal)
+              (regex_bracket_hyphen)
+              (regex_bracket_literal)
+              closing_delimiter: (regex_bracket_delimiter))
+            (bracket_expression
+              opening_delimiter: (regex_bracket_delimiter)
+              (posix_character_class)
+              closing_delimiter: (regex_bracket_delimiter))
+            (bracket_expression
+              opening_delimiter: (regex_bracket_delimiter)
+              (collating_symbol)
+              closing_delimiter: (regex_bracket_delimiter))
+            (bracket_expression
+              opening_delimiter: (regex_bracket_delimiter)
+              (equivalence_class)
+              closing_delimiter: (regex_bracket_delimiter)))
+          closing_delimiter: (delimiter)))
+      body: (print_command
+        name: (command_name)))
+    (separator)))
+
+==================
+Keeps POSIX bracket backslashes as ordinary characters
+:language(sed_posix_ere)
+==================
+/[\n]/p
+
+---
+
+(script
+  (command_list
+    (command
+      addresses: (address
+        (regex_address
+          opening_delimiter: (delimiter)
+          pattern: (regex
+            (bracket_expression
+              opening_delimiter: (regex_bracket_delimiter)
+              (regex_bracket_literal)
+              (regex_bracket_literal)
+              closing_delimiter: (regex_bracket_delimiter)))
+          closing_delimiter: (delimiter)))
+      body: (print_command
+        name: (command_name)))
+    (separator)))
+
+==================
+Exposes quoted GNU bracket characters
+:language(sed_gnu_ere)
+==================
+/[\-\]\^\\]/p
+
+---
+
+(script
+  (command_list
+    (command
+      addresses: (address
+        (regex_address
+          opening_delimiter: (delimiter)
+          pattern: (regex
+            (bracket_expression
+              opening_delimiter: (regex_bracket_delimiter)
+              (regex_quoted_escape)
+              (regex_quoted_escape)
+              (regex_quoted_escape)
+              (regex_quoted_escape)
+              closing_delimiter: (regex_bracket_delimiter)))
+          closing_delimiter: (delimiter)))
+      body: (print_command
+        name: (command_name)))
+    (separator)))
+
+==================
+Distinguishes literal bracket metacharacters by position
+:language(sed_posix_ere)
+==================
+/[-a][a-][^^][]a]/p
+
+---
+
+(script
+  (command_list
+    (command
+      addresses: (address
+        (regex_address
+          opening_delimiter: (delimiter)
+          pattern: (regex
+            (bracket_expression
+              opening_delimiter: (regex_bracket_delimiter)
+              (regex_bracket_literal)
+              (regex_bracket_literal)
+              closing_delimiter: (regex_bracket_delimiter))
+            (bracket_expression
+              opening_delimiter: (regex_bracket_delimiter)
+              (regex_bracket_literal)
+              (regex_bracket_literal)
+              closing_delimiter: (regex_bracket_delimiter))
+            (bracket_expression
+              opening_delimiter: (regex_bracket_delimiter)
+              negation: (regex_bracket_negation)
+              (regex_bracket_literal)
+              closing_delimiter: (regex_bracket_delimiter))
+            (bracket_expression
+              opening_delimiter: (regex_bracket_delimiter)
+              (regex_bracket_literal)
+              (regex_bracket_literal)
+              closing_delimiter: (regex_bracket_delimiter)))
           closing_delimiter: (delimiter)))
       body: (print_command
         name: (command_name)))

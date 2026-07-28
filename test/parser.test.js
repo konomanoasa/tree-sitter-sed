@@ -230,6 +230,54 @@ test("regexp and replacement nodes preserve lexical facts", () => {
   ]);
 });
 
+test("regexp punctuation exposes query-ready nodes and bracket fields", () => {
+  const source = "s#^a.\\.\\n[^a-z]$#x#";
+  const expectedParts = [
+    ["regex_beginning_anchor", "^"],
+    ["regex_literal", "a"],
+    ["regex_wildcard", "."],
+    ["regex_quoted_escape", "\\."],
+    ["regex_newline_escape", "\\n"],
+    ["bracket_expression", "[^a-z]"],
+    ["regex_end_anchor", "$"],
+  ];
+
+  for (const { directory } of variants) {
+    const tree = parse(directory, source);
+    assert.equal(tree.rootNode.hasError, false, tree.rootNode.toString());
+    assert.deepEqual(regexParts(tree), expectedParts, directory);
+
+    const bracket = only(tree, "bracket_expression");
+    const opening = bracket.childForFieldName("opening_delimiter");
+    const negation = bracket.childForFieldName("negation");
+    const closing = bracket.childForFieldName("closing_delimiter");
+    assert.deepEqual(
+      [
+        [opening.type, opening.text, opening.startIndex, opening.endIndex],
+        [negation.type, negation.text, negation.startIndex, negation.endIndex],
+        [closing.type, closing.text, closing.startIndex, closing.endIndex],
+      ],
+      [
+        ["regex_bracket_delimiter", "[", 9, 10],
+        ["regex_bracket_negation", "^", 10, 11],
+        ["regex_bracket_delimiter", "]", 14, 15],
+      ],
+      directory,
+    );
+    assert.deepEqual(texts(tree, "regex_bracket_literal"), ["a", "z"]);
+    assert.deepEqual(texts(tree, "regex_bracket_hyphen"), ["-"]);
+  }
+
+  assert.deepEqual(
+    texts(parse("posix-ere", "s#[\\n]#x#"), "regex_bracket_literal"),
+    ["\\", "n"],
+  );
+  assert.deepEqual(
+    texts(parse("gnu-ere", "s#[\\n]#x#"), "gnu_character_escape"),
+    ["\\n"],
+  );
+});
+
 test("BRE and ERE spellings expose the same normalized regexp nodes", () => {
   const posixExpected = [
     ["regex_group_open", "\\("],
@@ -282,14 +330,14 @@ test("inactive BRE and ERE spellings stay literal or escaped", () => {
   assert.deepEqual(
     regexParts(parse("posix-ere", "s#\\(\\)\\+\\?\\|\\{2\\}#x#")),
     [
-      ["regex_escape", "\\("],
-      ["regex_escape", "\\)"],
-      ["regex_escape", "\\+"],
-      ["regex_escape", "\\?"],
-      ["regex_escape", "\\|"],
-      ["regex_escape", "\\{"],
+      ["regex_quoted_escape", "\\("],
+      ["regex_quoted_escape", "\\)"],
+      ["regex_quoted_escape", "\\+"],
+      ["regex_quoted_escape", "\\?"],
+      ["regex_quoted_escape", "\\|"],
+      ["regex_quoted_escape", "\\{"],
       ["regex_literal", "2"],
-      ["regex_escape", "\\}"],
+      ["regex_quoted_escape", "\\}"],
     ],
   );
 });
@@ -310,10 +358,40 @@ test("regexp operator nodes preserve spelling without validating placement", () 
   assert.deepEqual(regexParts(parse("posix-ere", "/+a^*??/p")), [
     ["regex_one_or_more", "+"],
     ["regex_literal", "a"],
-    ["regex_literal", "^"],
+    ["regex_beginning_anchor", "^"],
     ["regex_zero_or_more", "*"],
     ["regex_zero_or_one", "?"],
     ["regex_zero_or_one", "?"],
+  ]);
+});
+
+test("BRE anchors depend on branch position while ERE anchors do not", () => {
+  assert.deepEqual(regexParts(parse("posix-bre", "/^a^b$c$/p")), [
+    ["regex_beginning_anchor", "^"],
+    ["regex_literal", "a"],
+    ["regex_literal", "^"],
+    ["regex_literal", "b"],
+    ["regex_literal", "$"],
+    ["regex_literal", "c"],
+    ["regex_end_anchor", "$"],
+  ]);
+  assert.deepEqual(regexParts(parse("posix-ere", "/a^b$c/p")), [
+    ["regex_literal", "a"],
+    ["regex_beginning_anchor", "^"],
+    ["regex_literal", "b"],
+    ["regex_end_anchor", "$"],
+    ["regex_literal", "c"],
+  ]);
+  assert.deepEqual(regexParts(parse("gnu-bre", "/\\(^a$\\)\\|^b$/p")), [
+    ["regex_group_open", "\\("],
+    ["regex_beginning_anchor", "^"],
+    ["regex_literal", "a"],
+    ["regex_end_anchor", "$"],
+    ["regex_group_close", "\\)"],
+    ["regex_alternation_operator", "\\|"],
+    ["regex_beginning_anchor", "^"],
+    ["regex_literal", "b"],
+    ["regex_end_anchor", "$"],
   ]);
 });
 
@@ -485,7 +563,7 @@ test("raw digit and comma delimiters end interval operands", () => {
       delimiter: ",",
       expectedParts: [
         ["regex_literal", "a"],
-        ["regex_escape", "\\{"],
+        ["regex_quoted_escape", "\\{"],
         ["regex_literal", "1"],
       ],
     },
@@ -505,7 +583,7 @@ test("raw digit and comma delimiters end interval operands", () => {
       delimiter: "2",
       expectedParts: [
         ["regex_literal", "a"],
-        ["regex_escape", "\\{"],
+        ["regex_quoted_escape", "\\{"],
         ["regex_literal", "4"],
       ],
     },
@@ -592,7 +670,7 @@ test("GNU numeric escapes stop at raw delimiters and include escaped delimiters"
   }
 });
 
-test("GNU numeric escapes retain their existing bracket delimiter behavior", () => {
+test("GNU numeric escapes preserve following bracket-local escape text", () => {
   const rawDelimiter = parse("gnu-bre", "s1[\\x41]1X1p");
   assert.equal(
     rawDelimiter.rootNode.hasError,
@@ -608,7 +686,7 @@ test("GNU numeric escapes retain their existing bracket delimiter behavior", () 
     escapedDelimiter.rootNode.toString(),
   );
   assert.deepEqual(texts(escapedDelimiter, "gnu_character_escape"), ["\\x4"]);
-  assert.deepEqual(texts(escapedDelimiter, "regex_literal"), ["\\", "1"]);
+  assert.deepEqual(texts(escapedDelimiter, "regex_escape"), ["\\1"]);
 });
 
 test("POSIX and GNU keep their syntax boundary", () => {

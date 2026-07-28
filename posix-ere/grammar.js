@@ -7,7 +7,7 @@
 /// <reference types="tree-sitter-cli/dsl" />
 // @ts-check
 
-const defineGrammar = require("../grammar/factory");
-const posix = require("../grammar/posix");
+const defineGrammar = require("../common/factory");
+const posix = require("../common/posix");
 
 module.exports = defineGrammar("sed_posix_ere", posix, "ere");

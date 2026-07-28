@@ -264,6 +264,18 @@ test("group and bracket-boundary edits match full parses", () => {
       replace(current, search, replacement),
     ]);
   }
+
+  const changedAnchorContext = assertIncrementalEqualsFull(
+    languages["gnu-bre"],
+    "s#\\(^a\\)#x#",
+    (source) => [replace(source, "\\(", "(")],
+  );
+  assert.deepEqual(
+    changedAnchorContext.rootNode
+      .descendantsOfType("regex_beginning_anchor")
+      .map((node) => node.text),
+    [],
+  );
 });
 
 function countNodes(node) {

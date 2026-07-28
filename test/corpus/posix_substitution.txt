@@ -60,7 +60,7 @@ s#x#y#
         argument: (substitute_argument
           opening_delimiter: (delimiter)
           pattern: (regex
-            (regex_literal)
+            (regex_beginning_anchor)
             (regex_literal))
           middle_delimiter: (delimiter)
           replacement: (replacement
@@ -123,7 +123,7 @@ Applies a regex address to a substitute command
         (regex_address
           opening_delimiter: (delimiter)
           pattern: (regex
-            (regex_literal)
+            (regex_beginning_anchor)
             (regex_literal))
           closing_delimiter: (delimiter)))
       body: (substitute_command
@@ -131,7 +131,7 @@ Applies a regex address to a substitute command
         argument: (substitute_argument
           opening_delimiter: (delimiter)
           pattern: (regex
-            (regex_literal)
+            (regex_beginning_anchor)
             (regex_literal))
           middle_delimiter: (delimiter)
           replacement: (replacement
@@ -279,9 +279,13 @@ s/[ ][ ]*/_/g
           opening_delimiter: (delimiter)
           pattern: (regex
             (bracket_expression
-              (regex_literal))
+              opening_delimiter: (regex_bracket_delimiter)
+              (regex_bracket_literal)
+              closing_delimiter: (regex_bracket_delimiter))
             (bracket_expression
-              (regex_literal))
+              opening_delimiter: (regex_bracket_delimiter)
+              (regex_bracket_literal)
+              closing_delimiter: (regex_bracket_delimiter))
             (regex_zero_or_more))
           middle_delimiter: (delimiter)
           replacement: (replacement
@@ -307,11 +311,11 @@ s/^\(x\)$/literal & \1 \& \\ \//
         argument: (substitute_argument
           opening_delimiter: (delimiter)
           pattern: (regex
-            (regex_literal)
+            (regex_beginning_anchor)
             (regex_group_open)
             (regex_literal)
             (regex_group_close)
-            (regex_literal))
+            (regex_end_anchor))
           middle_delimiter: (delimiter)
           replacement: (replacement
             (replacement_literal)

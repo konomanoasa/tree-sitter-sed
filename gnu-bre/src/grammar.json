@@ -968,7 +968,7 @@
         "value": -1,
         "content": {
           "type": "PATTERN",
-          "value": "[ \\t]*[^ \\t;#}\\r\\n][^;#}\\r\\n]*"
+          "value": "[[:blank:]]*[^[:blank:];#}\\r\\n][^;#}\\r\\n]*"
         }
       }
     },
@@ -979,7 +979,7 @@
         "value": 100,
         "content": {
           "type": "PATTERN",
-          "value": "[ \\t]*[^ \\t;#}\\r\\n][^;#}\\r\\n]*"
+          "value": "[[:blank:]]*[^[:blank:];#}\\r\\n][^;#}\\r\\n]*"
         }
       }
     },
@@ -1147,7 +1147,7 @@
       "type": "TOKEN",
       "content": {
         "type": "PATTERN",
-        "value": "[ \\t]+"
+        "value": "[[:blank:]]+"
       }
     },
     "_newline": {
@@ -1164,7 +1164,7 @@
         "value": -1,
         "content": {
           "type": "PATTERN",
-          "value": "[^\\s0-9$/\\\\!;{}#]"
+          "value": "[^[:space:][:digit:]$\\/\\\\!;{}#]"
         }
       }
     },
@@ -1995,7 +1995,7 @@
     },
     "line_number_address": {
       "type": "PATTERN",
-      "value": "0*[1-9]\\d*"
+      "value": "0*[1-9][[:digit:]]*"
     },
     "last_line_address": {
       "type": "STRING",
@@ -2184,7 +2184,27 @@
           },
           {
             "type": "SYMBOL",
+            "name": "regex_beginning_anchor"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "regex_end_anchor"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "regex_wildcard"
+          },
+          {
+            "type": "SYMBOL",
             "name": "regex_escape"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "regex_quoted_escape"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "regex_newline_escape"
           },
           {
             "type": "SYMBOL",
@@ -2253,9 +2273,29 @@
       "type": "SYMBOL",
       "name": "_regex_literal"
     },
+    "regex_beginning_anchor": {
+      "type": "SYMBOL",
+      "name": "_regex_beginning_anchor"
+    },
+    "regex_end_anchor": {
+      "type": "SYMBOL",
+      "name": "_regex_end_anchor"
+    },
+    "regex_wildcard": {
+      "type": "SYMBOL",
+      "name": "_regex_wildcard"
+    },
     "regex_escape": {
       "type": "SYMBOL",
       "name": "_regex_escape"
+    },
+    "regex_quoted_escape": {
+      "type": "SYMBOL",
+      "name": "_regex_quoted_escape"
+    },
+    "regex_newline_escape": {
+      "type": "SYMBOL",
+      "name": "_regex_newline_escape"
     },
     "escaped_delimiter": {
       "type": "CHOICE",
@@ -2344,8 +2384,33 @@
       "type": "SEQ",
       "members": [
         {
-          "type": "SYMBOL",
-          "name": "_regex_bracket_open"
+          "type": "FIELD",
+          "name": "opening_delimiter",
+          "content": {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_regex_bracket_open"
+            },
+            "named": true,
+            "value": "regex_bracket_delimiter"
+          }
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "negation",
+              "content": {
+                "type": "SYMBOL",
+                "name": "regex_bracket_negation"
+              }
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
         },
         {
           "type": "REPEAT",
@@ -2354,11 +2419,19 @@
             "members": [
               {
                 "type": "SYMBOL",
-                "name": "regex_literal"
+                "name": "regex_bracket_literal"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "regex_bracket_hyphen"
               },
               {
                 "type": "SYMBOL",
                 "name": "regex_escape"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "regex_quoted_escape"
               },
               {
                 "type": "SYMBOL",
@@ -2403,8 +2476,17 @@
           "type": "CHOICE",
           "members": [
             {
-              "type": "SYMBOL",
-              "name": "_regex_bracket_close"
+              "type": "FIELD",
+              "name": "closing_delimiter",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_regex_bracket_close"
+                },
+                "named": true,
+                "value": "regex_bracket_delimiter"
+              }
             },
             {
               "type": "ALIAS",
@@ -2427,6 +2509,18 @@
           ]
         }
       ]
+    },
+    "regex_bracket_literal": {
+      "type": "SYMBOL",
+      "name": "_regex_bracket_literal"
+    },
+    "regex_bracket_negation": {
+      "type": "SYMBOL",
+      "name": "_regex_bracket_negation"
+    },
+    "regex_bracket_hyphen": {
+      "type": "SYMBOL",
+      "name": "_regex_bracket_hyphen"
     },
     "posix_character_class": {
       "type": "SYMBOL",
@@ -3859,13 +3953,13 @@
         "value": -1,
         "content": {
           "type": "PATTERN",
-          "value": "[^w \\t;#}\\r\\n]"
+          "value": "[^w[:blank:];#}\\r\\n]"
         }
       }
     },
     "occurrence_flag": {
       "type": "PATTERN",
-      "value": "\\d+"
+      "value": "[[:digit:]]+"
     },
     "global_flag": {
       "type": "STRING",
@@ -4386,11 +4480,11 @@
     },
     "step_value": {
       "type": "PATTERN",
-      "value": "\\d+"
+      "value": "[[:digit:]]+"
     },
     "_positive_step_value": {
       "type": "PATTERN",
-      "value": "0*[1-9]\\d*"
+      "value": "0*[1-9][[:digit:]]*"
     },
     "_zero_line_number_address": {
       "type": "PATTERN",
@@ -4458,7 +4552,7 @@
     },
     "line_offset": {
       "type": "PATTERN",
-      "value": "\\d+"
+      "value": "[[:digit:]]+"
     },
     "next_multiple_address": {
       "type": "SEQ",
@@ -4564,11 +4658,11 @@
     },
     "exit_status": {
       "type": "PATTERN",
-      "value": "\\d+"
+      "value": "[[:digit:]]+"
     },
     "line_wrap_length": {
       "type": "PATTERN",
-      "value": "\\d+"
+      "value": "[[:digit:]]+"
     },
     "file_name_command": {
       "type": "FIELD",
@@ -4992,7 +5086,27 @@
     },
     {
       "type": "SYMBOL",
+      "name": "_regex_beginning_anchor"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_regex_end_anchor"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_regex_wildcard"
+    },
+    {
+      "type": "SYMBOL",
       "name": "_regex_escape"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_regex_quoted_escape"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_regex_newline_escape"
     },
     {
       "type": "SYMBOL",
@@ -5041,6 +5155,18 @@
     {
       "type": "SYMBOL",
       "name": "_regex_bracket_close"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_regex_bracket_literal"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_regex_bracket_negation"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_regex_bracket_hyphen"
     },
     {
       "type": "SYMBOL",

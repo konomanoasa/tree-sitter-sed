@@ -32,7 +32,7 @@ module.exports = {
   substituteFlags: [
     {
       rule: "occurrence_flag",
-      pattern: "\\d+",
+      pattern: "[[:digit:]]+",
     },
     {
       rule: "global_flag",

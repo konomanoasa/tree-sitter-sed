@@ -19,6 +19,20 @@ _POSIX ERE `sed` syntax highlighting in a customized Emacs setup._
 | POSIX.1-2024 `sed` | BRE | `posix-bre` | `sed_posix_bre` | `source.sed.posix.bre` |
 | POSIX.1-2024 `sed` | ERE | `posix-ere` | `sed_posix_ere` | `source.sed.posix.ere` |
 
+### Regular expression CST
+
+Regular expressions expose punctuation that consumers commonly need for
+highlighting without requiring them to rescan `regex_literal` text:
+
+- `regex_beginning_anchor`, `regex_end_anchor`, and `regex_wildcard`
+- `regex_quoted_escape` and the sed-specific `regex_newline_escape`
+- `regex_bracket_delimiter`, `regex_bracket_negation`,
+  `regex_bracket_hyphen`, and one-code-point `regex_bracket_literal` nodes
+
+`bracket_expression` provides `opening_delimiter`, optional `negation`, and
+optional `closing_delimiter` fields. POSIX character classes, collating
+symbols, and equivalence classes retain their dedicated nodes.
+
 ## Usage
 
 Choose one of the four grammars using its directory and language names.

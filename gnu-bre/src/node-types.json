@@ -134,7 +134,38 @@
   {
     "type": "bracket_expression",
     "named": true,
-    "fields": {},
+    "fields": {
+      "closing_delimiter": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "regex_bracket_delimiter",
+            "named": true
+          }
+        ]
+      },
+      "negation": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "regex_bracket_negation",
+            "named": true
+          }
+        ]
+      },
+      "opening_delimiter": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "regex_bracket_delimiter",
+            "named": true
+          }
+        ]
+      }
+    },
     "children": {
       "multiple": true,
       "required": false,
@@ -176,11 +207,19 @@
           "named": true
         },
         {
+          "type": "regex_bracket_hyphen",
+          "named": true
+        },
+        {
+          "type": "regex_bracket_literal",
+          "named": true
+        },
+        {
           "type": "regex_escape",
           "named": true
         },
         {
-          "type": "regex_literal",
+          "type": "regex_quoted_escape",
           "named": true
         },
         {
@@ -1170,6 +1209,14 @@
           "named": true
         },
         {
+          "type": "regex_beginning_anchor",
+          "named": true
+        },
+        {
+          "type": "regex_end_anchor",
+          "named": true
+        },
+        {
           "type": "regex_escape",
           "named": true
         },
@@ -1190,7 +1237,19 @@
           "named": true
         },
         {
+          "type": "regex_newline_escape",
+          "named": true
+        },
+        {
           "type": "regex_one_or_more",
+          "named": true
+        },
+        {
+          "type": "regex_quoted_escape",
+          "named": true
+        },
+        {
+          "type": "regex_wildcard",
           "named": true
         },
         {
@@ -1271,6 +1330,31 @@
     "fields": {}
   },
   {
+    "type": "regex_beginning_anchor",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "regex_bracket_hyphen",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "regex_bracket_literal",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "regex_bracket_negation",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "regex_end_anchor",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "regex_escape",
     "named": true,
     "fields": {}
@@ -1315,7 +1399,22 @@
     "fields": {}
   },
   {
+    "type": "regex_newline_escape",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "regex_one_or_more",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "regex_quoted_escape",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "regex_wildcard",
     "named": true,
     "fields": {}
   },
@@ -2028,6 +2127,10 @@
   {
     "type": "p",
     "named": false
+  },
+  {
+    "type": "regex_bracket_delimiter",
+    "named": true
   },
   {
     "type": "separator",

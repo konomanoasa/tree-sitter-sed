@@ -16,7 +16,7 @@ const commandNames = {
 const substituteFlags = [
   {
     rule: "occurrence_flag",
-    pattern: "\\d+",
+    pattern: "[[:digit:]]+",
   },
   {
     rule: "global_flag",
@@ -136,9 +136,9 @@ module.exports = {
         ),
       ),
 
-    step_value: () => /\d+/,
+    step_value: () => /[[:digit:]]+/,
 
-    _positive_step_value: () => /0*[1-9]\d*/,
+    _positive_step_value: () => /0*[1-9][[:digit:]]*/,
 
     _zero_line_number_address: () => /0+/,
 
@@ -155,7 +155,7 @@ module.exports = {
         field("value", $.line_offset),
       ),
 
-    line_offset: () => /\d+/,
+    line_offset: () => /[[:digit:]]+/,
 
     next_multiple_address: ($) =>
       seq(
@@ -181,9 +181,9 @@ module.exports = {
         ),
       ),
 
-    exit_status: () => /\d+/,
+    exit_status: () => /[[:digit:]]+/,
 
-    line_wrap_length: () => /\d+/,
+    line_wrap_length: () => /[[:digit:]]+/,
 
     file_name_command: ($) =>
       commandName($, commandSpelling("file_name_command")),
