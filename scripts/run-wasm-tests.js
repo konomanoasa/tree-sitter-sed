@@ -33,7 +33,7 @@ function run(command, arguments_, options = {}) {
 
 function main() {
   const temporaryDirectory = mkdtempSync(
-    join(tmpdir(), "tree-sitter-sed-wasm-test-"),
+    join(tmpdir(), "tree-sitter-posix-sed-wasm-test-"),
   );
 
   try {
@@ -57,7 +57,7 @@ function main() {
     return run(process.execPath, ["--test", ...testFiles], {
       env: {
         ...process.env,
-        TREE_SITTER_SED_TEST_WASM_DIRECTORY: temporaryDirectory,
+        TREE_SITTER_POSIX_SED_TEST_WASM_DIRECTORY: temporaryDirectory,
       },
     });
   } finally {

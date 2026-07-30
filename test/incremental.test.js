@@ -111,39 +111,60 @@ function assertIncrementalEqualsFull(language, source, makeEdits) {
 test("dynamic delimiter edits restore every scanner mode", async (t) => {
   const cases = [
     {
-      language: languages["posix-bre"],
-      name: "substitute",
-      source: "s|a\\|b|c\\|d|g\n",
-      before: "s|a\\|b|c\\|d|",
-      after: "s#a\\|b#c\\|d#",
+      variant: "posix-sed-bre",
+      name: "BRE substitution",
+      source: "s|ab|cd|g\n",
+      before: "s|ab|cd|",
+      after: "s#ab#cd#",
     },
     {
-      language: languages["posix-bre"],
-      name: "regexp address",
-      source: "\\|a\\|b|p\n",
-      before: "\\|a\\|b|",
-      after: "\\#a\\|b#",
+      variant: "posix-sed-bre",
+      name: "BRE escaped delimiter",
+      source: "s#\\|#x#\n",
+      before: "s#\\|#x#",
+      after: "s|\\||x|",
     },
     {
-      language: languages["posix-bre"],
-      name: "translate",
-      source: "y|a\\|b|c\\|d|\n",
-      before: "y|a\\|b|c\\|d|",
-      after: "y#a\\|b#c\\|d#",
+      variant: "posix-sed-bre",
+      name: "BRE context address",
+      source: "\\|ab|p\n",
+      before: "\\|ab|",
+      after: "\\#ab#",
     },
     {
-      language: languages["gnu-bre"],
-      name: "GNU substitute",
-      source: "s|a\\|b|c\\|d|g\n",
-      before: "s|a\\|b|c\\|d|",
-      after: "s#a\\|b#c\\|d#",
+      variant: "posix-sed-bre",
+      name: "BRE translation",
+      source: "y|ab|cd|\n",
+      before: "y|ab|cd|",
+      after: "y#ab#cd#",
+    },
+    {
+      variant: "posix-sed-ere",
+      name: "ERE substitution",
+      source: "s|a+?|cd|g\n",
+      before: "s|a+?|cd|",
+      after: "s#a+?#cd#",
+    },
+    {
+      variant: "posix-sed-ere",
+      name: "ERE context address",
+      source: "\\|a+?|p\n",
+      before: "\\|a+?|",
+      after: "\\#a+?#",
+    },
+    {
+      variant: "posix-sed-ere",
+      name: "ERE translation",
+      source: "y|ab|cd|\n",
+      before: "y|ab|cd|",
+      after: "y#ab#cd#",
     },
   ];
 
   for (const fixture of cases) {
     await t.test(fixture.name, () => {
       const tree = assertIncrementalEqualsFull(
-        fixture.language,
+        languages[fixture.variant],
         fixture.source,
         (source) => changedCharacters(source, fixture.before, fixture.after),
       );
@@ -152,110 +173,182 @@ test("dynamic delimiter edits restore every scanner mode", async (t) => {
   }
 });
 
-test("line-ending and multiline edits match full parses", () => {
-  assertIncrementalEqualsFull(
-    languages["posix-bre"],
-    "s/a/b/\np\n",
-    (source) => [replace(source, "\n", "\r\n")],
-  );
-  assertIncrementalEqualsFull(
-    languages["gnu-bre"],
-    "s|a\\\nb|c|g\np\n",
-    (source) => [replace(source, "a\\\nb", "a\\\n😺b")],
-  );
-  assertIncrementalEqualsFull(
-    languages["gnu-bre"],
-    "a hello\\\\\np\n",
-    (source) => [replace(source, "hello\\\\", "hello\\")],
-  );
-});
-
-test("completing and removing delimiters match full parses", () => {
-  const completed = assertIncrementalEqualsFull(
-    languages["posix-bre"],
-    "s|a|b\np\n",
-    (source) => [replace(source, "b\n", "b|\n")],
-  );
-  assert.equal(completed.rootNode.hasError, false);
-
-  assertIncrementalEqualsFull(
-    languages["gnu-bre"],
-    "y|ab|cd|\np\n",
-    (source) => [replace(source, "cd|", "cd")],
-  );
-});
-
-test("incremental ranges remain UTF-16 based", () => {
-  const tree = assertIncrementalEqualsFull(
-    languages["gnu-bre"],
-    "s|cat|犬|g\n",
-    (source) => [replace(source, "cat", "😺cat")],
-  );
-  const pattern = tree.rootNode.descendantsOfType("regex_literal")[0];
-  assert.deepEqual(
-    [pattern.text, pattern.startIndex, pattern.endIndex],
-    ["😺cat", 2, 7],
-  );
-});
-
-test("backslash edits update BRE and ERE operator classifications", () => {
+test("edits between recovery and canonical syntax match full parses", () => {
   const cases = [
     {
-      variant: "posix-bre",
-      source: "s#a+b#x#",
-      search: "+",
-      replacement: "\\+",
-      expected: "regex_escape",
+      variant: "posix-sed-bre",
+      source: "s|a|b\np\n",
+      search: "b\n",
+      replacement: "b|\n",
     },
     {
-      variant: "gnu-bre",
-      source: "s#a+b#x#",
-      search: "+",
-      replacement: "\\+",
-      expected: "regex_one_or_more",
+      variant: "posix-sed-ere",
+      source: "/(ab/p\n",
+      search: "ab/",
+      replacement: "ab)/",
     },
     {
-      variant: "posix-ere",
-      source: "s#a\\+b#x#",
-      search: "\\+",
-      replacement: "+",
-      expected: "regex_one_or_more",
+      variant: "posix-sed-ere",
+      source: "/a{2/p\n",
+      search: "2/",
+      replacement: "2}/",
+    },
+    {
+      variant: "posix-sed-ere",
+      source: "/[a-[:alpha:]]/p\n",
+      search: "[:alpha:]",
+      replacement: "[.z.]",
+    },
+    {
+      variant: "posix-sed-bre",
+      source: "1, 2p\n",
+      search: ", ",
+      replacement: ",",
+    },
+    {
+      variant: "posix-sed-bre",
+      source: "1,2,3p\n",
+      search: ",3",
+      replacement: "",
+    },
+    {
+      variant: "posix-sed-bre",
+      source: "b;p\n",
+      search: "b",
+      replacement: "p",
+    },
+    {
+      variant: "posix-sed-bre",
+      source: "{ }\np\n",
+      search: " ",
+      replacement: ";",
+    },
+    {
+      variant: "posix-sed-bre",
+      source: "a\\\ntext\\\n",
+      search: "text\\\n",
+      replacement: "text\n",
     },
   ];
 
-  for (const { variant, source, search, replacement, expected } of cases) {
+  for (const { variant, source, search, replacement } of cases) {
     const tree = assertIncrementalEqualsFull(
       languages[variant],
       source,
       (current) => [replace(current, search, replacement)],
     );
-    assert.deepEqual(
-      tree.rootNode.descendantsOfType(expected).map((node) => node.text),
-      [replacement],
-      variant,
+    assert.equal(tree.rootNode.hasError, false);
+    assert.equal(
+      tree.rootNode.descendantsOfType("syntax_issue").length,
+      0,
+      tree.rootNode.toString(),
     );
   }
 });
 
-test("group and bracket-boundary edits match full parses", () => {
+test("multiline operand edits match full parses", () => {
+  assertIncrementalEqualsFull(
+    languages["posix-sed-bre"],
+    "a\\\nhello\\\nworld\np\n",
+    (source) => [replace(source, "hello", "greeting")],
+  );
+
+  assertIncrementalEqualsFull(
+    languages["posix-sed-bre"],
+    "s|a|first\\\nsecond|\np\n",
+    (source) => [replace(source, "first", "updated")],
+  );
+
+  assertIncrementalEqualsFull(
+    languages["posix-sed-bre"],
+    "y|ab|cd|\np\n",
+    (source) => [replace(source, "ab", "a\\n")],
+  );
+});
+
+test("substitution flag edits match full parses", () => {
+  const tree = assertIncrementalEqualsFull(
+    languages["posix-sed-bre"],
+    "s/a/b/giw output\n",
+    (source) => [replace(source, "gi", "gip")],
+  );
+  assert.equal(tree.rootNode.hasError, false);
+  assert.equal(tree.rootNode.descendantsOfType("syntax_issue").length, 0);
+  assert.deepEqual(
+    tree.rootNode
+      .descendantsOfType("substitution_flags")[0]
+      ?.namedChildren.map(({ type }) => type),
+    ["global_flag", "case_insensitive_flag", "print_flag", "write_flag"],
+  );
+});
+
+test("regular-expression state edits match full parses", () => {
   const cases = [
     {
-      variant: "gnu-bre",
-      source: "s#\\(a\\)\\{2\\}#x#",
-      search: "\\(",
-      replacement: "(",
+      variant: "posix-sed-bre",
+      source: "/\\(a\\)/p\n",
+      search: "\\)",
+      replacement: "",
     },
     {
-      variant: "posix-ere",
-      source: "s#(a){2}#x#",
-      search: "(",
-      replacement: "\\(",
-    },
-    {
-      variant: "gnu-ere",
-      source: "s#[a+]?b#x#",
+      variant: "posix-sed-ere",
+      source: "/[[.].]]/p\n",
       search: "]",
-      replacement: "\\]",
+      replacement: "a",
+    },
+    {
+      variant: "posix-sed-ere",
+      source: "/[.a.]/p\n",
+      search: "a.",
+      replacement: "a:",
+    },
+    {
+      variant: "posix-sed-ere",
+      source: "/a*b/p\n",
+      search: "*",
+      replacement: "*?",
+    },
+    {
+      variant: "posix-sed-ere",
+      source: "/a*?/p\n",
+      search: "*?",
+      replacement: "*+",
+    },
+    {
+      variant: "posix-sed-ere",
+      source: "/a*{2}/p\n",
+      search: "{2}",
+      replacement: "+??",
+    },
+    {
+      variant: "posix-sed-bre",
+      source: "/a*\\{2\\}/p\n",
+      search: "*",
+      replacement: "b",
+    },
+    {
+      variant: "posix-sed-bre",
+      source: "/a\\{255\\}/p\n",
+      search: "255",
+      replacement: "999999999999999999999999",
+    },
+    {
+      variant: "posix-sed-bre",
+      source: "/^a/p\n",
+      search: "a",
+      replacement: "^",
+    },
+    {
+      variant: "posix-sed-ere",
+      source: "/[[.a.]]/p\n",
+      search: "a",
+      replacement: "ch",
+    },
+    {
+      variant: "posix-sed-bre",
+      source: "/[%--]/p\n",
+      search: "-]",
+      replacement: "@]",
     },
   ];
 
@@ -264,35 +357,20 @@ test("group and bracket-boundary edits match full parses", () => {
       replace(current, search, replacement),
     ]);
   }
-
-  const changedAnchorContext = assertIncrementalEqualsFull(
-    languages["gnu-bre"],
-    "s#\\(^a\\)#x#",
-    (source) => [replace(source, "\\(", "(")],
-  );
-  assert.deepEqual(
-    changedAnchorContext.rootNode
-      .descendantsOfType("regex_beginning_anchor")
-      .map((node) => node.text),
-    [],
-  );
 });
 
-function countNodes(node) {
-  let count = 1;
-  for (let index = 0; index < node.childCount; index += 1) {
-    count += countNodes(node.child(index));
-  }
-  return count;
-}
-
-test("a long unterminated operand produces a bounded tree", () => {
-  for (const variant of ["posix-bre", "gnu-bre"]) {
-    const language = languages[variant];
-    const parser = parserFor(language);
-    const small = parser.parse(`s|${"a".repeat(32 * 1_024)}`);
-    const large = parser.parse(`s|${"a".repeat(128 * 1_024)}`);
-
-    assert.ok(countNodes(large.rootNode) <= countNodes(small.rootNode) + 8);
-  }
+test("incremental ranges remain UTF-16 based for atomic characters", () => {
+  const tree = assertIncrementalEqualsFull(
+    languages["posix-sed-bre"],
+    "/cat/p\n",
+    (source) => [replace(source, "cat", "😺犬")],
+  );
+  const characters = tree.rootNode.descendantsOfType("ordinary_character");
+  assert.deepEqual(
+    characters.map((node) => [node.text, node.startIndex, node.endIndex]),
+    [
+      ["😺", 1, 3],
+      ["犬", 3, 4],
+    ],
+  );
 });

@@ -1,0 +1,265 @@
+==================
+Exposes addresses, negation, and the selected function
+:language(posix_sed_bre)
+==================
+001,$!s|a|b|g
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator)
+        (address
+          (last_line_address)))
+      (negation
+        (negation_operator))
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character
+                        (ordinary_character_token))))))))
+          (delimiter
+            (delimiter_token))
+          (replacement
+            (replacement_literal
+              (replacement_literal_token)))
+          (delimiter
+            (delimiter_token))
+          (substitution_flags
+            (global_flag)))))
+    (command_separator)))
+
+==================
+Exposes every chainable function
+:language(posix_sed_bre)
+==================
+d;D;g;G;h;H;l;n;N;p;P;q;s/a/b/;x;y/a/b/;=
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (delete_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (delete_first_line_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (get_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (get_append_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (hold_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (hold_append_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (list_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (next_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (next_append_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (print_first_line_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (quit_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character
+                        (ordinary_character_token))))))))
+          (delimiter
+            (delimiter_token))
+          (replacement
+            (replacement_literal
+              (replacement_literal_token)))
+          (delimiter
+            (delimiter_token)))))
+    (command_separator)
+    (editing_command
+      (function
+        (exchange_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (translate_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (translation_string
+            (translation_literal
+              (translation_literal_token)))
+          (delimiter
+            (delimiter_token))
+          (translation_string
+            (translation_literal
+              (translation_literal_token)))
+          (delimiter
+            (delimiter_token)))))
+    (command_separator)
+    (editing_command
+      (function
+        (line_number_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+Keeps line-consuming operands inside their functions
+:language(posix_sed_bre)
+==================
+a\
+first\
+second
+r input file
+:loop
+b loop
+# comment
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (append_function
+          (function_verb)
+          (text_introducer
+            (text_introducer_token))
+          (text
+            (text_literal
+              (text_literal_token))
+            (text_escaped_newline
+              (text_escaped_newline_token))
+            (text_literal
+              (text_literal_token))
+            (text_terminator
+              (text_line_end))))))
+    (command_separator)
+    (editing_command
+      (function
+        (read_function
+          (function_verb)
+          (rfile
+            (rfile_token)))))
+    (command_separator)
+    (editing_command
+      (function
+        (label_function
+          (function_verb)
+          (label
+            (label_token)))))
+    (command_separator)
+    (editing_command
+      (function
+        (branch_function
+          (function_verb)
+          (argument_separator)
+          (label
+            (label_token)))))
+    (command_separator)
+    (editing_command
+      (function
+        (comment_function
+          (function_verb)
+          (comment
+            (comment_text)))))
+    (command_separator)))
+
+==================
+Nests a command list inside a block function
+:language(posix_sed_bre)
+==================
+1,2 {
+  p
+  d;
+}
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator)
+        (address
+          (line_number_address)))
+      (function
+        (block_function
+          (function_verb)
+          (command_list
+            (empty_command
+              (command_separator))
+            (editing_command
+              (function
+                (print_function
+                  (function_verb))))
+            (command_separator)
+            (editing_command
+              (function
+                (delete_function
+                  (function_verb))))
+            (command_separator)
+            (command_separator))
+          (closing_brace
+            (closing_brace_token)))))
+    (command_separator)))

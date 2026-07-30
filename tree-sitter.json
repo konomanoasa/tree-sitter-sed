@@ -2,70 +2,33 @@
   "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
   "grammars": [
     {
-      "name": "sed",
-      "camelcase": "Sed",
-      "title": "GNU sed (BRE, default)",
-      "scope": "source.sed",
-      "path": ".",
-      "external-files": ["common/scanner.h"],
-      "highlights": ["queries/highlights.scm"],
-      "injections": ["queries/sed/injections.scm"],
-      "injection-regex": "^sed$"
-    },
-    {
-      "name": "sed_gnu_bre",
-      "camelcase": "SedGnuBre",
-      "title": "GNU sed (BRE)",
-      "scope": "source.sed.gnu.bre",
-      "path": "gnu-bre",
-      "external-files": ["common/scanner.h"],
-      "highlights": ["gnu-bre/queries/highlights.scm"],
-      "injections": ["gnu-bre/queries/injections.scm"],
-      "injection-regex": "^sed_gnu_bre$"
-    },
-    {
-      "name": "sed_gnu_ere",
-      "camelcase": "SedGnuEre",
-      "title": "GNU sed (ERE)",
-      "scope": "source.sed.gnu.ere",
-      "path": "gnu-ere",
-      "external-files": ["common/scanner.h"],
-      "highlights": ["gnu-ere/queries/highlights.scm"],
-      "injections": ["gnu-ere/queries/injections.scm"],
-      "injection-regex": "^sed_gnu_ere$"
-    },
-    {
-      "name": "sed_posix_bre",
-      "camelcase": "SedPosixBre",
+      "name": "posix_sed_bre",
+      "camelcase": "PosixSedBre",
       "title": "POSIX sed (BRE)",
       "scope": "source.sed.posix.bre",
-      "path": "posix-bre",
-      "external-files": ["common/scanner.h"],
-      "highlights": ["posix-bre/queries/highlights.scm"],
-      "injection-regex": "^sed_posix_bre$"
+      "path": "posix-sed-bre",
+      "external-files": ["common/scanner.h"]
     },
     {
-      "name": "sed_posix_ere",
-      "camelcase": "SedPosixEre",
+      "name": "posix_sed_ere",
+      "camelcase": "PosixSedEre",
       "title": "POSIX sed (ERE)",
       "scope": "source.sed.posix.ere",
-      "path": "posix-ere",
-      "external-files": ["common/scanner.h"],
-      "highlights": ["posix-ere/queries/highlights.scm"],
-      "injection-regex": "^sed_posix_ere$"
+      "path": "posix-sed-ere",
+      "external-files": ["common/scanner.h"]
     }
   ],
   "metadata": {
     "version": "0.1.0",
     "license": "MIT",
-    "description": "Tree-sitter grammars for POSIX.1-2024 and GNU sed scripts using BREs and EREs.",
+    "description": "Tree-sitter grammars for POSIX.1-2024 sed scripts using BREs and EREs.",
     "authors": [
       {
         "name": "konomanoasa"
       }
     ],
     "links": {
-      "repository": "https://github.com/konomanoasa/tree-sitter-sed"
+      "repository": "https://github.com/konomanoasa/tree-sitter-posix-sed"
     }
   },
   "bindings": {

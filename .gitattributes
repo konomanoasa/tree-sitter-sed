@@ -1,21 +1,13 @@
 * text=auto eol=lf
 
-gnu-bre/src/grammar.json linguist-generated=true
-gnu-bre/src/node-types.json linguist-generated=true
-gnu-bre/src/parser.c linguist-generated=true
-gnu-bre/src/tree_sitter/*.h linguist-generated=true
-gnu-ere/src/grammar.json linguist-generated=true
-gnu-ere/src/node-types.json linguist-generated=true
-gnu-ere/src/parser.c linguist-generated=true
-gnu-ere/src/tree_sitter/*.h linguist-generated=true
-posix-bre/src/grammar.json linguist-generated=true
-posix-bre/src/node-types.json linguist-generated=true
-posix-bre/src/parser.c linguist-generated=true
-posix-bre/src/tree_sitter/*.h linguist-generated=true
-posix-ere/src/grammar.json linguist-generated=true
-posix-ere/src/node-types.json linguist-generated=true
-posix-ere/src/parser.c linguist-generated=true
-posix-ere/src/tree_sitter/*.h linguist-generated=true
+posix-sed-bre/src/grammar.json linguist-generated=true
+posix-sed-bre/src/node-types.json linguist-generated=true
+posix-sed-bre/src/parser.c linguist-generated=true
+posix-sed-bre/src/tree_sitter/*.h linguist-generated=true
+posix-sed-ere/src/grammar.json linguist-generated=true
+posix-sed-ere/src/node-types.json linguist-generated=true
+posix-sed-ere/src/parser.c linguist-generated=true
+posix-sed-ere/src/tree_sitter/*.h linguist-generated=true
 
 # Corpus inputs intentionally exercise trailing blanks.
 test/corpus/*.txt whitespace=-blank-at-eol

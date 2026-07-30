@@ -11,7 +11,9 @@ const executable = join(
   "tree-sitter-cli",
   process.platform === "win32" ? "tree-sitter.exe" : "tree-sitter",
 );
-const temporaryDirectory = mkdtempSync(join(tmpdir(), "tree-sitter-sed-run-"));
+const temporaryDirectory = mkdtempSync(
+  join(tmpdir(), "tree-sitter-posix-sed-run-"),
+);
 const cacheDirectory = join(temporaryDirectory, "cache");
 const configDirectory = join(temporaryDirectory, "config");
 const treeSitterConfigDirectory = join(configDirectory, "tree-sitter");

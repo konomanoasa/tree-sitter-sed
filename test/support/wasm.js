@@ -2,7 +2,7 @@ const { join } = require("node:path");
 const { Language, Parser } = require("web-tree-sitter");
 const { languages } = require("../../scripts/variants");
 
-const wasmDirectory = process.env.TREE_SITTER_SED_TEST_WASM_DIRECTORY;
+const wasmDirectory = process.env.TREE_SITTER_POSIX_SED_TEST_WASM_DIRECTORY;
 let languagesPromise;
 
 async function initializeLanguages() {

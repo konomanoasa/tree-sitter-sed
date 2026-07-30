@@ -1,16 +1,16 @@
 {
-  "name": "tree-sitter-sed",
+  "name": "tree-sitter-posix-sed",
   "version": "0.1.0",
   "private": true,
-  "description": "Tree-sitter BRE and ERE grammars for POSIX.1-2024 and GNU sed scripts.",
+  "description": "Tree-sitter BRE and ERE grammars for POSIX.1-2024 sed scripts.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/konomanoasa/tree-sitter-sed.git"
+    "url": "git+https://github.com/konomanoasa/tree-sitter-posix-sed.git"
   },
   "bugs": {
-    "url": "https://github.com/konomanoasa/tree-sitter-sed/issues"
+    "url": "https://github.com/konomanoasa/tree-sitter-posix-sed/issues"
   },
-  "homepage": "https://github.com/konomanoasa/tree-sitter-sed#readme",
+  "homepage": "https://github.com/konomanoasa/tree-sitter-posix-sed#readme",
   "packageManager": "npm@10.9.4",
   "engines": {
     "node": ">=22.0.0"
@@ -33,9 +33,8 @@
     "format": "biome format --write .",
     "check:biome": "biome check .",
     "check:generated": "node scripts/check-generated.js",
-    "test": "npm run test:corpus && npm run test:wasm && npm run test:integrations",
+    "test": "npm run test:corpus && npm run test:wasm",
     "test:corpus": "node scripts/run-tree-sitter.js test",
-    "test:integrations": "node scripts/check-language-integrations.js",
     "test:wasm": "node scripts/run-wasm-tests.js",
     "test:debug": "node scripts/run-tree-sitter.js test --debug-build --rebuild",
     "test:fuzz": "node scripts/run-fuzz-tests.js --iterations 100 --edits 5",
@@ -46,9 +45,7 @@
     "sed",
     "bre",
     "ere",
-    "posix",
-    "gnu",
-    "gnu-sed"
+    "posix"
   ],
   "license": "MIT",
   "devDependencies": {

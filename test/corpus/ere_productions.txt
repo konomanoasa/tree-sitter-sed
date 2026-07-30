@@ -1,0 +1,211 @@
+==================
+Mirrors the POSIX ERE production hierarchy
+:language(posix_sed_ere)
+==================
+s#^(ab|c)+d{2,3}$#x#
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (extended_reg_exp
+            (ere_branch
+              (ere_branch
+                (ere_branch
+                  (ere_branch
+                    (ere_expression
+                      (left_anchor
+                        (left_anchor_token))))
+                  (ere_expression
+                    (ere_expression
+                      (open_parenthesis)
+                      (extended_reg_exp
+                        (extended_reg_exp
+                          (ere_branch
+                            (ere_branch
+                              (ere_expression
+                                (one_char_or_coll_elem_ere
+                                  (ordinary_character
+                                    (ordinary_character_token)))))
+                            (ere_expression
+                              (one_char_or_coll_elem_ere
+                                (ordinary_character
+                                  (ordinary_character_token))))))
+                        (ere_alternation_operator
+                          (ere_alternation_operator_token))
+                        (ere_branch
+                          (ere_expression
+                            (one_char_or_coll_elem_ere
+                              (ordinary_character
+                                (ordinary_character_token))))))
+                      (close_parenthesis
+                        (close_parenthesis_token)))
+                    (ere_dupl_symbol
+                      (one_or_more_operator))))
+                (ere_expression
+                  (ere_expression
+                    (one_char_or_coll_elem_ere
+                      (ordinary_character
+                        (ordinary_character_token))))
+                  (ere_dupl_symbol
+                    (open_brace)
+                    (dup_count
+                      (dup_count_token))
+                    (interval_separator)
+                    (dup_count
+                      (dup_count_token))
+                    (close_brace))))
+              (ere_expression
+                (right_anchor
+                  (right_anchor_token)))))
+          (delimiter
+            (delimiter_token))
+          (replacement
+            (replacement_literal
+              (replacement_literal_token)))
+          (delimiter
+            (delimiter_token)))))
+    (command_separator)))
+
+==================
+Preserves adjacent and leading ERE duplication structures
+:language(posix_sed_ere)
+==================
+/a*{2}?|{3}/p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (context_address
+            (delimiter
+              (delimiter_token))
+            (extended_reg_exp
+              (extended_reg_exp
+                (ere_branch
+                  (ere_expression
+                    (ere_expression
+                      (ere_expression
+                        (ere_expression
+                          (one_char_or_coll_elem_ere
+                            (ordinary_character
+                              (ordinary_character_token))))
+                        (ere_dupl_symbol
+                          (zero_or_more_operator)))
+                      (ere_dupl_symbol
+                        (syntax_issue
+                          (undefined_syntax
+                            (adjacent_duplication_symbol)))
+                        (open_brace)
+                        (dup_count
+                          (dup_count_token))
+                        (close_brace)))
+                    (ere_dupl_symbol
+                      (repetition_modifier
+                        (zero_or_one_operator))))))
+              (ere_alternation_operator
+                (ere_alternation_operator_token))
+              (ere_branch
+                (ere_expression
+                  (leading_ere_dupl_symbol
+                    (syntax_issue
+                      (undefined_syntax
+                        (leading_duplication_symbol)))
+                    (ere_dupl_symbol
+                      (open_brace)
+                      (dup_count
+                        (dup_count_token))
+                      (close_brace))))))
+            (delimiter
+              (delimiter_token)))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+Exposes POSIX repetition modifiers
+:language(posix_sed_ere)
+==================
+/a*?b+?c??d{2,3}?/p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (context_address
+            (delimiter
+              (delimiter_token))
+            (extended_reg_exp
+              (ere_branch
+                (ere_branch
+                  (ere_branch
+                    (ere_branch
+                      (ere_expression
+                        (ere_expression
+                          (ere_expression
+                            (one_char_or_coll_elem_ere
+                              (ordinary_character
+                                (ordinary_character_token))))
+                          (ere_dupl_symbol
+                            (zero_or_more_operator)))
+                        (ere_dupl_symbol
+                          (repetition_modifier
+                            (zero_or_one_operator)))))
+                    (ere_expression
+                      (ere_expression
+                        (ere_expression
+                          (one_char_or_coll_elem_ere
+                            (ordinary_character
+                              (ordinary_character_token))))
+                        (ere_dupl_symbol
+                          (one_or_more_operator)))
+                      (ere_dupl_symbol
+                        (repetition_modifier
+                          (zero_or_one_operator)))))
+                  (ere_expression
+                    (ere_expression
+                      (ere_expression
+                        (one_char_or_coll_elem_ere
+                          (ordinary_character
+                            (ordinary_character_token))))
+                      (ere_dupl_symbol
+                        (zero_or_one_operator)))
+                    (ere_dupl_symbol
+                      (repetition_modifier
+                        (zero_or_one_operator)))))
+                (ere_expression
+                  (ere_expression
+                    (ere_expression
+                      (one_char_or_coll_elem_ere
+                        (ordinary_character
+                          (ordinary_character_token))))
+                    (ere_dupl_symbol
+                      (open_brace)
+                      (dup_count
+                        (dup_count_token))
+                      (interval_separator)
+                      (dup_count
+                        (dup_count_token))
+                      (close_brace)))
+                  (ere_dupl_symbol
+                    (repetition_modifier
+                      (zero_or_one_operator))))))
+            (delimiter
+              (delimiter_token)))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))

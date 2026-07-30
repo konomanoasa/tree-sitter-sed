@@ -28,14 +28,14 @@ function run(arguments_) {
 
 function main() {
   const temporaryDirectory = mkdtempSync(
-    join(tmpdir(), "tree-sitter-sed-fuzz-"),
+    join(tmpdir(), "tree-sitter-posix-sed-fuzz-"),
   );
 
   try {
     for (const { directory, id, languageName } of languages) {
       const libraryPath = join(
         temporaryDirectory,
-        `tree-sitter-sed-${id}${libraryExtension}`,
+        `tree-sitter-${id}${libraryExtension}`,
       );
       const buildStatus = run([
         "build",
