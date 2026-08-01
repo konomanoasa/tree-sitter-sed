@@ -1,0 +1,477 @@
+==================
+Exposes the remaining POSIX editing-function nodes
+:language(posix_sed_bre)
+==================
+c\
+changed
+i\
+inserted
+t target
+w output
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (change_function
+          (function_verb)
+          (text_introducer
+            (text_introducer_token))
+          (text
+            (text_literal
+              (text_literal_token))
+            (text_terminator
+              (text_line_end))))))
+    (command_separator)
+    (editing_command
+      (function
+        (insert_function
+          (function_verb)
+          (text_introducer
+            (text_introducer_token))
+          (text
+            (text_literal
+              (text_literal_token))
+            (text_terminator
+              (text_line_end))))))
+    (command_separator)
+    (editing_command
+      (function
+        (test_function
+          (function_verb)
+          (argument_separator)
+          (label
+            (label_token)))))
+    (command_separator)
+    (editing_command
+      (function
+        (write_function
+          (function_verb)
+          (wfile
+            (wfile_token)))))
+    (command_separator)))
+
+==================
+Exposes substitution, translation, and text operand atoms
+:language(posix_sed_bre)
+==================
+s|a|x&\0\1\||gipw output
+s|a|\&\\|
+s|a|first\
+second|
+y|a\n\||b\\c|
+a\
+first\\second\
+third
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character
+                        (ordinary_character_token))))))))
+          (delimiter
+            (delimiter_token))
+          (replacement
+            (replacement_literal
+              (replacement_literal_token))
+            (matched_text_reference
+              (matched_text_reference_token))
+            (replacement_backreference
+              (replacement_backreference_token))
+            (replacement_backreference
+              (replacement_backreference_token))
+            (replacement_escaped_delimiter
+              (escaped_delimiter_token)))
+          (delimiter
+            (delimiter_token))
+          (substitution_flags
+            (global_flag)
+            (case_insensitive_flag)
+            (print_flag)
+            (write_flag
+              (substitution_flag)
+              (wfile
+                (wfile_token)))))))
+    (command_separator)
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character
+                        (ordinary_character_token))))))))
+          (delimiter
+            (delimiter_token))
+          (replacement
+            (replacement_escape
+              (replacement_escape_token))
+            (replacement_escape
+              (replacement_escape_token)))
+          (delimiter
+            (delimiter_token)))))
+    (command_separator)
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character
+                        (ordinary_character_token))))))))
+          (delimiter
+            (delimiter_token))
+          (replacement
+            (replacement_literal
+              (replacement_literal_token))
+            (escaped_newline
+              (escaped_newline_token))
+            (replacement_literal
+              (replacement_literal_token)))
+          (delimiter
+            (delimiter_token)))))
+    (command_separator)
+    (editing_command
+      (function
+        (translate_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (translation_string
+            (translation_literal
+              (translation_literal_token))
+            (translation_escape
+              (translation_escape_token))
+            (translation_escaped_delimiter
+              (escaped_delimiter_token)))
+          (delimiter
+            (delimiter_token))
+          (translation_string
+            (translation_literal
+              (translation_literal_token))
+            (translation_escape
+              (translation_escape_token))
+            (translation_literal
+              (translation_literal_token)))
+          (delimiter
+            (delimiter_token)))))
+    (command_separator)
+    (editing_command
+      (function
+        (append_function
+          (function_verb)
+          (text_introducer
+            (text_introducer_token))
+          (text
+            (text_literal
+              (text_literal_token))
+            (text_backslash_escape
+              (text_backslash_escape_token))
+            (text_literal
+              (text_literal_token))
+            (text_escaped_newline
+              (text_escaped_newline_token))
+            (text_literal
+              (text_literal_token))
+            (text_terminator
+              (text_line_end))))))
+    (command_separator)))
+
+==================
+Does not expose output suppression after initial blank
+:language(posix_sed_bre)
+==================
+ #n
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (comment_function
+          (function_verb)
+          (comment
+            (comment_text)))))
+    (command_separator)))
+
+==================
+Does not expose output suppression after initial semicolon
+:language(posix_sed_bre)
+==================
+;#n
+
+---
+
+(script
+  (command_list
+    (empty_command
+      (command_separator))
+    (editing_command
+      (function
+        (comment_function
+          (function_verb)
+          (comment
+            (comment_text)))))
+    (command_separator)))
+
+==================
+Does not expose output suppression after initial newline
+:language(posix_sed_bre)
+==================
+
+#n
+
+---
+
+(script
+  (command_list
+    (empty_command
+      (command_separator))
+    (editing_command
+      (function
+        (comment_function
+          (function_verb)
+          (comment
+            (comment_text)))))
+    (command_separator)))
+
+==================
+Preserves substitution occurrence spelling and zero recovery
+:language(posix_sed_bre)
+==================
+s/a/b/001
+s/a/b/000
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character
+                        (ordinary_character_token))))))))
+          (delimiter
+            (delimiter_token))
+          (replacement
+            (replacement_literal
+              (replacement_literal_token)))
+          (delimiter
+            (delimiter_token))
+          (substitution_flags
+            (occurrence_flag)))))
+    (command_separator)
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character
+                        (ordinary_character_token))))))))
+          (delimiter
+            (delimiter_token))
+          (replacement
+            (replacement_literal
+              (replacement_literal_token)))
+          (delimiter
+            (delimiter_token))
+          (substitution_flags
+            (syntax_issue
+              (nonconforming_syntax
+                (zero_substitution_occurrence)))))))
+    (command_separator)))
+
+==================
+Gives BRE delimiter escapes precedence over operators
+:language(posix_sed_bre)
+==================
+s|\||x|
+\|\||p
+s|$\||x|
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (quoted_character
+                        (escaped_delimiter
+                          (escaped_delimiter_token)))))))))
+          (delimiter
+            (delimiter_token))
+          (replacement
+            (replacement_literal
+              (replacement_literal_token)))
+          (delimiter
+            (delimiter_token)))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address
+          (context_address
+            (address_escape)
+            (delimiter
+              (delimiter_token))
+            (basic_reg_exp
+              (bre_branch
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (quoted_character
+                          (escaped_delimiter
+                            (escaped_delimiter_token)))))))))
+            (delimiter
+              (delimiter_token)))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (basic_reg_exp
+            (bre_branch
+              (bre_branch
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (ordinary_character
+                          (ordinary_character_token)))))))
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (quoted_character
+                        (escaped_delimiter
+                          (escaped_delimiter_token)))))))))
+          (delimiter
+            (delimiter_token))
+          (replacement
+            (replacement_literal
+              (replacement_literal_token)))
+          (delimiter
+            (delimiter_token)))))
+    (command_separator)))
+
+==================
+Exposes non-ASCII regular-expression characters and delimiters atomically
+:language(posix_sed_bre)
+==================
+/😺犬/p
+s😺猫😺犬😺g
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (context_address
+            (delimiter
+              (delimiter_token))
+            (basic_reg_exp
+              (bre_branch
+                (bre_branch
+                  (bre_expression
+                    (simple_bre
+                      (nondupl_bre
+                        (one_char_or_coll_elem_bre
+                          (ordinary_character
+                            (ordinary_character_token)))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (ordinary_character
+                          (ordinary_character_token))))))))
+            (delimiter
+              (delimiter_token)))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character
+                        (ordinary_character_token))))))))
+          (delimiter
+            (delimiter_token))
+          (replacement
+            (replacement_literal
+              (replacement_literal_token)))
+          (delimiter
+            (delimiter_token))
+          (substitution_flags
+            (global_flag)))))
+    (command_separator)))

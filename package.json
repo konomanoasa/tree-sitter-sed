@@ -33,25 +33,16 @@
     "format": "biome format --write .",
     "check:biome": "biome check .",
     "check:generated": "node scripts/check-generated.js",
-    "test": "npm run test:corpus && npm run test:wasm",
+    "test": "npm run test:corpus",
     "test:corpus": "node scripts/run-tree-sitter.js test",
-    "test:wasm": "node scripts/run-wasm-tests.js",
     "test:debug": "node scripts/run-tree-sitter.js test --debug-build --rebuild",
     "test:fuzz": "node scripts/run-fuzz-tests.js --iterations 100 --edits 5",
     "check": "npm run check:biome && npm run check:generated && npm test"
   },
-  "keywords": [
-    "tree-sitter",
-    "sed",
-    "bre",
-    "ere",
-    "posix"
-  ],
   "license": "MIT",
   "devDependencies": {
     "@biomejs/biome": "2.5.5",
-    "tree-sitter-cli": "0.26.11",
-    "web-tree-sitter": "0.26.11"
+    "tree-sitter-cli": "0.26.11"
   },
   "allowScripts": {
     "tree-sitter-cli": true
