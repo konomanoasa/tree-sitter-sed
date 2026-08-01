@@ -153,9 +153,46 @@ function choiceForRules($, names) {
 
 function commandListRules() {
   return {
-    script: ($) => optional($.command_list),
+    script: ($) => optional(alias($._script_command_list, $.command_list)),
 
     command_list: ($) => $._command_list,
+
+    _script_command_list: ($) =>
+      choice($._initial_suppressing_comment_command_list, $._command_list),
+
+    _initial_suppressing_comment_command_list: ($) =>
+      seq(
+        alias($._initial_suppressing_comment_command, $.editing_command),
+        optional(seq($._newline_separator, optional($._command_list))),
+      ),
+
+    _initial_suppressing_comment_command: ($) =>
+      field(
+        "function",
+        alias($._initial_suppressing_comment_function, $.function),
+      ),
+
+    _initial_suppressing_comment_function: ($) =>
+      alias($._initial_suppressing_comment_function_body, $.comment_function),
+
+    _initial_suppressing_comment_function_body: ($) =>
+      seq(
+        functionVerb($, "#"),
+        field("comment", alias($._initial_suppressing_comment, $.comment)),
+      ),
+
+    _initial_suppressing_comment: ($) =>
+      seq(
+        field(
+          "suppression",
+          namedExternal(
+            $,
+            $._default_output_suppression,
+            "default_output_suppression",
+          ),
+        ),
+        optional(namedExternal($, $._comment_text, "comment_text")),
+      ),
 
     _command_list: ($) =>
       choice($._final_line, seq($._terminated_line, optional($._command_list))),

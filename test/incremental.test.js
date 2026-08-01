@@ -246,6 +246,41 @@ test("edits between recovery and canonical syntax match full parses", () => {
   }
 });
 
+test("script-leading #n suppression follows incremental edits", () => {
+  for (const variant of ["posix-sed-bre", "posix-sed-ere"]) {
+    const parser = parserFor(languages[variant]);
+    let source = "#x\n";
+    let tree = parser.parse(source);
+    const stages = [
+      { edit: (current) => replace(current, "x", "n"), expected: 1 },
+      {
+        edit: () => ({ startIndex: 0, oldEndIndex: 0, text: " " }),
+        expected: 0,
+      },
+      { edit: (current) => replace(current, " ", ""), expected: 1 },
+      { edit: (current) => replace(current, "n", "x"), expected: 0 },
+    ];
+
+    for (const { edit, expected } of stages) {
+      source = applyEdits(tree, source, [edit(source)]);
+      const incrementalTree = parser.parse(source, tree);
+      const fullTree = parser.parse(source);
+
+      assert.deepEqual(
+        snapshot(incrementalTree.rootNode),
+        snapshot(fullTree.rootNode),
+      );
+      assert.equal(
+        incrementalTree.rootNode.descendantsOfType("default_output_suppression")
+          .length,
+        expected,
+        `${variant}: ${JSON.stringify(source)}`,
+      );
+      tree = incrementalTree;
+    }
+  }
+});
+
 test("multiline operand edits match full parses", () => {
   assertIncrementalEqualsFull(
     languages["posix-sed-bre"],

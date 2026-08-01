@@ -118,6 +118,7 @@ enum TokenType {
   TEXT_UNSPECIFIED_ESCAPE,
   TEXT_LINE_END,
   TEXT_EOF,
+  DEFAULT_OUTPUT_SUPPRESSION,
   COMMENT_TEXT,
   FILE_ARGUMENT,
   LINE_WORD,
@@ -696,6 +697,15 @@ static bool scan_to_physical_line_end(TSLexer *lexer, bool consumed) {
 
 static bool scan_comment_text(TSLexer *lexer) {
   return scan_to_physical_line_end(lexer, false);
+}
+
+static bool scan_default_output_suppression(TSLexer *lexer) {
+  if (lexer->lookahead != 'n') {
+    return false;
+  }
+
+  consume(lexer);
+  return true;
 }
 
 static bool scan_file_argument(TSLexer *lexer) {
@@ -2567,6 +2577,12 @@ static bool sed_scanner_scan_impl(
       *symbol = TEXT_COMMAND_START;
       return true;
     }
+  }
+
+  if (valid_symbols[DEFAULT_OUTPUT_SUPPRESSION] &&
+      scan_default_output_suppression(lexer)) {
+    *symbol = DEFAULT_OUTPUT_SUPPRESSION;
+    return true;
   }
 
   if (valid_symbols[COMMENT_TEXT] &&

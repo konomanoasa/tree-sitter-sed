@@ -136,6 +136,62 @@ test("every POSIX editing function remains a specific function node", () => {
   }
 });
 
+test("only script-leading #n comments expose default-output suppression", () => {
+  const positiveCases = [
+    ["#n", null],
+    ["#n\np\n", null],
+    ["#not; p\np\n", "ot; p"],
+    ["#n\r\np\n", "\r"],
+  ];
+  const negativeCases = [
+    "# n\n",
+    " #n\n",
+    ";#n\n",
+    "\n#n\n",
+    "p\n#n\n",
+    "{\n#n\n}\n",
+    "#N\n",
+  ];
+
+  for (const variant of variantIds) {
+    for (const [source, suffix] of positiveCases) {
+      const tree = parse(variant, source);
+      assertPortable(tree);
+      const suppression = only(tree, "default_output_suppression");
+      const comment = suppression.parent;
+
+      assert.equal(suppression.text, "n", source);
+      assert.deepEqual(
+        [suppression.startIndex, suppression.endIndex],
+        [1, 2],
+        source,
+      );
+      assert.equal(comment?.type, "comment", source);
+      assert.deepEqual(
+        [
+          comment?.childForFieldName("suppression")?.type,
+          comment?.childForFieldName("suppression")?.startIndex,
+          comment?.childForFieldName("suppression")?.endIndex,
+        ],
+        ["default_output_suppression", 1, 2],
+        source,
+      );
+      assert.equal(
+        comment?.namedChildren.find(({ type }) => type === "comment_text")
+          ?.text ?? null,
+        suffix,
+        source,
+      );
+    }
+
+    for (const source of negativeCases) {
+      const tree = parse(variant, source);
+      assertPortable(tree);
+      assert.deepEqual(nodes(tree, "default_output_suppression"), [], source);
+    }
+  }
+});
+
 test("substitution, translation, and text operands expose their atoms", () => {
   const substitution = parse("posix-sed-bre", "s|a|x&\\0\\1\\||g\n");
   assertPortable(substitution);

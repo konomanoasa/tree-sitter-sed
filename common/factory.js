@@ -459,6 +459,7 @@ function externalTokens($, mode) {
     $._text_unspecified_escape,
     $._text_line_end,
     $._text_eof,
+    $._default_output_suppression,
     $._comment_text,
     $._file_argument,
     $._line_word,

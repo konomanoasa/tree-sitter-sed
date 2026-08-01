@@ -6,8 +6,13 @@
       "type": "CHOICE",
       "members": [
         {
-          "type": "SYMBOL",
-          "name": "command_list"
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_script_command_list"
+          },
+          "named": true,
+          "value": "command_list"
         },
         {
           "type": "BLANK"
@@ -17,6 +22,150 @@
     "command_list": {
       "type": "SYMBOL",
       "name": "_command_list"
+    },
+    "_script_command_list": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_initial_suppressing_comment_command_list"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_command_list"
+        }
+      ]
+    },
+    "_initial_suppressing_comment_command_list": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_initial_suppressing_comment_command"
+          },
+          "named": true,
+          "value": "editing_command"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "SYMBOL",
+                  "name": "_newline_separator"
+                },
+                {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "SYMBOL",
+                      "name": "_command_list"
+                    },
+                    {
+                      "type": "BLANK"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        }
+      ]
+    },
+    "_initial_suppressing_comment_command": {
+      "type": "FIELD",
+      "name": "function",
+      "content": {
+        "type": "ALIAS",
+        "content": {
+          "type": "SYMBOL",
+          "name": "_initial_suppressing_comment_function"
+        },
+        "named": true,
+        "value": "function"
+      }
+    },
+    "_initial_suppressing_comment_function": {
+      "type": "ALIAS",
+      "content": {
+        "type": "SYMBOL",
+        "name": "_initial_suppressing_comment_function_body"
+      },
+      "named": true,
+      "value": "comment_function"
+    },
+    "_initial_suppressing_comment_function_body": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "FIELD",
+          "name": "verb",
+          "content": {
+            "type": "ALIAS",
+            "content": {
+              "type": "STRING",
+              "value": "#"
+            },
+            "named": true,
+            "value": "function_verb"
+          }
+        },
+        {
+          "type": "FIELD",
+          "name": "comment",
+          "content": {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_initial_suppressing_comment"
+            },
+            "named": true,
+            "value": "comment"
+          }
+        }
+      ]
+    },
+    "_initial_suppressing_comment": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "FIELD",
+          "name": "suppression",
+          "content": {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_default_output_suppression"
+            },
+            "named": true,
+            "value": "default_output_suppression"
+          }
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_comment_text"
+              },
+              "named": true,
+              "value": "comment_text"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        }
+      ]
     },
     "_command_list": {
       "type": "CHOICE",
@@ -10357,6 +10506,10 @@
     {
       "type": "SYMBOL",
       "name": "_text_eof"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_default_output_suppression"
     },
     {
       "type": "SYMBOL",

@@ -603,10 +603,21 @@
   {
     "type": "comment",
     "named": true,
-    "fields": {},
+    "fields": {
+      "suppression": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "default_output_suppression",
+            "named": true
+          }
+        ]
+      }
+    },
     "children": {
       "multiple": false,
-      "required": true,
+      "required": false,
       "types": [
         {
           "type": "comment_text",
@@ -3452,6 +3463,10 @@
   },
   {
     "type": "comment_text",
+    "named": true
+  },
+  {
+    "type": "default_output_suppression",
     "named": true
   },
   {

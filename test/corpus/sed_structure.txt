@@ -224,6 +224,33 @@ b loop
     (command_separator)))
 
 ==================
+Exposes default-output suppression in the leading comment
+:language(posix_sed_bre)
+==================
+#normal
+#n
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (comment_function
+          (function_verb)
+          (comment
+            (default_output_suppression)
+            (comment_text)))))
+    (command_separator)
+    (editing_command
+      (function
+        (comment_function
+          (function_verb)
+          (comment
+            (comment_text)))))
+    (command_separator)))
+
+==================
 Nests a command list inside a block function
 :language(posix_sed_bre)
 ==================
