@@ -7,14 +7,6 @@
     "type": "git",
     "url": "git+https://github.com/konomanoasa/tree-sitter-posix-sed.git"
   },
-  "bugs": {
-    "url": "https://github.com/konomanoasa/tree-sitter-posix-sed/issues"
-  },
-  "homepage": "https://github.com/konomanoasa/tree-sitter-posix-sed#readme",
-  "packageManager": "npm@10.9.4",
-  "engines": {
-    "node": ">=22.0.0"
-  },
   "devEngines": {
     "runtime": {
       "name": "node",
