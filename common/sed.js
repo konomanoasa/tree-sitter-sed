@@ -413,7 +413,10 @@ function addressRules(mode) {
           -1,
           choice(
             seq(
-              field("separator", alias(",", $.address_separator)),
+              field(
+                "separator",
+                alias($._address_separator_token, $.address_separator),
+              ),
               field("second", $.address),
               issueField($, "omitted_address"),
             ),
@@ -426,7 +429,10 @@ function addressRules(mode) {
               issueField($, "omitted_address"),
             ),
             seq(
-              field("separator", alias(",", $.address_separator)),
+              field(
+                "separator",
+                alias($._address_separator_token, $.address_separator),
+              ),
               issueField($, "omitted_address"),
             ),
           ),
@@ -471,13 +477,16 @@ function addressRules(mode) {
           seq(
             issueField($, "blanks_around_address_separator"),
             choice(
-              seq($._blanks, ",", optional($._blanks)),
-              seq(",", $._blanks),
+              seq($._blanks, $._address_separator_token, optional($._blanks)),
+              seq($._address_separator_token, $._blanks),
             ),
           ),
         ),
-        ",",
+        $._address_separator_token,
       ),
+
+    _address_separator_token: ($) =>
+      field("token", alias(",", $.address_separator_token)),
 
     address: ($) =>
       choice(

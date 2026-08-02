@@ -14,7 +14,8 @@ k tail
   (command_list
     (editing_command
       (address_clause
-        (address_separator)
+        (address_separator
+          (address_separator_token))
         (syntax_issue
           (undefined_syntax
             (omitted_address))))
@@ -26,7 +27,8 @@ k tail
       (address_clause
         (address
           (line_number_address))
-        (address_separator)
+        (address_separator
+          (address_separator_token))
         (address
           (line_number_address)))
       (function
@@ -67,6 +69,77 @@ k tail
         (syntax_issue
           (nonconforming_syntax
             (unexpected_command_text)))))
+    (command_separator)))
+
+==================
+Preserves address separator tokens across recovery shapes
+:language(posix_sed_bre)
+==================
+1,p
+1 ,2p
+1, 2p
+1 2p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator
+          (address_separator_token))
+        (syntax_issue
+          (undefined_syntax
+            (omitted_address))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator
+          (syntax_issue
+            (nonconforming_syntax
+              (blanks_around_address_separator)))
+          (address_separator_token))
+        (address
+          (line_number_address)))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator
+          (syntax_issue
+            (nonconforming_syntax
+              (blanks_around_address_separator)))
+          (address_separator_token))
+        (address
+          (line_number_address)))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator
+          (syntax_issue
+            (nonconforming_syntax
+              (missing_address_separator))))
+        (address
+          (line_number_address)))
+      (function
+        (print_function
+          (function_verb))))
     (command_separator)))
 
 ==================

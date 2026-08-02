@@ -1242,8 +1242,8 @@
                     "content": {
                       "type": "ALIAS",
                       "content": {
-                        "type": "STRING",
-                        "value": ","
+                        "type": "SYMBOL",
+                        "name": "_address_separator_token"
                       },
                       "named": true,
                       "value": "address_separator"
@@ -1320,8 +1320,8 @@
                     "content": {
                       "type": "ALIAS",
                       "content": {
-                        "type": "STRING",
-                        "value": ","
+                        "type": "SYMBOL",
+                        "name": "_address_separator_token"
                       },
                       "named": true,
                       "value": "address_separator"
@@ -1514,8 +1514,8 @@
                         "name": "_blanks"
                       },
                       {
-                        "type": "STRING",
-                        "value": ","
+                        "type": "SYMBOL",
+                        "name": "_address_separator_token"
                       },
                       {
                         "type": "CHOICE",
@@ -1535,8 +1535,8 @@
                     "type": "SEQ",
                     "members": [
                       {
-                        "type": "STRING",
-                        "value": ","
+                        "type": "SYMBOL",
+                        "name": "_address_separator_token"
                       },
                       {
                         "type": "SYMBOL",
@@ -1550,10 +1550,23 @@
           }
         },
         {
-          "type": "STRING",
-          "value": ","
+          "type": "SYMBOL",
+          "name": "_address_separator_token"
         }
       ]
+    },
+    "_address_separator_token": {
+      "type": "FIELD",
+      "name": "token",
+      "content": {
+        "type": "ALIAS",
+        "content": {
+          "type": "STRING",
+          "value": ","
+        },
+        "named": true,
+        "value": "address_separator_token"
+      }
     },
     "address": {
       "type": "CHOICE",

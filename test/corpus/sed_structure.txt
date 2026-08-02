@@ -12,7 +12,8 @@ Exposes addresses, negation, and the selected function
       (address_clause
         (address
           (line_number_address))
-        (address_separator)
+        (address_separator
+          (address_separator_token))
         (address
           (last_line_address)))
       (negation
@@ -267,7 +268,8 @@ Nests a command list inside a block function
       (address_clause
         (address
           (line_number_address))
-        (address_separator)
+        (address_separator
+          (address_separator_token))
         (address
           (line_number_address)))
       (function
