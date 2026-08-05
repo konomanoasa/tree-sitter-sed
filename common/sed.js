@@ -34,7 +34,6 @@ const missingDelimiterReasons = [
   "missing_opening_delimiter",
 ];
 
-/** POSIX.1-2024 sed editing-command synopses. */
 const functionDefinitions = [
   { rule: "block_function", spelling: "{", form: "block" },
   {
@@ -539,8 +538,6 @@ function operandRules(mode) {
         $._substitute_function_with_write,
       ),
 
-    // A terminal write flag consumes the rest of the physical line as a file
-    // operand, so editingCommandRules routes these two forms separately.
     _substitute_function_without_write: ($) =>
       choice(
         seq(
@@ -822,7 +819,7 @@ function functionRules() {
 
   for (const descriptor of functionDefinitions) {
     const { form, rule, spelling } = descriptor;
-    if (form === undefined || form === "substitute") {
+    if (form === undefined || form === "substitute" || form === "translate") {
       continue;
     }
     if (form === "block") {
@@ -877,8 +874,6 @@ function functionRules() {
     } else if (form === "comment") {
       rules[rule] = ($) =>
         seq(functionVerb($, spelling), optional(field("comment", $.comment)));
-    } else if (form === "translate") {
-      // Defined by operandRules.
     }
   }
 

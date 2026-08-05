@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 const { spawnSync } = require("node:child_process");
 const { mkdtempSync, rmSync } = require("node:fs");
 const { tmpdir } = require("node:os");

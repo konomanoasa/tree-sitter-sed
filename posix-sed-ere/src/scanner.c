@@ -10,21 +10,24 @@ void tree_sitter_posix_sed_ere_external_scanner_destroy(void *payload) {
 }
 
 unsigned tree_sitter_posix_sed_ere_external_scanner_serialize(
-    void *payload,
-    char *buffer) {
+  void *payload,
+  char *buffer
+) {
   return sed_scanner_serialize(payload, buffer);
 }
 
 void tree_sitter_posix_sed_ere_external_scanner_deserialize(
-    void *payload,
-    const char *buffer,
-    unsigned length) {
+  void *payload,
+  const char *buffer,
+  unsigned length
+) {
   sed_scanner_deserialize(payload, buffer, length);
 }
 
 bool tree_sitter_posix_sed_ere_external_scanner_scan(
-    void *payload,
-    TSLexer *lexer,
-    const bool *valid_symbols) {
+  void *payload,
+  TSLexer *lexer,
+  const bool *valid_symbols
+) {
   return sed_scanner_scan(payload, lexer, valid_symbols);
 }

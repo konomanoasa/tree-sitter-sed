@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 const { createHash } = require("node:crypto");
 const { spawnSync } = require("node:child_process");
 const { lstatSync, readFileSync, readlinkSync } = require("node:fs");
