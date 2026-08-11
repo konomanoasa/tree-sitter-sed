@@ -21,7 +21,7 @@
   "metadata": {
     "version": "0.1.0",
     "license": "MIT",
-    "description": "Tree-sitter grammars for POSIX.1-2024 sed scripts using BREs and EREs.",
+    "description": "Tree-sitter grammars for POSIX sed.",
     "authors": [
       {
         "name": "konomanoasa"

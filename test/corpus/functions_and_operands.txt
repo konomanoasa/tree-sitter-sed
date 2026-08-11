@@ -1,5 +1,5 @@
 ==================
-Exposes the remaining POSIX editing-function nodes
+Exposes change, insert, test, and write function nodes
 :language(posix_sed_bre)
 ==================
 c\
@@ -54,17 +54,11 @@ w output
     (command_separator)))
 
 ==================
-Exposes substitution, translation, and text operand atoms
+Exposes substitution replacement and flag atoms
 :language(posix_sed_bre)
 ==================
 s|a|x&\0\1\||gipw output
 s|a|\&\\|
-s|a|first\
-second|
-y|a\n\||b\\c|
-a\
-first\\second\
-third
 
 ---
 
@@ -131,7 +125,19 @@ third
               (replacement_escape_token)))
           (delimiter
             (delimiter_token)))))
-    (command_separator)
+    (command_separator)))
+
+==================
+Preserves escaped newlines in substitution replacements
+:language(posix_sed_bre)
+==================
+s|a|first\
+second|
+
+---
+
+(script
+  (command_list
     (editing_command
       (function
         (substitute_function
@@ -157,7 +163,18 @@ third
               (replacement_literal_token)))
           (delimiter
             (delimiter_token)))))
-    (command_separator)
+    (command_separator)))
+
+==================
+Exposes translation string atoms
+:language(posix_sed_bre)
+==================
+y|a\n\||b\\c|
+
+---
+
+(script
+  (command_list
     (editing_command
       (function
         (translate_function
@@ -182,7 +199,20 @@ third
               (translation_literal_token)))
           (delimiter
             (delimiter_token)))))
-    (command_separator)
+    (command_separator)))
+
+==================
+Exposes backslash escapes and escaped newlines in text operands
+:language(posix_sed_bre)
+==================
+a\
+first\\second\
+third
+
+---
+
+(script
+  (command_list
     (editing_command
       (function
         (append_function
@@ -205,10 +235,13 @@ third
     (command_separator)))
 
 ==================
-Does not expose output suppression after initial blank
+Keeps file, label, and comment operands inside line-terminated functions
 :language(posix_sed_bre)
 ==================
- #n
+r input file
+:loop
+b loop
+# comment
 
 ---
 
@@ -216,45 +249,26 @@ Does not expose output suppression after initial blank
   (command_list
     (editing_command
       (function
-        (comment_function
+        (read_function
           (function_verb)
-          (comment
-            (comment_text)))))
-    (command_separator)))
-
-==================
-Does not expose output suppression after initial semicolon
-:language(posix_sed_bre)
-==================
-;#n
-
----
-
-(script
-  (command_list
-    (empty_command
-      (command_separator))
+          (rfile
+            (rfile_token)))))
+    (command_separator)
     (editing_command
       (function
-        (comment_function
+        (label_function
           (function_verb)
-          (comment
-            (comment_text)))))
-    (command_separator)))
-
-==================
-Does not expose output suppression after initial newline
-:language(posix_sed_bre)
-==================
-
-#n
-
----
-
-(script
-  (command_list
-    (empty_command
-      (command_separator))
+          (label
+            (label_token)))))
+    (command_separator)
+    (editing_command
+      (function
+        (branch_function
+          (function_verb)
+          (argument_separator)
+          (label
+            (label_token)))))
+    (command_separator)
     (editing_command
       (function
         (comment_function
@@ -326,12 +340,10 @@ s/a/b/000
     (command_separator)))
 
 ==================
-Gives BRE delimiter escapes precedence over operators
+Classifies omitted file separators without flattening read functions
 :language(posix_sed_bre)
 ==================
-s|\||x|
-\|\||p
-s|$\||x|
+rfile
 
 ---
 
@@ -339,118 +351,26 @@ s|$\||x|
   (command_list
     (editing_command
       (function
-        (substitute_function
+        (read_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
-          (basic_reg_exp
-            (bre_branch
-              (bre_expression
-                (simple_bre
-                  (nondupl_bre
-                    (one_char_or_coll_elem_bre
-                      (quoted_character
-                        (escaped_delimiter
-                          (escaped_delimiter_token)))))))))
-          (delimiter
-            (delimiter_token))
-          (replacement
-            (replacement_literal
-              (replacement_literal_token)))
-          (delimiter
-            (delimiter_token)))))
-    (command_separator)
-    (editing_command
-      (address_clause
-        (address
-          (context_address
-            (address_escape)
-            (delimiter
-              (delimiter_token))
-            (basic_reg_exp
-              (bre_branch
-                (bre_expression
-                  (simple_bre
-                    (nondupl_bre
-                      (one_char_or_coll_elem_bre
-                        (quoted_character
-                          (escaped_delimiter
-                            (escaped_delimiter_token)))))))))
-            (delimiter
-              (delimiter_token)))))
-      (function
-        (print_function
-          (function_verb))))
-    (command_separator)
-    (editing_command
-      (function
-        (substitute_function
-          (function_verb)
-          (delimiter
-            (delimiter_token))
-          (basic_reg_exp
-            (bre_branch
-              (bre_branch
-                (bre_expression
-                  (simple_bre
-                    (nondupl_bre
-                      (one_char_or_coll_elem_bre
-                        (ordinary_character
-                          (ordinary_character_token)))))))
-              (bre_expression
-                (simple_bre
-                  (nondupl_bre
-                    (one_char_or_coll_elem_bre
-                      (quoted_character
-                        (escaped_delimiter
-                          (escaped_delimiter_token)))))))))
-          (delimiter
-            (delimiter_token))
-          (replacement
-            (replacement_literal
-              (replacement_literal_token)))
-          (delimiter
-            (delimiter_token)))))
+          (syntax_issue
+            (implementation_option_syntax
+              (omitted_file_separator)))
+          (rfile
+            (rfile_token)))))
     (command_separator)))
 
 ==================
-Exposes non-ASCII regular-expression characters and delimiters atomically
+Terminates an incomplete substitution at a physical line boundary
 :language(posix_sed_bre)
 ==================
-/😺犬/p
-s😺猫😺犬😺g
+s/\(a
+p
 
 ---
 
 (script
   (command_list
-    (editing_command
-      (address_clause
-        (address
-          (context_address
-            (delimiter
-              (delimiter_token))
-            (basic_reg_exp
-              (bre_branch
-                (bre_branch
-                  (bre_expression
-                    (simple_bre
-                      (nondupl_bre
-                        (one_char_or_coll_elem_bre
-                          (ordinary_character
-                            (ordinary_character_token)))))))
-                (bre_expression
-                  (simple_bre
-                    (nondupl_bre
-                      (one_char_or_coll_elem_bre
-                        (ordinary_character
-                          (ordinary_character_token))))))))
-            (delimiter
-              (delimiter_token)))))
-      (function
-        (print_function
-          (function_verb))))
-    (command_separator)
     (editing_command
       (function
         (substitute_function
@@ -462,16 +382,65 @@ s😺猫😺犬😺g
               (bre_expression
                 (simple_bre
                   (nondupl_bre
-                    (one_char_or_coll_elem_bre
-                      (ordinary_character
-                        (ordinary_character_token))))))))
+                    (back_open_parenthesis)
+                    (basic_reg_exp
+                      (bre_branch
+                        (bre_expression
+                          (simple_bre
+                            (nondupl_bre
+                              (one_char_or_coll_elem_bre
+                                (ordinary_character
+                                  (ordinary_character_token))))))))
+                    (back_close_parenthesis
+                      (syntax_issue
+                        (undefined_syntax
+                          (unclosed_subexpression)))))))))
+          (delimiter
+            (syntax_issue
+              (incomplete_syntax
+                (incomplete_regular_expression)))))))
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+Terminates an incomplete translation at a physical line boundary
+:language(posix_sed_bre)
+==================
+y/a/b\
+p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (translate_function
+          (function_verb)
           (delimiter
             (delimiter_token))
-          (replacement
-            (replacement_literal
-              (replacement_literal_token)))
+          (translation_string
+            (translation_literal
+              (translation_literal_token)))
           (delimiter
             (delimiter_token))
-          (substitution_flags
-            (global_flag)))))
+          (translation_string
+            (translation_literal
+              (translation_literal_token))
+            (syntax_issue
+              (undefined_syntax
+                (undefined_translation_escape))))
+          (delimiter
+            (syntax_issue
+              (incomplete_syntax
+                (incomplete_translation)))))))
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
     (command_separator)))

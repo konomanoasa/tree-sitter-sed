@@ -163,69 +163,7 @@ d;D;g;G;h;H;l;n;N;p;P;q;s/a/b/;x;y/a/b/;=
     (command_separator)))
 
 ==================
-Keeps line-consuming operands inside their functions
-:language(posix_sed_bre)
-==================
-a\
-first\
-second
-r input file
-:loop
-b loop
-# comment
-
----
-
-(script
-  (command_list
-    (editing_command
-      (function
-        (append_function
-          (function_verb)
-          (text_introducer
-            (text_introducer_token))
-          (text
-            (text_literal
-              (text_literal_token))
-            (text_escaped_newline
-              (text_escaped_newline_token))
-            (text_literal
-              (text_literal_token))
-            (text_terminator
-              (text_line_end))))))
-    (command_separator)
-    (editing_command
-      (function
-        (read_function
-          (function_verb)
-          (rfile
-            (rfile_token)))))
-    (command_separator)
-    (editing_command
-      (function
-        (label_function
-          (function_verb)
-          (label
-            (label_token)))))
-    (command_separator)
-    (editing_command
-      (function
-        (branch_function
-          (function_verb)
-          (argument_separator)
-          (label
-            (label_token)))))
-    (command_separator)
-    (editing_command
-      (function
-        (comment_function
-          (function_verb)
-          (comment
-            (comment_text)))))
-    (command_separator)))
-
-==================
-Exposes default-output suppression in the leading comment
+Recognizes default-output suppression only in the leading comment
 :language(posix_sed_bre)
 ==================
 #normal
@@ -291,4 +229,196 @@ Nests a command list inside a block function
             (command_separator))
           (closing_brace
             (closing_brace_token)))))
+    (command_separator)))
+
+==================
+Does not recognize output suppression after an initial blank
+:language(posix_sed_bre)
+==================
+ #n
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (comment_function
+          (function_verb)
+          (comment
+            (comment_text)))))
+    (command_separator)))
+
+==================
+Does not recognize output suppression after an initial semicolon
+:language(posix_sed_bre)
+==================
+;#n
+
+---
+
+(script
+  (command_list
+    (empty_command
+      (command_separator))
+    (editing_command
+      (function
+        (comment_function
+          (function_verb)
+          (comment
+            (comment_text)))))
+    (command_separator)))
+
+==================
+Does not recognize output suppression after an initial newline
+:language(posix_sed_bre)
+==================
+
+#n
+
+---
+
+(script
+  (command_list
+    (empty_command
+      (command_separator))
+    (editing_command
+      (function
+        (comment_function
+          (function_verb)
+          (comment
+            (comment_text)))))
+    (command_separator)))
+
+==================
+Classifies command-structure issues without flattening commands
+:language(posix_sed_bre)
+==================
+,p
+1,2q
+1! p
+k tail
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address_separator
+          (address_separator_token))
+        (syntax_issue
+          (undefined_syntax
+            (omitted_address))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator
+          (address_separator_token))
+        (address
+          (line_number_address)))
+      (function
+        (quit_function
+          (function_verb)))
+      (syntax_issue
+        (nonconforming_syntax
+          (excess_addresses))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address)))
+      (negation
+        (negation_operator)
+        (syntax_issue
+          (unspecified_syntax
+            (blanks_after_negation))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (syntax_issue
+          (nonconforming_syntax
+            (unknown_function)))
+        (syntax_issue
+          (nonconforming_syntax
+            (unexpected_command_text)))))
+    (command_separator)))
+
+==================
+Preserves address separator tokens across recovery shapes
+:language(posix_sed_bre)
+==================
+1,p
+1 ,2p
+1, 2p
+1 2p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator
+          (address_separator_token))
+        (syntax_issue
+          (undefined_syntax
+            (omitted_address))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator
+          (syntax_issue
+            (nonconforming_syntax
+              (blanks_around_address_separator)))
+          (address_separator_token))
+        (address
+          (line_number_address)))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator
+          (syntax_issue
+            (nonconforming_syntax
+              (blanks_around_address_separator)))
+          (address_separator_token))
+        (address
+          (line_number_address)))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator
+          (syntax_issue
+            (nonconforming_syntax
+              (missing_address_separator))))
+        (address
+          (line_number_address)))
+      (function
+        (print_function
+          (function_verb))))
     (command_separator)))

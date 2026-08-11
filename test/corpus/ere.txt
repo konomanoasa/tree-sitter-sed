@@ -209,3 +209,55 @@ Exposes POSIX repetition modifiers
         (print_function
           (function_verb))))
     (command_separator)))
+
+==================
+Classifies empty ERE subexpressions and alternatives inside the POSIX hierarchy
+:language(posix_sed_ere)
+==================
+/()a||b/p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (context_address
+            (delimiter
+              (delimiter_token))
+            (extended_reg_exp
+              (extended_reg_exp
+                (extended_reg_exp
+                  (ere_branch
+                    (ere_branch
+                      (ere_expression
+                        (open_parenthesis)
+                        (syntax_issue
+                          (undefined_syntax
+                            (empty_subexpression)))
+                        (close_parenthesis
+                          (close_parenthesis_token))))
+                    (ere_expression
+                      (one_char_or_coll_elem_ere
+                        (ordinary_character
+                          (ordinary_character_token))))))
+                (ere_alternation_operator
+                  (ere_alternation_operator_token))
+                (ere_branch
+                  (syntax_issue
+                    (undefined_syntax
+                      (empty_alternative)))))
+              (ere_alternation_operator
+                (ere_alternation_operator_token))
+              (ere_branch
+                (ere_expression
+                  (one_char_or_coll_elem_ere
+                    (ordinary_character
+                      (ordinary_character_token))))))
+            (delimiter
+              (delimiter_token)))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))

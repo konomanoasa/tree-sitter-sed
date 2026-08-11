@@ -2,7 +2,7 @@
   "name": "tree-sitter-posix-sed",
   "version": "0.1.0",
   "private": true,
-  "description": "Tree-sitter BRE and ERE grammars for POSIX.1-2024 sed scripts.",
+  "description": "Tree-sitter grammars for POSIX sed.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/konomanoasa/tree-sitter-posix-sed.git"

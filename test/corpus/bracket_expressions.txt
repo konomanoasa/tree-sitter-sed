@@ -1,5 +1,5 @@
 ==================
-Mirrors the POSIX bracket-expression production hierarchy
+Mirrors the POSIX bracket expression production hierarchy
 :language(posix_sed_bre)
 ==================
 /[^]a-c[:alpha:][.].][=a=]-]/p
