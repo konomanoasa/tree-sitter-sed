@@ -24,12 +24,15 @@
     "generate": "node scripts/generate-parsers.js",
     "format": "biome format --write .",
     "check:biome": "biome check .",
+    "check:clang": "node scripts/check-clang.js",
     "check:generated": "node scripts/check-generated.js",
-    "test": "npm run test:corpus",
+    "test": "npm run test:corpus && npm run test:boundaries",
+    "test:boundaries": "node scripts/run-boundary-tests.js",
+    "test:convergence": "node scripts/run-convergence-tests.js",
     "test:corpus": "node scripts/run-tree-sitter.js test",
     "test:debug": "node scripts/run-tree-sitter.js test --debug-build --rebuild",
     "test:fuzz": "node scripts/run-fuzz-tests.js --iterations 100 --edits 5",
-    "check": "npm run check:biome && npm run check:generated && npm test"
+    "check": "npm run check:biome && npm run check:clang && npm run check:generated && npm test"
   },
   "license": "MIT",
   "devDependencies": {

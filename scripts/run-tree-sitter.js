@@ -4,14 +4,9 @@ const { spawnSync } = require("node:child_process");
 const { mkdirSync, mkdtempSync, rmSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { dirname, join } = require("node:path");
+const { executable, missingCliMessage } = require("./tree-sitter-cli");
 
 const root = join(__dirname, "..");
-const executable = join(
-  root,
-  "node_modules",
-  "tree-sitter-cli",
-  process.platform === "win32" ? "tree-sitter.exe" : "tree-sitter",
-);
 const temporaryDirectory = mkdtempSync(
   join(tmpdir(), "tree-sitter-posix-sed-run-"),
 );
@@ -48,7 +43,7 @@ try {
 
 if (result.error) {
   if (result.error.code === "ENOENT") {
-    console.error("Tree-sitter CLI is missing; run npm ci.");
+    console.error(missingCliMessage);
     process.exit(1);
   }
   throw result.error;

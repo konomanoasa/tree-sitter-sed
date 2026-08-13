@@ -1,16 +1,11 @@
-const languages = Object.freeze([
-  Object.freeze({
-    id: "posix-sed-bre",
-    languageName: "posix_sed_bre",
-    directory: "posix-sed-bre",
-    wasmName: "tree-sitter-posix-sed-bre.wasm",
-  }),
-  Object.freeze({
-    id: "posix-sed-ere",
-    languageName: "posix_sed_ere",
-    directory: "posix-sed-ere",
-    wasmName: "tree-sitter-posix-sed-ere.wasm",
-  }),
-]);
+const languages = Object.freeze(
+  ["bre", "ere"].map((mode) =>
+    Object.freeze({
+      directory: `posix-sed-${mode}`,
+      languageName: `posix_sed_${mode}`,
+      scope: `source.sed.posix.${mode}`,
+    }),
+  ),
+);
 
 module.exports = { languages };

@@ -33,10 +33,10 @@ function main() {
   );
 
   try {
-    for (const { directory, id, languageName } of languages) {
+    for (const { directory, languageName } of languages) {
       const libraryPath = join(
         temporaryDirectory,
-        `tree-sitter-${id}${libraryExtension}`,
+        `tree-sitter-${directory}${libraryExtension}`,
       );
       const buildStatus = run([
         "build",

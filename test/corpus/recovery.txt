@@ -1,0 +1,232 @@
+==================
+Classifies missing command components at physical line boundaries
+:language(posix_sed_bre)
+==================
+1
+:
+r
+w
+a x
+s
+p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address)))
+      (function
+        (syntax_issue
+          (nonconforming_syntax
+            (missing_function)))))
+    (command_separator)
+    (editing_command
+      (function
+        (label_function
+          (function_verb)
+          (syntax_issue
+            (nonconforming_syntax
+              (missing_label))))))
+    (command_separator)
+    (editing_command
+      (function
+        (read_function
+          (function_verb)
+          (syntax_issue
+            (nonconforming_syntax
+              (missing_rfile))))))
+    (command_separator)
+    (editing_command
+      (function
+        (write_function
+          (function_verb)
+          (syntax_issue
+            (nonconforming_syntax
+              (missing_wfile))))))
+    (command_separator)
+    (editing_command
+      (function
+        (append_function
+          (function_verb)
+          (syntax_issue
+            (nonconforming_syntax
+              (missing_text_introducer)))))
+      (syntax_issue
+        (nonconforming_syntax
+          (unexpected_command_text))))
+    (command_separator)
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (syntax_issue
+              (nonconforming_syntax
+                (missing_opening_delimiter)))))))
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+Distinguishes a closing-brace separator error from a newline
+:language(posix_sed_bre)
+==================
+{p}
+{p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (block_function
+          (function_verb)
+          (command_list
+            (editing_command
+              (function
+                (print_function
+                  (function_verb))))
+            (syntax_issue
+              (nonconforming_syntax
+                (missing_command_separator))))
+          (closing_brace
+            (closing_brace_token)))))
+    (command_separator)
+    (editing_command
+      (function
+        (block_function
+          (function_verb)
+          (command_list
+            (editing_command
+              (function
+                (print_function
+                  (function_verb))))
+            (command_separator))
+          (closing_brace
+            (syntax_issue
+              (incomplete_syntax
+                (missing_closing_brace)))))))))
+
+==================
+Classifies a blank-separated closing brace inside a block
+:language(posix_sed_bre)
+==================
+{ }
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (block_function
+          (function_verb)
+          (command_list
+            (syntax_issue
+              (nonconforming_syntax
+                (missing_command_separator))))
+          (closing_brace
+            (closing_brace_token)))))
+    (command_separator)))
+
+==================
+Classifies replacement termination at a physical line boundary
+:language(posix_sed_bre)
+==================
+s/a/b
+p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character
+                        (ordinary_character_token))))))))
+          (delimiter
+            (delimiter_token))
+          (replacement
+            (replacement_literal
+              (replacement_literal_token)))
+          (delimiter
+            (syntax_issue
+              (nonconforming_syntax
+                (unterminated_replacement)))))))
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+Recovers unmatched closing braces between top-level commands
+:language(posix_sed_bre)
+==================
+}p
+a}
+p};p
+
+---
+
+(script
+  (command_list
+    (syntax_issue
+      (nonconforming_syntax
+        (unmatched_closing_brace)))
+    (syntax_issue
+      (nonconforming_syntax
+        (missing_command_separator)))
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (append_function
+          (function_verb)
+          (syntax_issue
+            (nonconforming_syntax
+              (missing_text_introducer))))))
+    (syntax_issue
+      (nonconforming_syntax
+        (missing_command_separator)))
+    (syntax_issue
+      (nonconforming_syntax
+        (unmatched_closing_brace)))
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (syntax_issue
+      (nonconforming_syntax
+        (missing_command_separator)))
+    (syntax_issue
+      (nonconforming_syntax
+        (unmatched_closing_brace)))
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))

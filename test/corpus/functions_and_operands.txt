@@ -21,9 +21,7 @@ w output
             (text_introducer_token))
           (text
             (text_literal
-              (text_literal_token))
-            (text_terminator
-              (text_line_end))))))
+              (text_literal_token))))))
     (command_separator)
     (editing_command
       (function
@@ -33,9 +31,7 @@ w output
             (text_introducer_token))
           (text
             (text_literal
-              (text_literal_token))
-            (text_terminator
-              (text_line_end))))))
+              (text_literal_token))))))
     (command_separator)
     (editing_command
       (function
@@ -44,6 +40,84 @@ w output
           (argument_separator)
           (label
             (label_token)))))
+    (command_separator)
+    (editing_command
+      (function
+        (write_function
+          (function_verb)
+          (wfile
+            (wfile_token)))))
+    (command_separator)))
+
+==================
+Preserves ambiguous replacement delimiters and write-flag command ownership
+:language(posix_sed_bre)
+==================
+s&a&\&&
+s/a/b/w file;p
+w file;p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character
+                        (ordinary_character_token))))))))
+          (delimiter
+            (delimiter_token))
+          (replacement
+            (ambiguous_replacement_delimiter_escape
+              (syntax_issue
+                (unspecified_syntax
+                  (replacement_ampersand_delimiter_escape)))))
+          (delimiter
+            (delimiter_token)))))
+    (command_separator)
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character
+                        (ordinary_character_token))))))))
+          (delimiter
+            (delimiter_token))
+          (replacement
+            (replacement_literal
+              (replacement_literal_token)))
+          (delimiter
+            (delimiter_token))
+          (substitution_flags
+            (write_flag
+              (substitution_flag)
+              (wfile
+                (wfile_token))))))
+      (syntax_issue
+        (undefined_syntax
+          (command_after_write_flag))))
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
     (command_separator)
     (editing_command
       (function
@@ -229,9 +303,7 @@ third
             (text_escaped_newline
               (text_escaped_newline_token))
             (text_literal
-              (text_literal_token))
-            (text_terminator
-              (text_line_end))))))
+              (text_literal_token))))))
     (command_separator)))
 
 ==================
@@ -278,7 +350,7 @@ b loop
     (command_separator)))
 
 ==================
-Preserves substitution occurrence spelling and zero recovery
+Preserves every substitution occurrence spelling
 :language(posix_sed_bre)
 ==================
 s/a/b/001
@@ -334,9 +406,7 @@ s/a/b/000
           (delimiter
             (delimiter_token))
           (substitution_flags
-            (syntax_issue
-              (nonconforming_syntax
-                (zero_substitution_occurrence)))))))
+            (occurrence_flag)))))
     (command_separator)))
 
 ==================
@@ -361,7 +431,7 @@ rfile
     (command_separator)))
 
 ==================
-Terminates an incomplete substitution at a physical line boundary
+Terminates a nonconforming substitution at a physical line boundary
 :language(posix_sed_bre)
 ==================
 s/\(a
@@ -397,8 +467,8 @@ p
                           (unclosed_subexpression)))))))))
           (delimiter
             (syntax_issue
-              (incomplete_syntax
-                (incomplete_regular_expression)))))))
+              (nonconforming_syntax
+                (unterminated_regular_expression)))))))
     (command_separator)
     (editing_command
       (function
@@ -407,7 +477,7 @@ p
     (command_separator)))
 
 ==================
-Terminates an incomplete translation at a physical line boundary
+Terminates a nonconforming translation at a physical line boundary
 :language(posix_sed_bre)
 ==================
 y/a/b\
@@ -436,8 +506,8 @@ p
                 (undefined_translation_escape))))
           (delimiter
             (syntax_issue
-              (incomplete_syntax
-                (incomplete_translation)))))))
+              (nonconforming_syntax
+                (unterminated_translation)))))))
     (command_separator)
     (editing_command
       (function

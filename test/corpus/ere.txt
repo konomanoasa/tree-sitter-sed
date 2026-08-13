@@ -95,23 +95,20 @@ Preserves adjacent and leading ERE duplication structures
                   (ere_expression
                     (ere_expression
                       (ere_expression
-                        (ere_expression
-                          (one_char_or_coll_elem_ere
-                            (ordinary_character
-                              (ordinary_character_token))))
-                        (ere_dupl_symbol
-                          (zero_or_more_operator)))
+                        (one_char_or_coll_elem_ere
+                          (ordinary_character
+                            (ordinary_character_token))))
                       (ere_dupl_symbol
-                        (syntax_issue
-                          (undefined_syntax
-                            (adjacent_duplication_symbol)))
-                        (open_brace)
-                        (dup_count
-                          (dup_count_token))
-                        (close_brace)))
+                        (zero_or_more_operator)))
                     (ere_dupl_symbol
-                      (repetition_modifier
-                        (zero_or_one_operator))))))
+                      (syntax_issue
+                        (undefined_syntax
+                          (adjacent_duplication_symbol)))
+                      (open_brace)
+                      (dup_count
+                        (dup_count_token))
+                      (close_brace)
+                      (repetition_modifier)))))
               (ere_alternation_operator
                 (ere_alternation_operator_token))
               (ere_branch
@@ -155,54 +152,42 @@ Exposes POSIX repetition modifiers
                     (ere_branch
                       (ere_expression
                         (ere_expression
-                          (ere_expression
-                            (one_char_or_coll_elem_ere
-                              (ordinary_character
-                                (ordinary_character_token))))
-                          (ere_dupl_symbol
-                            (zero_or_more_operator)))
-                        (ere_dupl_symbol
-                          (repetition_modifier
-                            (zero_or_one_operator)))))
-                    (ere_expression
-                      (ere_expression
-                        (ere_expression
                           (one_char_or_coll_elem_ere
                             (ordinary_character
                               (ordinary_character_token))))
                         (ere_dupl_symbol
-                          (one_or_more_operator)))
-                      (ere_dupl_symbol
-                        (repetition_modifier
-                          (zero_or_one_operator)))))
-                  (ere_expression
+                          (zero_or_more_operator)
+                          (repetition_modifier))))
                     (ere_expression
                       (ere_expression
                         (one_char_or_coll_elem_ere
                           (ordinary_character
                             (ordinary_character_token))))
                       (ere_dupl_symbol
-                        (zero_or_one_operator)))
-                    (ere_dupl_symbol
-                      (repetition_modifier
-                        (zero_or_one_operator)))))
-                (ere_expression
+                        (one_or_more_operator)
+                        (repetition_modifier))))
                   (ere_expression
                     (ere_expression
                       (one_char_or_coll_elem_ere
                         (ordinary_character
                           (ordinary_character_token))))
                     (ere_dupl_symbol
-                      (open_brace)
-                      (dup_count
-                        (dup_count_token))
-                      (interval_separator)
-                      (dup_count
-                        (dup_count_token))
-                      (close_brace)))
+                      (zero_or_one_operator)
+                      (repetition_modifier))))
+                (ere_expression
+                  (ere_expression
+                    (one_char_or_coll_elem_ere
+                      (ordinary_character
+                        (ordinary_character_token))))
                   (ere_dupl_symbol
-                    (repetition_modifier
-                      (zero_or_one_operator))))))
+                    (open_brace)
+                    (dup_count
+                      (dup_count_token))
+                    (interval_separator)
+                    (dup_count
+                      (dup_count_token))
+                    (close_brace)
+                    (repetition_modifier)))))
             (delimiter
               (delimiter_token)))))
       (function

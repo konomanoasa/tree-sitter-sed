@@ -298,6 +298,10 @@ Classifies command-structure issues without flattening commands
 1,2q
 1! p
 k tail
+1!/
+p
+1,2/
+p
 
 ---
 
@@ -350,6 +354,40 @@ k tail
         (syntax_issue
           (nonconforming_syntax
             (unexpected_command_text)))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address)))
+      (negation
+        (negation_operator))
+      (function
+        (syntax_issue
+          (nonconforming_syntax
+            (unknown_function)))))
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator
+          (address_separator_token))
+        (address
+          (line_number_address)))
+      (function
+        (syntax_issue
+          (nonconforming_syntax
+            (unknown_function)))))
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
     (command_separator)))
 
 ==================
@@ -359,7 +397,11 @@ Preserves address separator tokens across recovery shapes
 1,p
 1 ,2p
 1, 2p
+1 , 2p
 1 2p
+1/ab/p
+,1$p
+, 1p
 
 ---
 
@@ -415,10 +457,118 @@ Preserves address separator tokens across recovery shapes
         (address_separator
           (syntax_issue
             (nonconforming_syntax
+              (blanks_around_address_separator)))
+          (address_separator_token))
+        (address
+          (line_number_address)))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator
+          (syntax_issue
+            (nonconforming_syntax
               (missing_address_separator))))
         (address
           (line_number_address)))
       (function
         (print_function
           (function_verb))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator
+          (syntax_issue
+            (nonconforming_syntax
+              (missing_address_separator))))
+        (address
+          (context_address
+            (delimiter
+              (delimiter_token))
+            (basic_reg_exp
+              (bre_branch
+                (bre_branch
+                  (bre_expression
+                    (simple_bre
+                      (nondupl_bre
+                        (one_char_or_coll_elem_bre
+                          (ordinary_character
+                            (ordinary_character_token)))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (ordinary_character
+                          (ordinary_character_token))))))))
+            (delimiter
+              (delimiter_token)))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address_separator
+          (address_separator_token))
+        (address
+          (line_number_address))
+        (syntax_issue
+          (undefined_syntax
+            (omitted_address))))
+      (function
+        (syntax_issue
+          (nonconforming_syntax
+            (unknown_function)))
+        (syntax_issue
+          (nonconforming_syntax
+            (unexpected_command_text)))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address_separator
+          (syntax_issue
+            (nonconforming_syntax
+              (blanks_around_address_separator)))
+          (address_separator_token))
+        (address
+          (line_number_address))
+        (syntax_issue
+          (undefined_syntax
+            (omitted_address))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+==================
+Recovers a block whose leading empty command precedes a missing separator
+:language(posix_sed_bre)
+==================
+{;p}
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (block_function
+          (function_verb)
+          (command_list
+            (empty_command
+              (command_separator))
+            (editing_command
+              (function
+                (print_function
+                  (function_verb))))
+            (syntax_issue
+              (nonconforming_syntax
+                (missing_command_separator))))
+          (closing_brace
+            (closing_brace_token)))))
     (command_separator)))
