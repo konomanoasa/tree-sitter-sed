@@ -60,10 +60,8 @@ function defineIssueRules(definitions) {
     const { outcome, reason, rule } = definition;
     const id = definition.id ?? reason;
     rules[reasonRuleName(id)] = rule;
-    rules[outcomeRuleName(id)] = ($) =>
-      seq(alias($[reasonRuleName(id)], $[reason]));
-    rules[issueRuleName(id)] = ($) =>
-      seq(alias($[outcomeRuleName(id)], $[outcome]));
+    rules[outcomeRuleName(id)] = ($) => alias($[reasonRuleName(id)], $[reason]);
+    rules[issueRuleName(id)] = ($) => alias($[outcomeRuleName(id)], $[outcome]);
   }
 
   return rules;
@@ -235,10 +233,10 @@ function delimiterRules() {
   const rules = {};
   for (const name of delimiterNames) {
     rules[`_${name}_delimiter`] = ($) =>
-      seq(field("token", namedExternal($, $[`_${name}`], "delimiter_token")));
+      field("token", namedExternal($, $[`_${name}`], "delimiter_token"));
   }
   for (const reason of missingDelimiterReasons) {
-    rules[`_${reason}_delimiter`] = ($) => seq(issueField($, reason));
+    rules[`_${reason}_delimiter`] = ($) => issueField($, reason);
   }
   return rules;
 }
@@ -411,7 +409,7 @@ function commandListRules() {
 
     _block_command_list_missing_separator: ($) =>
       choice(
-        seq(missingCommandSeparator($)),
+        missingCommandSeparator($),
         seq(
           optional(leadingEmptyCommands($)),
           $._block_command_sequence,
@@ -585,7 +583,7 @@ function operandRules(mode) {
 
   function substitutionFlagChoice($) {
     const rules = nonWriteSubstitutionFlagRules.map((rule) => $[rule]);
-    rules.push(seq(issueField($, "invalid_substitution_flag")));
+    rules.push(issueField($, "invalid_substitution_flag"));
     return choice(...rules);
   }
 
@@ -659,8 +657,8 @@ function operandRules(mode) {
           $.ambiguous_replacement_delimiter_escape,
           $.replacement_escape,
           $.escaped_newline,
-          seq(issueField($, "unspecified_replacement_escape")),
-          seq(issueField($, "incomplete_replacement_escape")),
+          issueField($, "unspecified_replacement_escape"),
+          issueField($, "incomplete_replacement_escape"),
         ),
       ),
 
@@ -692,7 +690,7 @@ function operandRules(mode) {
       ),
 
     ambiguous_replacement_delimiter_escape: ($) =>
-      seq(issueField($, "replacement_ampersand_delimiter_escape")),
+      issueField($, "replacement_ampersand_delimiter_escape"),
 
     replacement_escape: ($) =>
       namedExternal(
@@ -739,7 +737,7 @@ function operandRules(mode) {
             issueField($, "omitted_file_separator"),
             field("wfile", alias($._substitution_wfile, $.wfile)),
           ),
-          seq(missingAtEndOrBoundary($, "missing_wfile")),
+          missingAtEndOrBoundary($, "missing_wfile"),
         ),
       ),
 
@@ -775,8 +773,8 @@ function operandRules(mode) {
           $.translation_literal,
           $.translation_escape,
           $.translation_escaped_delimiter,
-          seq(issueField($, "undefined_translation_escape")),
-          seq(issueField($, "incomplete_translation_escape")),
+          issueField($, "undefined_translation_escape"),
+          issueField($, "incomplete_translation_escape"),
         ),
       ),
 
@@ -810,7 +808,7 @@ function functionRules() {
             $.text_literal,
             $.text_backslash_escape,
             $.text_escaped_newline,
-            seq(issueField($, "unspecified_text_escape")),
+            issueField($, "unspecified_text_escape"),
           ),
         ),
         optional(issueField($, "missing_text")),
@@ -845,12 +843,12 @@ function functionRules() {
     closing_brace: ($) =>
       choice(
         namedExternal($, $._right_brace, "closing_brace_token"),
-        seq(issueField($, "missing_closing_brace")),
+        issueField($, "missing_closing_brace"),
       ),
   };
 
   for (const { rule, spelling } of noArgumentDefinitions) {
-    rules[rule] = ($) => seq(functionVerb($, spelling));
+    rules[rule] = ($) => functionVerb($, spelling);
   }
 
   for (const descriptor of functionDefinitions) {
@@ -878,7 +876,7 @@ function functionRules() {
                 seq(optional(issueField($, "missing_text")), $._text_end),
               ),
             ),
-            seq(missingAtEndOrBoundary($, "missing_text_introducer")),
+            missingAtEndOrBoundary($, "missing_text_introducer"),
           ),
         );
     } else if (form === "optionalLabel") {
@@ -1148,14 +1146,13 @@ function editingCommandRules() {
         optional(issueField($, "unexpected_command_text")),
       ),
 
-    _missing_function: ($) =>
-      seq(missingAtEndOrBoundary($, "missing_function")),
+    _missing_function: ($) => missingAtEndOrBoundary($, "missing_function"),
 
     _chainable_substitute_function: ($) =>
-      seq(alias($._substitute_function_without_write, $.substitute_function)),
+      alias($._substitute_function_without_write, $.substitute_function),
 
     _line_terminated_substitute_function: ($) =>
-      seq(alias($._substitute_function_with_write, $.substitute_function)),
+      alias($._substitute_function_with_write, $.substitute_function),
 
     negation: ($) =>
       seq(
@@ -1178,8 +1175,7 @@ function editingCommandRules() {
     for (const maximum of [0, 1, 2]) {
       const names = functionsByMaximum(definitions, maximum);
       if (names.length > 0) {
-        rules[wrapperName(kind, maximum)] = ($) =>
-          seq(choiceForRules($, names));
+        rules[wrapperName(kind, maximum)] = ($) => choiceForRules($, names);
       }
     }
   }

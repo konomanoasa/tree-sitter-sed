@@ -290,6 +290,77 @@ Classifies malformed BRE interval recovery inside the POSIX hierarchy
     (command_separator)))
 
 ==================
+Keeps escape sequences inside malformed BRE intervals
+:language(posix_sed_bre)
+==================
+/a\{2,3\n}/p
+s/b\{1\//x/
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (context_address
+            (delimiter
+              (delimiter_token))
+            (basic_reg_exp
+              (bre_branch
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (ordinary_character
+                          (ordinary_character_token))))
+                    (bre_dupl_symbol
+                      (back_open_brace)
+                      (dup_count
+                        (dup_count_token))
+                      (interval_separator)
+                      (dup_count
+                        (dup_count_token))
+                      (syntax_issue
+                        (undefined_syntax
+                          (malformed_interval))))))))
+            (delimiter
+              (delimiter_token)))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character
+                        (ordinary_character_token))))
+                  (bre_dupl_symbol
+                    (back_open_brace)
+                    (dup_count
+                      (dup_count_token))
+                    (syntax_issue
+                      (undefined_syntax
+                        (malformed_interval))))))))
+          (delimiter
+            (delimiter_token))
+          (replacement
+            (replacement_literal
+              (replacement_literal_token)))
+          (delimiter
+            (delimiter_token)))))
+    (command_separator)))
+
+==================
 Recognizes BRE delimiter escapes before implementation-dependent forms
 :language(posix_sed_bre)
 ==================

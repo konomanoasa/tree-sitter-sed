@@ -214,6 +214,5 @@ module.exports = {
   createTreeSitter,
   generateParsers,
   grammars,
-  resultStatus,
   root,
 };

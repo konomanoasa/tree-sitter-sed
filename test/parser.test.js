@@ -31,7 +31,7 @@ after(() => {
   }
 });
 
-function parse(scope, source, edits = []) {
+function parse(scope, source, edits = [], { ranges = false } = {}) {
   const sourcePath = join(temporaryDirectory, `fixture-${fixtureNumber}.sed`);
   fixtureNumber += 1;
   writeFileSync(sourcePath, source);
@@ -40,7 +40,7 @@ function parse(scope, source, edits = []) {
       "parse",
       "--scope",
       scope,
-      "--no-ranges",
+      ...(ranges ? [] : ["--no-ranges"]),
       sourcePath,
       ...(edits.length === 0 ? [] : ["--edits", ...edits]),
     ],
@@ -237,6 +237,27 @@ const boundaryCases = [
     nodes: ["quoted_character"],
   },
   {
+    name: "unfinished escape inside a BRE interval at source end",
+    scope: "source.sed.posix.bre",
+    source: "/a\\{2\\",
+    issues: [
+      "incomplete_syntax/incomplete_interval",
+      "incomplete_syntax/incomplete_regular_expression",
+      "incomplete_syntax/missing_function",
+    ],
+    nodes: ["back_open_brace", "dup_count"],
+  },
+  {
+    name: "text introducer backslash without a newline at source end",
+    scope: "source.sed.posix.bre",
+    source: "a\\",
+    issues: [
+      "incomplete_syntax/missing_text_introducer",
+      "nonconforming_syntax/unexpected_command_text",
+    ],
+    nodes: ["append_function"],
+  },
+  {
     name: "BRE extension escape remains neutral after duplication",
     scope: "source.sed.posix.bre",
     source: "/a*\\+/p\n",
@@ -292,6 +313,15 @@ for (const testCase of boundaryCases) {
     }
   });
 }
+
+test("marker ranges: missing text introducer stays zero-width before a stray backslash", () => {
+  const result = parse("source.sed.posix.bre", "a\\x\n", [], { ranges: true });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.ok(
+    result.stdout.includes("(missing_text_introducer [0, 1] - [0, 1])"),
+    result.stdout,
+  );
+});
 
 const explicitConvergenceCases = [
   {

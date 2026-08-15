@@ -33,7 +33,7 @@ function intervalExpression($, openingName, closingName) {
               ),
             ),
           ),
-          seq(issueField($, "incomplete_interval")),
+          issueField($, "incomplete_interval"),
         ),
       ),
       seq(
@@ -73,7 +73,7 @@ function compoundBracketExpression(
             issueField($, "malformed_bracket_term"),
             optional(field("closing", closing)),
           ),
-          seq(issueField($, "incomplete_bracket_term")),
+          issueField($, "incomplete_bracket_term"),
         ),
       ),
       seq(
@@ -103,15 +103,15 @@ function bracketRules() {
     close_bracket: ($) =>
       choice(
         namedExternal($, $._regex_bracket_close, "close_bracket_token"),
-        seq(issueField($, "unclosed_bracket_expression")),
-        seq(issueField($, "incomplete_unclosed_bracket_expression")),
+        issueField($, "unclosed_bracket_expression"),
+        issueField($, "incomplete_unclosed_bracket_expression"),
       ),
 
     matching_list: ($) =>
       choice(
         field("elements", $.bracket_list),
-        seq(issueField($, "missing_bracket_list")),
-        seq(issueField($, "incomplete_missing_bracket_list")),
+        issueField($, "missing_bracket_list"),
+        issueField($, "incomplete_missing_bracket_list"),
       ),
 
     nonmatching_list: ($) =>
@@ -126,8 +126,8 @@ function bracketRules() {
         ),
         choice(
           field("elements", $.bracket_list),
-          seq(issueField($, "missing_bracket_list")),
-          seq(issueField($, "incomplete_missing_bracket_list")),
+          issueField($, "missing_bracket_list"),
+          issueField($, "incomplete_missing_bracket_list"),
         ),
       ),
 
@@ -159,8 +159,8 @@ function bracketRules() {
       choice(
         $.single_expression,
         $.range_expression,
-        seq(issueField($, "malformed_bracket_term")),
-        seq(issueField($, "shared_range_endpoint")),
+        issueField($, "malformed_bracket_term"),
+        issueField($, "shared_range_endpoint"),
       ),
 
     single_expression: ($) =>
@@ -295,9 +295,9 @@ function commonRegularExpressionRules() {
       choice(
         namedExternal($, $._regex_quoted_escape, "quoted_character_token"),
         $.escaped_delimiter,
-        seq(issueField($, "ordinary_character_escape")),
-        seq(issueField($, "incomplete_regular_expression_escape")),
-        seq(issueField($, "forbidden_regular_expression_newline")),
+        issueField($, "ordinary_character_escape"),
+        issueField($, "incomplete_regular_expression_escape"),
+        issueField($, "forbidden_regular_expression_newline"),
       ),
 
     escaped_delimiter: ($) =>
@@ -307,7 +307,7 @@ function commonRegularExpressionRules() {
       ),
 
     ambiguous_delimiter_escape: ($) =>
-      seq(issueField($, "special_delimiter_escape")),
+      issueField($, "special_delimiter_escape"),
 
     sed_newline_escape: ($) =>
       namedExternal($, $._regex_newline_escape, "sed_newline_escape_token"),
@@ -360,8 +360,8 @@ function breRules() {
 
     bre_subexpression_anchor: ($) =>
       choice(
-        seq(issueField($, "bre_subexpression_right_anchor")),
-        seq(issueField($, "bre_subexpression_left_anchor")),
+        issueField($, "bre_subexpression_right_anchor"),
+        issueField($, "bre_subexpression_left_anchor"),
       ),
 
     basic_reg_exp: ($) => $.bre_branch,
@@ -447,7 +447,7 @@ function breRules() {
           field("closing", $.back_close_parenthesis),
         ),
         $.backreference,
-        seq(issueField($, "unmatched_subexpression_close")),
+        issueField($, "unmatched_subexpression_close"),
         seq(
           field(
             "closing",
@@ -464,8 +464,8 @@ function breRules() {
     back_close_parenthesis: ($) =>
       choice(
         namedExternal($, $._regex_group_close, "back_close_parenthesis_token"),
-        seq(issueField($, "unclosed_subexpression")),
-        seq(issueField($, "incomplete_unclosed_subexpression")),
+        issueField($, "unclosed_subexpression"),
+        issueField($, "incomplete_unclosed_subexpression"),
       ),
 
     backreference: ($) =>
@@ -494,8 +494,8 @@ function breRules() {
           issueField($, "leading_duplication_symbol"),
           field("operator", $.bre_dupl_symbol),
         ),
-        seq(issueField($, "malformed_interval")),
-        seq(issueField($, "incomplete_interval")),
+        issueField($, "malformed_interval"),
+        issueField($, "incomplete_interval"),
       ),
 
     adjacent_bre_dupl_symbol: ($) =>
@@ -504,8 +504,8 @@ function breRules() {
           issueField($, "adjacent_duplication_symbol"),
           field("operator", $.bre_dupl_symbol),
         ),
-        seq(issueField($, "malformed_interval")),
-        seq(issueField($, "incomplete_interval")),
+        issueField($, "malformed_interval"),
+        issueField($, "incomplete_interval"),
       ),
   };
 }
@@ -559,11 +559,9 @@ function ereRules() {
       ),
 
     _empty_ere_branch: ($) =>
-      seq(
-        choice(
-          issueField($, "empty_alternative"),
-          issueField($, "incomplete_alternative"),
-        ),
+      choice(
+        issueField($, "empty_alternative"),
+        issueField($, "incomplete_alternative"),
       ),
 
     ere_alternation_operator: ($) =>
@@ -612,8 +610,8 @@ function ereRules() {
     close_parenthesis: ($) =>
       choice(
         namedExternal($, $._regex_group_close, "close_parenthesis_token"),
-        seq(issueField($, "unclosed_subexpression")),
-        seq(issueField($, "incomplete_unclosed_subexpression")),
+        issueField($, "unclosed_subexpression"),
+        issueField($, "incomplete_unclosed_subexpression"),
       ),
 
     one_char_or_coll_elem_ere: ($) =>
@@ -634,8 +632,8 @@ function ereRules() {
             issueField($, "adjacent_duplication_symbol"),
             ereDuplicationSymbol($),
           ),
-          seq(issueField($, "malformed_interval")),
-          seq(issueField($, "incomplete_interval")),
+          issueField($, "malformed_interval"),
+          issueField($, "incomplete_interval"),
         ),
         optional(field("modifier", $.repetition_modifier)),
       ),
