@@ -20,19 +20,18 @@
     }
   },
   "scripts": {
-    "cli": "node scripts/run-tree-sitter.js",
-    "generate": "node scripts/generate-parsers.js",
-    "format": "biome format --write .",
-    "check:biome": "biome check .",
-    "check:clang": "node scripts/check-clang.js",
+    "tree-sitter": "node scripts/tree-sitter.js",
+    "generate": "npm run tree-sitter -- generate-all",
+    "format": "biome check --write . && node scripts/check-scanner.js --write",
+    "check:js": "biome check .",
     "check:generated": "node scripts/check-generated.js",
-    "test": "npm run test:corpus && npm run test:boundaries",
-    "test:boundaries": "node scripts/run-boundary-tests.js",
-    "test:convergence": "node scripts/run-convergence-tests.js",
-    "test:corpus": "node scripts/run-tree-sitter.js test",
-    "test:debug": "node scripts/run-tree-sitter.js test --debug-build --rebuild",
-    "test:fuzz": "node scripts/run-fuzz-tests.js --iterations 100 --edits 5",
-    "check": "npm run check:biome && npm run check:clang && npm run check:generated && npm test"
+    "check:scanner": "node scripts/check-scanner.js",
+    "test:corpus": "npm run tree-sitter -- test --rebuild",
+    "test:wasm": "npm run tree-sitter -- test --wasm --rebuild",
+    "test:parser": "node --test test/parser.test.js",
+    "test:fuzz": "npm run tree-sitter -- fuzz-all --iterations 100 --edits 5",
+    "test": "npm run test:corpus && npm run test:wasm && npm run test:parser",
+    "check": "npm run check:js && npm run check:scanner && npm run check:generated && npm test"
   },
   "license": "MIT",
   "devDependencies": {
