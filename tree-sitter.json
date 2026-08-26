@@ -3,15 +3,15 @@
   "grammars": [
     {
       "name": "sed",
-      "camelcase": "Sed",
       "title": "POSIX sed (BRE)",
       "scope": "source.sed",
       "path": "sed",
+      "file-types": ["sed"],
+      "injection-regex": "^sed$",
       "external-files": ["common/scanner.h"]
     },
     {
       "name": "sed_ere",
-      "camelcase": "SedEre",
       "title": "POSIX sed (ERE)",
       "scope": "source.sed.ere",
       "path": "sed-ere",
@@ -34,11 +34,9 @@
   "bindings": {
     "c": false,
     "go": false,
-    "java": false,
     "node": false,
     "python": false,
     "rust": false,
-    "swift": false,
-    "zig": false
+    "swift": false
   }
 }
