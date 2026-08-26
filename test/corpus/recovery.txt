@@ -1,6 +1,6 @@
 ==================
 Classifies missing command components at physical line boundaries
-:language(posix_sed_bre)
+:language(sed)
 ==================
 1
 :
@@ -75,7 +75,7 @@ p
 
 ==================
 Distinguishes a closing-brace separator error from a newline
-:language(posix_sed_bre)
+:language(sed)
 ==================
 {p}
 {p
@@ -116,7 +116,7 @@ Distinguishes a closing-brace separator error from a newline
 
 ==================
 Classifies a blank-separated closing brace inside a block
-:language(posix_sed_bre)
+:language(sed)
 ==================
 { }
 
@@ -138,7 +138,7 @@ Classifies a blank-separated closing brace inside a block
 
 ==================
 Classifies replacement termination at a physical line boundary
-:language(posix_sed_bre)
+:language(sed)
 ==================
 s/a/b
 p
@@ -179,7 +179,7 @@ p
 
 ==================
 Recovers unmatched closing braces between top-level commands
-:language(posix_sed_bre)
+:language(sed)
 ==================
 }p
 a}

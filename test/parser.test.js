@@ -10,9 +10,7 @@ let treeSitter;
 let fixtureNumber = 0;
 
 before(() => {
-  temporaryDirectory = mkdtempSync(
-    join(tmpdir(), "tree-sitter-posix-sed-parser-"),
-  );
+  temporaryDirectory = mkdtempSync(join(tmpdir(), "tree-sitter-sed-parser-"));
   try {
     treeSitter = createTreeSitter();
   } catch (error) {
@@ -89,70 +87,70 @@ function applyEdits(source, edits) {
 const boundaryCases = [
   {
     name: "missing function at source end",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "1",
     issues: ["incomplete_syntax/missing_function"],
     nodes: ["line_number_address"],
   },
   {
     name: "missing function at source end in ERE mode",
-    scope: "source.sed.posix.ere",
+    scope: "source.sed.ere",
     source: "1",
     issues: ["incomplete_syntax/missing_function"],
     nodes: ["line_number_address"],
   },
   {
     name: "missing label at source end",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: ":",
     issues: ["incomplete_syntax/missing_label"],
     nodes: ["label_function"],
   },
   {
     name: "missing read file at source end",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "r",
     issues: ["incomplete_syntax/missing_rfile"],
     nodes: ["read_function"],
   },
   {
     name: "missing write file at source end",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "w",
     issues: ["incomplete_syntax/missing_wfile"],
     nodes: ["write_function"],
   },
   {
     name: "missing text introducer at source end",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "a",
     issues: ["incomplete_syntax/missing_text_introducer"],
     nodes: ["append_function"],
   },
   {
     name: "complete text at source end",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "a\\\nfoo",
     issues: [],
     nodes: ["append_function", "text_introducer", "text"],
   },
   {
     name: "empty text at source end",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "a\\\n",
     issues: ["incomplete_syntax/missing_text"],
     nodes: ["append_function", "text_introducer"],
   },
   {
     name: "missing opening delimiter at source end",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "s",
     issues: ["incomplete_syntax/missing_opening_delimiter"],
     nodes: ["substitute_function"],
   },
   {
     name: "missing block separator and closing brace at source end",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "{p",
     issues: [
       "incomplete_syntax/missing_command_separator",
@@ -162,7 +160,7 @@ const boundaryCases = [
   },
   {
     name: "block leading empty command with missing separator at source end",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "{;p",
     issues: [
       "incomplete_syntax/missing_command_separator",
@@ -172,7 +170,7 @@ const boundaryCases = [
   },
   {
     name: "blank-separated block end at source end",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "{ ",
     issues: [
       "incomplete_syntax/missing_command_separator",
@@ -182,7 +180,7 @@ const boundaryCases = [
   },
   {
     name: "unclosed BRE bracket expression at source end",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "/[a",
     issues: [
       "incomplete_syntax/unclosed_bracket_expression",
@@ -193,7 +191,7 @@ const boundaryCases = [
   },
   {
     name: "unclosed BRE bracket expression at a physical line boundary",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "/[a\np\n",
     issues: [
       "undefined_syntax/unclosed_bracket_expression",
@@ -204,7 +202,7 @@ const boundaryCases = [
   },
   {
     name: "unfinished ERE alternative and group at source end",
-    scope: "source.sed.posix.ere",
+    scope: "source.sed.ere",
     source: "/(a|",
     issues: [
       "incomplete_syntax/incomplete_alternative",
@@ -216,7 +214,7 @@ const boundaryCases = [
   },
   {
     name: "unfinished ERE interval at source end",
-    scope: "source.sed.posix.ere",
+    scope: "source.sed.ere",
     source: "/a{1",
     issues: [
       "incomplete_syntax/incomplete_interval",
@@ -227,7 +225,7 @@ const boundaryCases = [
   },
   {
     name: "unfinished BRE escape at source end",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "/a\\",
     issues: [
       "incomplete_syntax/incomplete_regular_expression_escape",
@@ -238,7 +236,7 @@ const boundaryCases = [
   },
   {
     name: "unfinished escape inside a BRE interval at source end",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "/a\\{2\\",
     issues: [
       "incomplete_syntax/incomplete_interval",
@@ -249,7 +247,7 @@ const boundaryCases = [
   },
   {
     name: "text introducer backslash without a newline at source end",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "a\\",
     issues: [
       "incomplete_syntax/missing_text_introducer",
@@ -259,28 +257,28 @@ const boundaryCases = [
   },
   {
     name: "BRE extension escape remains neutral after duplication",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "/a*\\+/p\n",
     issues: ["implementation_defined_syntax/bre_plus_escape"],
     nodes: ["zero_or_more_operator", "bre_extension_escape", "print_function"],
   },
   {
     name: "unfinished replacement at source end",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "s/a/b",
     issues: ["incomplete_syntax/incomplete_replacement"],
     nodes: ["replacement"],
   },
   {
     name: "unfinished translation at source end",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "y/a/b",
     issues: ["incomplete_syntax/incomplete_translation"],
     nodes: ["translation_string"],
   },
   {
     name: "NUL remains native parser recovery",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "s\0p\n",
     issues: [],
     nodes: ["ERROR", "print_function"],
@@ -315,7 +313,7 @@ for (const testCase of boundaryCases) {
 }
 
 test("marker ranges: missing text introducer stays zero-width before a stray backslash", () => {
-  const result = parse("source.sed.posix.bre", "a\\x\n", [], { ranges: true });
+  const result = parse("source.sed", "a\\x\n", [], { ranges: true });
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.ok(
     result.stdout.includes("(missing_text_introducer [0, 1] - [0, 1])"),
@@ -326,7 +324,7 @@ test("marker ranges: missing text introducer stays zero-width before a stray bac
 const explicitConvergenceCases = [
   {
     name: "unclosed bracket expression at source end",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "/[a",
     histories: [
       { source: "/[", edits: ["2 0 a"] },
@@ -335,7 +333,7 @@ const explicitConvergenceCases = [
   },
   {
     name: "missing separator after an unmatched closing brace",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "}p\n",
     histories: [
       { source: "}\n", edits: ["1 0 p"] },
@@ -344,7 +342,7 @@ const explicitConvergenceCases = [
   },
   {
     name: "reserved unknown function after negation",
-    scope: "source.sed.posix.bre",
+    scope: "source.sed",
     source: "1!/\np\n",
     histories: [
       { source: "1!x\np\n", edits: ["2 1 /"] },

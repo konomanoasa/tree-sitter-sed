@@ -1,6 +1,6 @@
 ==================
 Exposes addresses, negation, and the selected function
-:language(posix_sed_bre)
+:language(sed)
 ==================
 001,$!s|a|b|g
 
@@ -44,7 +44,7 @@ Exposes addresses, negation, and the selected function
 
 ==================
 Exposes every chainable function
-:language(posix_sed_bre)
+:language(sed)
 ==================
 d;D;g;G;h;H;l;n;N;p;P;q;s/a/b/;x;y/a/b/;=
 
@@ -164,7 +164,7 @@ d;D;g;G;h;H;l;n;N;p;P;q;s/a/b/;x;y/a/b/;=
 
 ==================
 Recognizes default-output suppression only in the leading comment
-:language(posix_sed_bre)
+:language(sed)
 ==================
 #normal
 #n
@@ -191,7 +191,7 @@ Recognizes default-output suppression only in the leading comment
 
 ==================
 Nests a command list inside a block function
-:language(posix_sed_bre)
+:language(sed)
 ==================
 1,2 {
   p
@@ -233,7 +233,7 @@ Nests a command list inside a block function
 
 ==================
 Does not recognize output suppression after an initial blank
-:language(posix_sed_bre)
+:language(sed)
 ==================
  #n
 
@@ -251,7 +251,7 @@ Does not recognize output suppression after an initial blank
 
 ==================
 Does not recognize output suppression after an initial semicolon
-:language(posix_sed_bre)
+:language(sed)
 ==================
 ;#n
 
@@ -271,7 +271,7 @@ Does not recognize output suppression after an initial semicolon
 
 ==================
 Does not recognize output suppression after an initial newline
-:language(posix_sed_bre)
+:language(sed)
 ==================
 
 #n
@@ -292,7 +292,7 @@ Does not recognize output suppression after an initial newline
 
 ==================
 Classifies command-structure issues without flattening commands
-:language(posix_sed_bre)
+:language(sed)
 ==================
 ,p
 1,2q
@@ -392,7 +392,7 @@ p
 
 ==================
 Preserves address separator tokens across recovery shapes
-:language(posix_sed_bre)
+:language(sed)
 ==================
 1,p
 1 ,2p
@@ -547,7 +547,7 @@ Preserves address separator tokens across recovery shapes
     (command_separator)))
 ==================
 Recovers a block whose leading empty command precedes a missing separator
-:language(posix_sed_bre)
+:language(sed)
 ==================
 {;p}
 

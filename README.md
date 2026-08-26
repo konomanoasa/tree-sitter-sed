@@ -1,4 +1,4 @@
-# tree-sitter-posix-sed
+# tree-sitter-sed
 
 [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) grammars for
 POSIX.1-2024 `sed`.
@@ -7,8 +7,8 @@ POSIX.1-2024 `sed`.
 
 | Regex mode | Language |
 | --- | --- |
-| BRE | `posix_sed_bre` |
-| ERE | `posix_sed_ere` |
+| BRE | `sed` |
+| ERE | `sed_ere` |
 
 ## Specifications
 

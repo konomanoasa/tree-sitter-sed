@@ -1,6 +1,6 @@
 ==================
 Mirrors the POSIX bracket expression production hierarchy
-:language(posix_sed_bre)
+:language(sed)
 ==================
 /[^]a-c[:alpha:][.].][=a=]-]/p
 
@@ -76,7 +76,7 @@ Mirrors the POSIX bracket expression production hierarchy
 
 ==================
 Distinguishes POSIX collating tokens and range endings
-:language(posix_sed_ere)
+:language(sed_ere)
 ==================
 /[[.a.]][[.ch.]][[.-.]][[=a=]][[=ch=]][%--][--@][a-]/p
 
@@ -237,7 +237,7 @@ Distinguishes POSIX collating tokens and range endings
 
 ==================
 Exposes the POSIX ambiguous outer-bracket form
-:language(posix_sed_bre)
+:language(sed)
 ==================
 /[.a.]/p
 
@@ -293,7 +293,7 @@ Exposes the POSIX ambiguous outer-bracket form
 
 ==================
 Recovers malformed terms and non-portable ranges
-:language(posix_sed_ere)
+:language(sed_ere)
 ==================
 /[a-m-o][a-[:alpha:]][[=a=]-z][a-[=b=]][[.x]/p
 

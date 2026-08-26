@@ -5,4 +5,4 @@
 
 const defineGrammar = require("../common/grammar");
 
-module.exports = defineGrammar("posix_sed_bre", "bre");
+module.exports = defineGrammar("sed_ere", "ere");

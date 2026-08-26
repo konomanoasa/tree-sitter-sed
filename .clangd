@@ -1,11 +1,11 @@
 If:
-  PathMatch: posix-sed-bre/src/.*
+  PathMatch: sed/src/.*
 CompileFlags:
   Add: [-std=c17, -I.]
 
 ---
 If:
-  PathMatch: posix-sed-ere/src/.*
+  PathMatch: sed-ere/src/.*
 CompileFlags:
   Add: [-std=c17, -I.]
 
@@ -13,4 +13,4 @@ CompileFlags:
 If:
   PathMatch: common/scanner\.h
 CompileFlags:
-  Add: [-xc, -std=c17, -DSED_REGEX_EXTENDED=0, -I../posix-sed-bre/src]
+  Add: [-xc, -std=c17, -DSED_REGEX_EXTENDED=0, -I../sed/src]

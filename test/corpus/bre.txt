@@ -1,6 +1,6 @@
 ==================
 Mirrors the POSIX BRE production hierarchy
-:language(posix_sed_bre)
+:language(sed)
 ==================
 s#^\(ab*\)\{2,3\}$#x#
 
@@ -62,7 +62,7 @@ s#^\(ab*\)\{2,3\}$#x#
 
 ==================
 Preserves BRE interval recovery structure
-:language(posix_sed_bre)
+:language(sed)
 ==================
 /\{3\}a*\{2\}\}/p
 
@@ -125,7 +125,7 @@ Preserves BRE interval recovery structure
 
 ==================
 Preserves implementation-dependent BRE forms without selecting their interpretation
-:language(posix_sed_bre)
+:language(sed)
 ==================
 /\(^a$\)\+b\?c\|d/p
 
@@ -233,7 +233,7 @@ Preserves implementation-dependent BRE forms without selecting their interpretat
 
 ==================
 Classifies malformed BRE interval recovery inside the POSIX hierarchy
-:language(posix_sed_bre)
+:language(sed)
 ==================
 /\(\)a\{1,2,3\}\)/p
 
@@ -291,7 +291,7 @@ Classifies malformed BRE interval recovery inside the POSIX hierarchy
 
 ==================
 Keeps escape sequences inside malformed BRE intervals
-:language(posix_sed_bre)
+:language(sed)
 ==================
 /a\{2,3\n}/p
 s/b\{1\//x/
@@ -362,7 +362,7 @@ s/b\{1\//x/
 
 ==================
 Recognizes BRE delimiter escapes before implementation-dependent forms
-:language(posix_sed_bre)
+:language(sed)
 ==================
 s|\||x|
 \|\||p
@@ -450,7 +450,7 @@ s|$\||x|
 
 ==================
 Preserves a special BRE delimiter escape without selecting its interpretation
-:language(posix_sed_bre)
+:language(sed)
 ==================
 s.\..x.
 
@@ -485,7 +485,7 @@ s.\..x.
 
 ==================
 Exposes non-ASCII BRE characters and delimiters atomically
-:language(posix_sed_bre)
+:language(sed)
 ==================
 /😺犬/p
 s😺猫😺犬😺g
@@ -548,7 +548,7 @@ s😺猫😺犬😺g
 
 ==================
 Classifies empty BRE subexpressions inside the POSIX hierarchy
-:language(posix_sed_bre)
+:language(sed)
 ==================
 /\(\)/p
 

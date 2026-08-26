@@ -117,7 +117,7 @@ function checkPublicCst(grammar, generatedRoot) {
     "ambiguous_delimiter_escape",
     "ambiguous_replacement_delimiter_escape",
   ];
-  if (grammar.name === "posix_sed_bre") {
+  if (grammar.name === "sed") {
     neutralNodes.push("bre_extension_escape", "bre_subexpression_anchor");
   }
   for (const type of neutralNodes) {
@@ -130,7 +130,7 @@ function checkPublicCst(grammar, generatedRoot) {
 
 function main() {
   const generatedRoot = mkdtempSync(
-    join(tmpdir(), "tree-sitter-posix-sed-generated-"),
+    join(tmpdir(), "tree-sitter-sed-generated-"),
   );
   try {
     const status = generateParsers(generatedRoot);

@@ -1,6 +1,6 @@
 ==================
 Exposes change, insert, test, and write function nodes
-:language(posix_sed_bre)
+:language(sed)
 ==================
 c\
 changed
@@ -51,7 +51,7 @@ w output
 
 ==================
 Preserves ambiguous replacement delimiters and write-flag command ownership
-:language(posix_sed_bre)
+:language(sed)
 ==================
 s&a&\&&
 s/a/b/w file;p
@@ -129,7 +129,7 @@ w file;p
 
 ==================
 Exposes substitution replacement and flag atoms
-:language(posix_sed_bre)
+:language(sed)
 ==================
 s|a|x&\0\1\||gipw output
 s|a|\&\\|
@@ -203,7 +203,7 @@ s|a|\&\\|
 
 ==================
 Preserves escaped newlines in substitution replacements
-:language(posix_sed_bre)
+:language(sed)
 ==================
 s|a|first\
 second|
@@ -241,7 +241,7 @@ second|
 
 ==================
 Exposes translation string atoms
-:language(posix_sed_bre)
+:language(sed)
 ==================
 y|a\n\||b\\c|
 
@@ -277,7 +277,7 @@ y|a\n\||b\\c|
 
 ==================
 Exposes backslash escapes and escaped newlines in text operands
-:language(posix_sed_bre)
+:language(sed)
 ==================
 a\
 first\\second\
@@ -308,7 +308,7 @@ third
 
 ==================
 Keeps file, label, and comment operands inside line-terminated functions
-:language(posix_sed_bre)
+:language(sed)
 ==================
 r input file
 :loop
@@ -351,7 +351,7 @@ b loop
 
 ==================
 Preserves every substitution occurrence spelling
-:language(posix_sed_bre)
+:language(sed)
 ==================
 s/a/b/001
 s/a/b/000
@@ -411,7 +411,7 @@ s/a/b/000
 
 ==================
 Classifies omitted file separators without flattening read functions
-:language(posix_sed_bre)
+:language(sed)
 ==================
 rfile
 
@@ -432,7 +432,7 @@ rfile
 
 ==================
 Terminates a nonconforming substitution at a physical line boundary
-:language(posix_sed_bre)
+:language(sed)
 ==================
 s/\(a
 p
@@ -478,7 +478,7 @@ p
 
 ==================
 Terminates a nonconforming translation at a physical line boundary
-:language(posix_sed_bre)
+:language(sed)
 ==================
 y/a/b\
 p

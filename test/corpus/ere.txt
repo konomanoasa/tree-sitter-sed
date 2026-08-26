@@ -1,6 +1,6 @@
 ==================
 Mirrors the POSIX ERE production hierarchy
-:language(posix_sed_ere)
+:language(sed_ere)
 ==================
 s#^(ab|c)+d{2,3}$#x#
 
@@ -75,7 +75,7 @@ s#^(ab|c)+d{2,3}$#x#
 
 ==================
 Preserves adjacent and leading ERE duplication structures
-:language(posix_sed_ere)
+:language(sed_ere)
 ==================
 /a*{2}?|{3}/p
 
@@ -131,7 +131,7 @@ Preserves adjacent and leading ERE duplication structures
 
 ==================
 Exposes POSIX repetition modifiers
-:language(posix_sed_ere)
+:language(sed_ere)
 ==================
 /a*?b+?c??d{2,3}?/p
 
@@ -197,7 +197,7 @@ Exposes POSIX repetition modifiers
 
 ==================
 Classifies empty ERE subexpressions and alternatives inside the POSIX hierarchy
-:language(posix_sed_ere)
+:language(sed_ere)
 ==================
 /()a||b/p
 

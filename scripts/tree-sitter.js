@@ -54,14 +54,12 @@ function resultStatus(result) {
 }
 
 function createTreeSitter(environment = {}) {
-  const temporaryDirectory = mkdtempSync(
-    join(tmpdir(), "tree-sitter-posix-sed-"),
-  );
+  const temporaryDirectory = mkdtempSync(join(tmpdir(), "tree-sitter-sed-"));
   const cacheDirectory = join(
     root,
     "node_modules",
     ".cache",
-    "tree-sitter-posix-sed",
+    "tree-sitter-sed",
   );
   const configDirectory = join(temporaryDirectory, "config");
   const libraryDirectory = join(temporaryDirectory, "lib");
@@ -140,9 +138,7 @@ function generateParsers(outputRoot = root) {
 }
 
 function fuzzParsers(arguments_) {
-  const buildDirectory = mkdtempSync(
-    join(tmpdir(), "tree-sitter-posix-sed-fuzz-"),
-  );
+  const buildDirectory = mkdtempSync(join(tmpdir(), "tree-sitter-sed-fuzz-"));
   let runner;
   const extension =
     process.platform === "win32"
