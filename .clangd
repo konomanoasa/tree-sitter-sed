@@ -4,8 +4,8 @@ CompileFlags:
 ---
 If:
   PathMatch:
-    - sed-ere/src/.*
-    - sed/src/.*
+    - sed_ere/src/.*
+    - src/.*
 CompileFlags:
   Add: [-I.]
 
@@ -13,4 +13,4 @@ CompileFlags:
 If:
   PathMatch: common/scanner\.h
 CompileFlags:
-  Add: [-xc, -DSED_REGEX_EXTENDED=0, -I../sed/src]
+  Add: [-xc, -DSED_REGEX_EXTENDED=0, -I../src]

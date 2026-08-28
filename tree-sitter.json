@@ -5,7 +5,7 @@
       "name": "sed",
       "title": "POSIX sed (BRE)",
       "scope": "source.sed",
-      "path": "sed",
+      "path": ".",
       "file-types": ["sed"],
       "injection-regex": "^sed$",
       "external-files": ["common/scanner.h"]
@@ -14,7 +14,7 @@
       "name": "sed_ere",
       "title": "POSIX sed (ERE)",
       "scope": "source.sed.ere",
-      "path": "sed-ere",
+      "path": "sed_ere",
       "external-files": ["common/scanner.h"]
     }
   ],

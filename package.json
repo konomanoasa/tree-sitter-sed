@@ -7,14 +7,14 @@
   "files": [
     "common/*.js",
     "common/scanner.h",
-    "sed/grammar.js",
-    "sed/src/*.c",
-    "sed/src/*.json",
-    "sed/src/tree_sitter/*.h",
-    "sed-ere/grammar.js",
-    "sed-ere/src/*.c",
-    "sed-ere/src/*.json",
-    "sed-ere/src/tree_sitter/*.h",
+    "grammar.js",
+    "src/*.c",
+    "src/*.json",
+    "src/tree_sitter/*.h",
+    "sed_ere/grammar.js",
+    "sed_ere/src/*.c",
+    "sed_ere/src/*.json",
+    "sed_ere/src/tree_sitter/*.h",
     "tree-sitter.json"
   ],
   "scripts": {

@@ -14,8 +14,7 @@ npm install tree-sitter-sed
 
 ## Grammars
 
-This repository contains two grammars. You can find [`sed`](sed) and
-[`sed_ere`](sed-ere) here.
+This repository contains two grammars. You can find [`sed_ere`](sed_ere) here.
 
 ## Specifications
 

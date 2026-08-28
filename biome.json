@@ -2,10 +2,10 @@
   "formatter": {
     "includes": [
       "**",
-      "!sed/src/grammar.json",
-      "!sed/src/node-types.json",
-      "!sed-ere/src/grammar.json",
-      "!sed-ere/src/node-types.json"
+      "!src/grammar.json",
+      "!src/node-types.json",
+      "!sed_ere/src/grammar.json",
+      "!sed_ere/src/node-types.json"
     ]
   },
   "javascript": {

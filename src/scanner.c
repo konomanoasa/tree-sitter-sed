@@ -1,5 +1,5 @@
 #define SED_REGEX_EXTENDED 0
-#include "../../common/scanner.h"
+#include "../common/scanner.h"
 
 void *tree_sitter_sed_external_scanner_create(void) {
   return sed_scanner_create();
