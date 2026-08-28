@@ -1,0 +1,122 @@
+[
+  (address_escape)
+  (escaped_delimiter_token)
+  (quoted_character_token)
+  (replacement_escape_token)
+  (sed_newline_escape_token)
+  (text_backslash_escape_token)
+  (translation_escape_token)
+] @string.escape
+
+[
+  (ere_alternation_operator_token)
+  (left_anchor_token)
+  (negation_operator)
+  (one_or_more_operator)
+  (repetition_modifier)
+  (right_anchor_token)
+  (zero_or_more_operator)
+  (zero_or_one_operator)
+] @operator
+
+[
+  (case_insensitive_flag)
+  (global_flag)
+  (print_flag)
+  (substitution_flag)
+] @keyword.modifier
+
+(function_verb) @keyword
+
+(comment_text) @comment
+
+(default_output_suppression) @keyword.directive
+
+[
+  (escaped_newline_token)
+  (text_introducer_token)
+  (text_escaped_newline_token)
+] @punctuation.special
+
+(label_token) @label
+
+(last_line_address) @constant.builtin
+
+[
+  (dup_count_token)
+  (line_number_address)
+  (occurrence_flag)
+] @number
+
+[
+  (matched_text_reference_token)
+  (replacement_backreference_token)
+] @string.special.symbol
+
+[
+  (rfile_token)
+  (wfile_token)
+] @string.special.path
+
+[
+  (close_brace)
+  (close_bracket_token)
+  (close_parenthesis_token)
+  (closing_brace_token)
+  (colon_close)
+  (open_brace)
+  (open_bracket)
+  (open_colon)
+  (open_parenthesis)
+] @punctuation.bracket
+
+[
+  (nonmatching_list_operator)
+  (range_operator)
+] @punctuation.special
+
+[
+  (range_end_hyphen)
+  (trailing_hyphen)
+] @string.regexp
+
+[
+  (class_name)
+  (coll_elem_multi)
+  (coll_elem_single)
+  (collating_element_token)
+  (dot_close)
+  (equal_close)
+  (meta_char)
+  (open_dot)
+  (open_equal)
+  (period_token)
+] @character.special
+
+[
+  (address_separator_token)
+  (delimiter_token)
+  (interval_separator)
+] @punctuation.delimiter
+
+((command_separator) @punctuation.delimiter
+  (#eq? @punctuation.delimiter ";"))
+
+(ordinary_character_token) @string.regexp
+
+[
+  (replacement_literal_token)
+  (text_literal_token)
+  (translation_literal_token)
+] @string
+
+(block_function
+  verb: (function_verb) @punctuation.bracket)
+
+(comment_function
+  verb: (function_verb) @comment)
+
+(comment_function
+  verb: (function_verb) @keyword.directive
+  comment: (comment
+    suppression: (default_output_suppression)))

@@ -3,11 +3,12 @@
   "grammars": [
     {
       "name": "sed",
-      "title": "POSIX sed (BRE)",
+      "title": "POSIX sed",
       "scope": "source.sed",
       "path": ".",
       "file-types": ["sed"],
       "injection-regex": "^sed$",
+      "highlights": "queries/highlights.scm",
       "external-files": ["common/scanner.h"]
     },
     {
@@ -15,6 +16,7 @@
       "title": "POSIX sed (ERE)",
       "scope": "source.sed.ere",
       "path": "sed_ere",
+      "highlights": "sed_ere/queries/highlights.scm",
       "external-files": ["common/scanner.h"]
     }
   ],

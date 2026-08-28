@@ -2,6 +2,7 @@
 
 const { spawnSync } = require("node:child_process");
 const {
+  cpSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -182,6 +183,38 @@ function fuzzParsers(arguments_) {
   }
 }
 
+function testCorpus(arguments_) {
+  const testRoot = mkdtempSync(join(root, ".tree-sitter-sed-test-"));
+  let runner;
+
+  try {
+    for (const path of [
+      "common",
+      "grammar.js",
+      "src",
+      join("sed_ere", "grammar.js"),
+      join("sed_ere", "src"),
+      join("test", "corpus"),
+      "tree-sitter.json",
+    ]) {
+      const destination = join(testRoot, path);
+      mkdirSync(dirname(destination), { recursive: true });
+      cpSync(join(root, path), destination, { recursive: true });
+    }
+    runner = createTreeSitter();
+    return runChecked(runner, ["test", ...arguments_], {
+      cwd: testRoot,
+      stdio: "inherit",
+    });
+  } finally {
+    try {
+      runner?.close();
+    } finally {
+      rmSync(testRoot, { recursive: true, force: true });
+    }
+  }
+}
+
 function main(arguments_) {
   const [command, ...rest] = arguments_;
   if (command === "generate-all") {
@@ -192,6 +225,9 @@ function main(arguments_) {
   }
   if (command === "fuzz-all") {
     return fuzzParsers(rest);
+  }
+  if (command === "test-corpus") {
+    return testCorpus(rest);
   }
 
   const runner = createTreeSitter();
