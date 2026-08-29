@@ -3,13 +3,12 @@ name: CI
 on:
   push:
     branches: [main]
-  pull_request:
 
 permissions: read-all
 
 jobs:
   parser:
-    name: Test parser
+    name: Test sed and sed_ere parsers
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -33,12 +32,17 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: tree-sitter/setup-action/cli@v2
-      - run: tree-sitter build
+      - name: Build sed and sed_ere parsers
+        run: |
+          tree-sitter build --output sed.so .
+          tree-sitter build --output sed_ere.so sed_ere
       - name: Set up ts_query_ls
         run: >-
           curl -fL
           https://github.com/ribru17/ts_query_ls/releases/latest/download/ts_query_ls-x86_64-unknown-linux-gnu.tar.gz
           | tar -xz
-      - run: >-
-          ./ts_query_ls check -f queries/
-          --config '{"parser_install_directories":["."]}'
+      - name: Validate sed and sed_ere queries
+        run: >-
+          ./ts_query_ls check -f queries/ sed_ere/queries/
+          --config
+          '{"parser_install_directories":["."],"language_retrieval_patterns":["(sed_ere)/queries/[^/]+\\.scm$"]}'

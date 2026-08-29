@@ -207,6 +207,13 @@ const nonWriteSubstitutionFlagRules = [
   "print_flag",
 ];
 
+function postWriteSubstitutionFlagChoice($) {
+  return choice(
+    ...nonWriteSubstitutionFlagRules.map((rule) => $[rule]),
+    alias("w", $.substitution_flag),
+  );
+}
+
 function delimiter($, name) {
   return alias($[`_${name}_delimiter`], $.delimiter);
 }
@@ -731,6 +738,16 @@ function operandRules(mode) {
       seq(
         field("verb", alias("w", $.substitution_flag)),
         choice(
+          seq(
+            $._flag_after_write_marker,
+            issueField($, "flag_after_write_flag"),
+            repeat(postWriteSubstitutionFlagChoice($)),
+            $._blanks,
+            choice(
+              field("wfile", alias($._substitution_wfile, $.wfile)),
+              missingAtEndOrBoundary($, "missing_wfile"),
+            ),
+          ),
           seq($._blanks, field("wfile", alias($._substitution_wfile, $.wfile))),
           seq($._blanks, missingAtEndOrBoundary($, "missing_wfile")),
           seq(
@@ -1352,6 +1369,11 @@ function issueDefinitions(mode) {
       rule: () => token.immediate(";"),
     },
     {
+      reason: "flag_after_write_flag",
+      outcome: "undefined_syntax",
+      rule: ($) => postWriteSubstitutionFlagChoice($),
+    },
+    {
       reason: "equivalence_class_range_start",
       outcome: "unspecified_syntax",
       rule: ($) => $._nonportable_range_start_marker,
@@ -1767,6 +1789,7 @@ function externalTokens($, mode) {
     $._translate_unterminated_source,
     $._translate_unterminated_destination,
     $._invalid_substitution_flag,
+    $._flag_after_write_marker,
     $._text_command_start,
     $._text_literal,
     $._text_backslash_escape,

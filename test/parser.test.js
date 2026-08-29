@@ -54,12 +54,97 @@ function parse(scope, source, edits = [], { ranges = false } = {}) {
   return result;
 }
 
-function issuePaths(tree) {
-  const pattern =
-    /\(syntax_issue[ \t\r\n]+\(([a-z_]+)[ \t\r\n]+\(([a-z_]+)\)\)\)/g;
-  return [...tree.matchAll(pattern)].map(
-    ([, outcome, reason]) => `${outcome}/${reason}`,
+function nodeHeader(line) {
+  const match = /\(([a-z_]+)( \[[0-9]+, [0-9]+\] - \[[0-9]+, [0-9]+\])?/.exec(
+    line,
   );
+  if (match === null) {
+    return null;
+  }
+  return {
+    type: match[1],
+    range: match[2] === undefined ? null : match[2].slice(1),
+  };
+}
+
+function issueSignatures(tree) {
+  const lines = tree.split("\n");
+  const signatures = [];
+  for (let index = 0; index < lines.length; index++) {
+    const issue = nodeHeader(lines[index]);
+    if (issue?.type !== "syntax_issue") {
+      continue;
+    }
+    const outcome = nodeHeader(lines[index + 1] ?? "");
+    const reason = nodeHeader(lines[index + 2] ?? "");
+    assert.ok(outcome !== null, `missing issue outcome\n${tree}`);
+    assert.ok(reason !== null, `missing issue reason\n${tree}`);
+    signatures.push({
+      outcome: outcome.type,
+      reason: reason.type,
+      range: issue.range,
+    });
+  }
+  return signatures;
+}
+
+function issuePaths(tree) {
+  return issueSignatures(tree).map(
+    ({ outcome, reason }) => `${outcome}/${reason}`,
+  );
+}
+
+function parenthesisBalance(line) {
+  let balance = 0;
+  for (const character of line) {
+    if (character === "(") {
+      balance += 1;
+    } else if (character === ")") {
+      balance -= 1;
+    }
+  }
+  return balance;
+}
+
+function topLevelEditingCommands(tree) {
+  const lines = tree.split("\n");
+  const commands = [];
+  for (let index = 0; index < lines.length; index++) {
+    if (!lines[index].startsWith("    (editing_command")) {
+      continue;
+    }
+    const command = [lines[index]];
+    let balance = parenthesisBalance(lines[index]);
+    while (balance > 0) {
+      index += 1;
+      assert.ok(index < lines.length, `unterminated editing_command\n${tree}`);
+      command.push(lines[index]);
+      balance += parenthesisBalance(lines[index]);
+    }
+    commands.push(command.join("\n"));
+  }
+  return commands;
+}
+
+function assertIncrementalContract(fresh, incremental, context) {
+  assert.equal(
+    incremental.status,
+    fresh.status,
+    `${context}: fresh and incremental statuses differ`,
+  );
+  const freshIssues = issueSignatures(fresh.stdout);
+  assert.deepEqual(
+    issueSignatures(incremental.stdout),
+    freshIssues,
+    `${context}: fresh and incremental issue signatures differ`,
+  );
+  if (fresh.status === 0 && freshIssues.length === 0) {
+    assert.equal(
+      incremental.stdout,
+      fresh.stdout,
+      `${context}: fresh and incremental public CSTs differ`,
+    );
+  }
 }
 
 function applyEdits(source, edits) {
@@ -321,7 +406,37 @@ test("marker ranges: missing text introducer stays zero-width before a stray bac
   );
 });
 
+test("recovery localizes a broken top-level editing command", () => {
+  const result = parse("source.sed", "p\n/[a\nd\n");
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.deepEqual(issuePaths(result.stdout), [
+    "undefined_syntax/unclosed_bracket_expression",
+    "nonconforming_syntax/unterminated_regular_expression",
+    "nonconforming_syntax/missing_function",
+  ]);
+
+  const commands = topLevelEditingCommands(result.stdout);
+  assert.equal(commands.length, 3, result.stdout);
+  assert.equal(
+    commands[0],
+    topLevelEditingCommands(parse("source.sed", "p\n").stdout)[0],
+  );
+  assert.equal(
+    commands[2],
+    topLevelEditingCommands(parse("source.sed", "d\n").stdout)[0],
+  );
+});
+
 const explicitConvergenceCases = [
+  {
+    name: "recovery-free substitution",
+    scope: "source.sed",
+    source: "s/a/b/g\n",
+    histories: [
+      { source: "s/a/c/g\n", edits: ["4 1 b"] },
+      { source: "s/a/b/\n", edits: ["6 0 g"] },
+    ],
+  },
   {
     name: "unclosed bracket expression at source end",
     scope: "source.sed",
@@ -349,24 +464,44 @@ const explicitConvergenceCases = [
       { source: "1!$\np\n", edits: ["2 1 /"] },
     ],
   },
+  ...grammars.map((grammar) => ({
+    name: `flag after write flag in ${grammar.name}`,
+    scope: grammar.scope,
+    source: "s/a/b/wp file\n",
+    issues: [
+      {
+        outcome: "undefined_syntax",
+        reason: "flag_after_write_flag",
+        range: "[0, 7] - [0, 8]",
+      },
+    ],
+    histories: [
+      { source: "s/a/b/wg file\n", edits: ["7 1 p"] },
+      { source: "s/a/b/w file\n", edits: ["7 0 p"] },
+    ],
+  })),
 ];
 
 for (const testCase of explicitConvergenceCases) {
   test(`incremental: ${testCase.name}`, () => {
-    const fresh = parse(testCase.scope, testCase.source);
+    const fresh = parse(testCase.scope, testCase.source, [], { ranges: true });
     assert.equal(fresh.status, 0, fresh.stdout + fresh.stderr);
+    if (testCase.issues !== undefined) {
+      assert.deepEqual(issueSignatures(fresh.stdout), testCase.issues);
+    }
     for (const history of testCase.histories) {
       assert.deepEqual(
         applyEdits(history.source, history.edits),
         Buffer.from(testCase.source),
       );
-      const incremental = parse(testCase.scope, history.source, history.edits);
-      assert.equal(
-        incremental.status,
-        0,
-        incremental.stdout + incremental.stderr,
+      const incremental = parse(testCase.scope, history.source, history.edits, {
+        ranges: true,
+      });
+      assertIncrementalContract(
+        fresh,
+        incremental,
+        `${testCase.scope}: ${testCase.name}`,
       );
-      assert.equal(incremental.stdout, fresh.stdout);
     }
   });
 }
@@ -462,7 +597,6 @@ function randomCase() {
 }
 
 test("incremental: fixed-seed generated histories converge", () => {
-  const failures = [];
   for (const grammar of grammars) {
     for (let index = 0; index < 100; index++) {
       const testCase = randomCase();
@@ -473,31 +607,21 @@ test("incremental: fixed-seed generated histories converge", () => {
         applyEdits(testCase.base, [testCase.edit]),
         Buffer.from(testCase.edited),
       );
-      const fresh = parse(grammar.scope, testCase.edited);
-      const incremental = parse(grammar.scope, testCase.base, [testCase.edit]);
-      assert.equal(
-        incremental.status,
-        fresh.status,
-        `${grammar.scope}: fresh and incremental statuses differ`,
+      const fresh = parse(grammar.scope, testCase.edited, [], { ranges: true });
+      const incremental = parse(grammar.scope, testCase.base, [testCase.edit], {
+        ranges: true,
+      });
+      assertIncrementalContract(
+        fresh,
+        incremental,
+        grammar.scope +
+          ": base=" +
+          JSON.stringify(testCase.base) +
+          ", edit=" +
+          JSON.stringify(testCase.edit) +
+          ", edited=" +
+          JSON.stringify(testCase.edited),
       );
-      if (fresh.stdout !== incremental.stdout) {
-        failures.push(
-          grammar.scope +
-            ": base=" +
-            JSON.stringify(testCase.base) +
-            ", edit=" +
-            JSON.stringify(testCase.edit) +
-            ", edited=" +
-            JSON.stringify(testCase.edited),
-        );
-        if (failures.length === 5) {
-          break;
-        }
-      }
-    }
-    if (failures.length === 5) {
-      break;
     }
   }
-  assert.deepEqual(failures, []);
 });

@@ -431,6 +431,55 @@ rfile
     (command_separator)))
 
 ==================
+Classifies a flag after write without reinterpreting the write operand
+:language(sed)
+==================
+s///wg2 file
+s///w pig file
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (delimiter
+            (delimiter_token))
+          (delimiter
+            (delimiter_token))
+          (substitution_flags
+            (write_flag
+              (substitution_flag)
+              (syntax_issue
+                (undefined_syntax
+                  (flag_after_write_flag
+                    (global_flag))))
+              (occurrence_flag)
+              (wfile
+                (wfile_token)))))))
+    (command_separator)
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (delimiter
+            (delimiter_token))
+          (delimiter
+            (delimiter_token))
+          (substitution_flags
+            (write_flag
+              (substitution_flag)
+              (wfile
+                (wfile_token)))))))
+    (command_separator)))
+
+==================
 Terminates a nonconforming substitution at a physical line boundary
 :language(sed)
 ==================

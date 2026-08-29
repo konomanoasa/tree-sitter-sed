@@ -109,6 +109,7 @@ enum TokenType {
   TRANSLATE_UNTERMINATED_SOURCE,
   TRANSLATE_UNTERMINATED_DESTINATION,
   INVALID_SUBSTITUTION_FLAG,
+  FLAG_AFTER_WRITE_MARKER,
   TEXT_COMMAND_START,
   TEXT_LITERAL,
   TEXT_BACKSLASH_ESCAPE,
@@ -787,6 +788,42 @@ static bool scan_substitution_wfile_argument(TSLexer *lexer) {
     !lexer->eof(lexer) && lexer->lookahead != '\n' && lexer->lookahead != ';'
   );
   return true;
+}
+
+enum FlagAfterWriteScan {
+  FLAG_AFTER_WRITE_NONE,
+  FLAG_AFTER_WRITE_MATCH,
+  FLAG_AFTER_WRITE_FALLBACK,
+};
+
+static bool is_substitution_flag_character(int32_t character) {
+  if (is_digit(character)) {
+    return true;
+  }
+
+  switch (character) {
+  case 'g':
+  case 'i':
+  case 'p':
+  case 'w':
+    return true;
+  default:
+    return false;
+  }
+}
+
+static enum FlagAfterWriteScan scan_flag_after_write_marker(TSLexer *lexer) {
+  if (!is_substitution_flag_character(lexer->lookahead)) {
+    return FLAG_AFTER_WRITE_NONE;
+  }
+
+  lexer->mark_end(lexer);
+  do {
+    advance(lexer);
+  } while (is_substitution_flag_character(lexer->lookahead));
+
+  return is_blank(lexer->lookahead) ? FLAG_AFTER_WRITE_MATCH
+                                    : FLAG_AFTER_WRITE_FALLBACK;
 }
 
 static bool scan_right_brace(TSLexer *lexer, ScannerState *state) {
@@ -2734,6 +2771,25 @@ static bool sed_scanner_scan_impl(
     return true;
   }
 
+  if (valid_symbols[FLAG_AFTER_WRITE_MARKER]) {
+    const enum FlagAfterWriteScan scan = scan_flag_after_write_marker(lexer);
+    if (scan == FLAG_AFTER_WRITE_MATCH) {
+      *symbol = FLAG_AFTER_WRITE_MARKER;
+      return true;
+    }
+    if (
+      scan ==
+      FLAG_AFTER_WRITE_FALLBACK &&
+      valid_symbols[OMITTED_FILE_SEPARATOR_MARKER]
+    ) {
+      *symbol = OMITTED_FILE_SEPARATOR_MARKER;
+      return true;
+    }
+    if (scan == FLAG_AFTER_WRITE_FALLBACK) {
+      return false;
+    }
+  }
+
   if (
     valid_symbols[SUBSTITUTION_WFILE_ARGUMENT] &&
     scan_substitution_wfile_argument(lexer)
@@ -2750,15 +2806,7 @@ static bool sed_scanner_scan_impl(
   if (
     valid_symbols[INVALID_SUBSTITUTION_FLAG] &&
     !is_blank(lexer->lookahead) &&
-    !is_digit(lexer->lookahead) &&
-    lexer->lookahead !=
-    'g' &&
-    lexer->lookahead !=
-    'i' &&
-    lexer->lookahead !=
-    'p' &&
-    lexer->lookahead !=
-    'w' &&
+    !is_substitution_flag_character(lexer->lookahead) &&
     lexer->lookahead !=
     ';' &&
     lexer->lookahead !=

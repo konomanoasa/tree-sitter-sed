@@ -1411,6 +1411,37 @@
     }
   },
   {
+    "type": "flag_after_write_flag",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "case_insensitive_flag",
+          "named": true
+        },
+        {
+          "type": "global_flag",
+          "named": true
+        },
+        {
+          "type": "occurrence_flag",
+          "named": true
+        },
+        {
+          "type": "print_flag",
+          "named": true
+        },
+        {
+          "type": "substitution_flag",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "follow_list",
     "named": true,
     "fields": {
@@ -3280,6 +3311,10 @@
           "named": true
         },
         {
+          "type": "flag_after_write_flag",
+          "named": true
+        },
+        {
           "type": "leading_duplication_symbol",
           "named": true
         },
@@ -3430,7 +3465,7 @@
     "named": true,
     "fields": {
       "issue": {
-        "multiple": false,
+        "multiple": true,
         "required": false,
         "types": [
           {
@@ -3459,6 +3494,32 @@
           }
         ]
       }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "case_insensitive_flag",
+          "named": true
+        },
+        {
+          "type": "global_flag",
+          "named": true
+        },
+        {
+          "type": "occurrence_flag",
+          "named": true
+        },
+        {
+          "type": "print_flag",
+          "named": true
+        },
+        {
+          "type": "substitution_flag",
+          "named": true
+        }
+      ]
     }
   },
   {

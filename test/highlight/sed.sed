@@ -97,6 +97,17 @@
 #      ^ punctuation.delimiter
 #       ^ number
 
+  s/a/b/wg2 output
+# ^ keyword
+#  ^ punctuation.delimiter
+#   ^ string.regexp
+#    ^ punctuation.delimiter
+#     ^ string
+#      ^ punctuation.delimiter
+#       ^^ keyword.modifier
+#         ^ number
+#           ^^^^^^ string.special.path
+
   y|a\n\||b\\c|
 # ^ keyword
 #  ^ punctuation.delimiter

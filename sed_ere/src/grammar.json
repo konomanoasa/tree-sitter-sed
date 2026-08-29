@@ -2502,6 +2502,114 @@
               "members": [
                 {
                   "type": "SYMBOL",
+                  "name": "_flag_after_write_marker"
+                },
+                {
+                  "type": "FIELD",
+                  "name": "issue",
+                  "content": {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_flag_after_write_flag_issue"
+                    },
+                    "named": true,
+                    "value": "syntax_issue"
+                  }
+                },
+                {
+                  "type": "REPEAT",
+                  "content": {
+                    "type": "CHOICE",
+                    "members": [
+                      {
+                        "type": "SYMBOL",
+                        "name": "occurrence_flag"
+                      },
+                      {
+                        "type": "SYMBOL",
+                        "name": "global_flag"
+                      },
+                      {
+                        "type": "SYMBOL",
+                        "name": "case_insensitive_flag"
+                      },
+                      {
+                        "type": "SYMBOL",
+                        "name": "print_flag"
+                      },
+                      {
+                        "type": "ALIAS",
+                        "content": {
+                          "type": "STRING",
+                          "value": "w"
+                        },
+                        "named": true,
+                        "value": "substitution_flag"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "_blanks"
+                },
+                {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "FIELD",
+                      "name": "wfile",
+                      "content": {
+                        "type": "ALIAS",
+                        "content": {
+                          "type": "SYMBOL",
+                          "name": "_substitution_wfile"
+                        },
+                        "named": true,
+                        "value": "wfile"
+                      }
+                    },
+                    {
+                      "type": "CHOICE",
+                      "members": [
+                        {
+                          "type": "FIELD",
+                          "name": "issue",
+                          "content": {
+                            "type": "ALIAS",
+                            "content": {
+                              "type": "SYMBOL",
+                              "name": "_missing_wfile_issue"
+                            },
+                            "named": true,
+                            "value": "syntax_issue"
+                          }
+                        },
+                        {
+                          "type": "FIELD",
+                          "name": "issue",
+                          "content": {
+                            "type": "ALIAS",
+                            "content": {
+                              "type": "SYMBOL",
+                              "name": "_nonconforming_missing_wfile_issue"
+                            },
+                            "named": true,
+                            "value": "syntax_issue"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "SYMBOL",
                   "name": "_blanks"
                 },
                 {
@@ -8484,6 +8592,10 @@
         {
           "type": "SYMBOL",
           "name": "command_after_write_flag"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "flag_after_write_flag"
         }
       ]
     },
@@ -8813,6 +8925,10 @@
     "command_after_write_flag": {
       "type": "SYMBOL",
       "name": "_command_after_write_flag_reason"
+    },
+    "flag_after_write_flag": {
+      "type": "SYMBOL",
+      "name": "_flag_after_write_flag_reason"
     },
     "equivalence_class_range_start": {
       "type": "SYMBOL",
@@ -9439,6 +9555,54 @@
       "content": {
         "type": "SYMBOL",
         "name": "_command_after_write_flag_outcome"
+      },
+      "named": true,
+      "value": "undefined_syntax"
+    },
+    "_flag_after_write_flag_reason": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "occurrence_flag"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "global_flag"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "case_insensitive_flag"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "print_flag"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "STRING",
+            "value": "w"
+          },
+          "named": true,
+          "value": "substitution_flag"
+        }
+      ]
+    },
+    "_flag_after_write_flag_outcome": {
+      "type": "ALIAS",
+      "content": {
+        "type": "SYMBOL",
+        "name": "_flag_after_write_flag_reason"
+      },
+      "named": true,
+      "value": "flag_after_write_flag"
+    },
+    "_flag_after_write_flag_issue": {
+      "type": "ALIAS",
+      "content": {
+        "type": "SYMBOL",
+        "name": "_flag_after_write_flag_outcome"
       },
       "named": true,
       "value": "undefined_syntax"
@@ -11075,6 +11239,10 @@
     {
       "type": "SYMBOL",
       "name": "_invalid_substitution_flag"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_flag_after_write_marker"
     },
     {
       "type": "SYMBOL",

@@ -130,6 +130,55 @@ Preserves adjacent and leading ERE duplication structures
     (command_separator)))
 
 ==================
+Classifies a flag after write without reinterpreting the write operand
+:language(sed_ere)
+==================
+s///wg2 file
+s///w pig file
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (delimiter
+            (delimiter_token))
+          (delimiter
+            (delimiter_token))
+          (substitution_flags
+            (write_flag
+              (substitution_flag)
+              (syntax_issue
+                (undefined_syntax
+                  (flag_after_write_flag
+                    (global_flag))))
+              (occurrence_flag)
+              (wfile
+                (wfile_token)))))))
+    (command_separator)
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (delimiter
+            (delimiter_token))
+          (delimiter
+            (delimiter_token))
+          (substitution_flags
+            (write_flag
+              (substitution_flag)
+              (wfile
+                (wfile_token)))))))
+    (command_separator)))
+
+==================
 Exposes POSIX repetition modifiers
 :language(sed_ere)
 ==================
