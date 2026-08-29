@@ -6,15 +6,6 @@ const {
 } = require("./dsl");
 const regularExpressionRules = require("./regex");
 
-const outcomes = [
-  "undefined_syntax",
-  "unspecified_syntax",
-  "implementation_defined_syntax",
-  "implementation_option_syntax",
-  "nonconforming_syntax",
-  "incomplete_syntax",
-];
-
 function outcomeRuleName(id) {
   return `_${id}_outcome`;
 }
@@ -24,37 +15,7 @@ function reasonRuleName(id) {
 }
 
 function defineIssueRules(definitions) {
-  const activeOutcomes = outcomes.filter((outcome) =>
-    definitions.some((definition) => definition.outcome === outcome),
-  );
-  const rules = {
-    syntax_issue: ($) => choice(...activeOutcomes.map((outcome) => $[outcome])),
-  };
-
-  for (const outcome of activeOutcomes) {
-    rules[outcome] = ($) => {
-      const reasons = [
-        ...new Set(
-          definitions
-            .filter((definition) => definition.outcome === outcome)
-            .map(({ reason }) => reason),
-        ),
-      ].map((reason) => $[reason]);
-      return reasons.length === 1 ? reasons[0] : choice(...reasons);
-    };
-  }
-
-  for (const reason of new Set(definitions.map(({ reason }) => reason))) {
-    rules[reason] = ($) => {
-      const variants = definitions
-        .filter((definition) => definition.reason === reason)
-        .map((definition) => {
-          const id = definition.id ?? reason;
-          return $[reasonRuleName(id)];
-        });
-      return variants.length === 1 ? variants[0] : choice(...variants);
-    };
-  }
+  const rules = {};
 
   for (const definition of definitions) {
     const { outcome, reason, rule } = definition;
@@ -256,8 +217,6 @@ function choiceForRules($, names) {
 function commandListRules() {
   return {
     script: ($) => optional(alias($._script_command_list, $.command_list)),
-
-    command_list: ($) => $._command_list,
 
     _script_command_list: ($) =>
       choice($._initial_suppressing_comment_command_list, $._command_list),
@@ -595,12 +554,6 @@ function operandRules(mode) {
   }
 
   return {
-    substitute_function: ($) =>
-      choice(
-        $._substitute_function_without_write,
-        $._substitute_function_with_write,
-      ),
-
     _substitute_function_without_write: ($) =>
       choice(
         seq(
@@ -709,12 +662,6 @@ function operandRules(mode) {
     escaped_newline: ($) =>
       namedExternal($, $._replacement_escaped_newline, "escaped_newline_token"),
 
-    substitution_flags: ($) =>
-      choice(
-        $._substitution_flags_without_write,
-        $._substitution_flags_with_write,
-      ),
-
     _substitution_flags_without_write: ($) =>
       choice(
         substitutionFlagChoice($),
@@ -816,8 +763,6 @@ function functionRules() {
   );
 
   const rules = {
-    function: ($) => choice(...functionDefinitions.map(({ rule }) => $[rule])),
-
     text: ($) =>
       seq(
         repeat1(
@@ -965,6 +910,15 @@ function editingCommandRules() {
     return alias($[name], $.function);
   }
 
+  function addressedFunction($, functionRule) {
+    return seq(
+      optional($._blanks),
+      optional(seq(field("addresses", $.address_clause), optional($._blanks))),
+      optional(field("negation", $.negation)),
+      field("function", alias(functionRule, $.function)),
+    );
+  }
+
   function addressedForms($, definitions, kind) {
     const forms = [];
     for (const maximum of [0, 1, 2]) {
@@ -1041,29 +995,11 @@ function editingCommandRules() {
   }
 
   const rules = {
-    editing_command: ($) =>
-      choice(
-        $._chainable_editing_command,
-        $._line_terminated_editing_command,
-        $._recovered_line_terminated_editing_command,
-        $._recovered_editing_command,
-      ),
-
     _chainable_editing_command: ($) =>
       seq(
         choice(
           addressedForms($, chainable, "chainable"),
-          seq(
-            optional($._blanks),
-            optional(
-              seq(field("addresses", $.address_clause), optional($._blanks)),
-            ),
-            optional(field("negation", $.negation)),
-            field(
-              "function",
-              alias($._chainable_substitute_function, $.function),
-            ),
-          ),
+          addressedFunction($, $._chainable_substitute_function),
         ),
         optional(issueField($, "unexpected_command_text")),
       ),
@@ -1101,28 +1037,11 @@ function editingCommandRules() {
       addressedForms($, lineTerminated, "line_terminated"),
 
     _line_terminated_substitute_editing_command_body: ($) =>
-      seq(
-        optional($._blanks),
-        optional(
-          seq(field("addresses", $.address_clause), optional($._blanks)),
-        ),
-        optional(field("negation", $.negation)),
-        field(
-          "function",
-          alias($._line_terminated_substitute_function, $.function),
-        ),
-      ),
+      addressedFunction($, $._line_terminated_substitute_function),
 
     _recovered_editing_command: ($) =>
       choice(
-        seq(
-          optional($._blanks),
-          optional(
-            seq(field("addresses", $.address_clause), optional($._blanks)),
-          ),
-          optional(field("negation", $.negation)),
-          field("function", alias($._unknown_function, $.function)),
-        ),
+        addressedFunction($, $._unknown_function),
         seq(
           optional($._blanks),
           optional(

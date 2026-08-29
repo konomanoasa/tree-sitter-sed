@@ -547,6 +547,83 @@ s😺猫😺犬😺g
     (command_separator)))
 
 ==================
+Keeps a subexpression anchor at branch start for duplication rules
+:language(sed)
+==================
+/\(^*\)\(^\{1\}\)/p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (context_address
+            (delimiter
+              (delimiter_token))
+            (basic_reg_exp
+              (bre_branch
+                (bre_branch
+                  (bre_expression
+                    (simple_bre
+                      (nondupl_bre
+                        (back_open_parenthesis)
+                        (basic_reg_exp
+                          (bre_branch
+                            (bre_branch
+                              (bre_expression
+                                (simple_bre
+                                  (nondupl_bre
+                                    (one_char_or_coll_elem_bre
+                                      (bre_subexpression_anchor
+                                        (syntax_issue
+                                          (implementation_option_syntax
+                                            (bre_subexpression_left_anchor)))))))))
+                            (bre_expression
+                              (simple_bre
+                                (nondupl_bre
+                                  (one_char_or_coll_elem_bre
+                                    (ordinary_character
+                                      (ordinary_character_token))))))))
+                        (back_close_parenthesis
+                          (back_close_parenthesis_token))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (back_open_parenthesis)
+                      (basic_reg_exp
+                        (bre_branch
+                          (bre_branch
+                            (bre_expression
+                              (simple_bre
+                                (nondupl_bre
+                                  (one_char_or_coll_elem_bre
+                                    (bre_subexpression_anchor
+                                      (syntax_issue
+                                        (implementation_option_syntax
+                                          (bre_subexpression_left_anchor)))))))))
+                          (bre_expression
+                            (simple_bre
+                              (leading_bre_dupl_symbol
+                                (syntax_issue
+                                  (undefined_syntax
+                                    (leading_duplication_symbol)))
+                                (bre_dupl_symbol
+                                  (back_open_brace)
+                                  (dup_count
+                                    (dup_count_token))
+                                  (back_close_brace)))))))
+                      (back_close_parenthesis
+                        (back_close_parenthesis_token)))))))
+            (delimiter
+              (delimiter_token)))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
 Classifies empty BRE subexpressions inside the POSIX hierarchy
 :language(sed)
 ==================
