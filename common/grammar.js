@@ -1,32 +1,10 @@
 const {
+  defineIssueRules,
   issueField,
   issueNode,
-  issueRuleName,
   namedExternal,
 } = require("./dsl");
 const regularExpressionRules = require("./regex");
-
-function outcomeRuleName(id) {
-  return `_${id}_outcome`;
-}
-
-function reasonRuleName(id) {
-  return `_${id}_reason`;
-}
-
-function defineIssueRules(definitions) {
-  const rules = {};
-
-  for (const definition of definitions) {
-    const { outcome, reason, rule } = definition;
-    const id = definition.id ?? reason;
-    rules[reasonRuleName(id)] = rule;
-    rules[outcomeRuleName(id)] = ($) => alias($[reasonRuleName(id)], $[reason]);
-    rules[issueRuleName(id)] = ($) => alias($[outcomeRuleName(id)], $[outcome]);
-  }
-
-  return rules;
-}
 
 function missingAtEndOrBoundary($, reason) {
   return choice(

@@ -12,21 +12,14 @@ POSIX.1-2024 `sed`.
 npm install tree-sitter-sed
 ```
 
-## C
-
-The C library contains both grammars. Use `tree_sitter_sed()` for BRE and
-`tree_sitter_sed_ere()` for ERE.
-
-```c
-#include <tree_sitter/tree-sitter-sed.h>
-
-const TSLanguage *bre = tree_sitter_sed();
-const TSLanguage *ere = tree_sitter_sed_ere();
-```
-
 ## Grammars
 
-This repository contains two grammars. You can find [`sed_ere`](sed_ere) here.
+This repository contains the following two grammars.
+
+| Grammar   | Regexp | C function              |
+| --------- | ------ | ----------------------- |
+| `sed`     | BRE    | `tree_sitter_sed()`     |
+| `sed_ere` | ERE    | `tree_sitter_sed_ere()` |
 
 ## Specifications
 

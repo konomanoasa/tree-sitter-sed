@@ -1,5 +1,5 @@
-#ifndef TREE_SITTER_POSIX_SED_COMMON_SCANNER_H_
-#define TREE_SITTER_POSIX_SED_COMMON_SCANNER_H_
+#ifndef TREE_SITTER_SED_COMMON_SCANNER_H_
+#define TREE_SITTER_SED_COMMON_SCANNER_H_
 
 #ifndef SED_REGEX_EXTENDED
 #error "SED_REGEX_EXTENDED must be defined before including scanner.h"
@@ -246,6 +246,17 @@ enum {
   SCANNER_SERIALIZED_STATE_SIZE = 17,
 };
 
+enum {
+  SERIALIZED_AT_BRANCH_START_FLAG = 1 << 0,
+  SERIALIZED_AFTER_ALTERNATION_FLAG = 1 << 1,
+  SERIALIZED_AFTER_ANCHOR_FLAG = 1 << 2,
+  SERIALIZED_TEXT_STATE_SHIFT = 3,
+  SERIALIZED_MODE_FLAGS_MAXIMUM = 31,
+  SERIALIZED_RANGE_PENDING_FLAG = 1 << 0,
+  SERIALIZED_DUPLICATION_STATE_SHIFT = 1,
+  SERIALIZED_BRACKET_FLAGS_MAXIMUM = 7,
+};
+
 static void reset_bracket_tracking(ScannerState *state) {
   state->regex_bracket_term_state = REGEX_BRACKET_TERM_NONE;
   state->regex_bracket_pending_element = REGEX_BRACKET_PENDING_NONE;
@@ -315,10 +326,11 @@ static unsigned sed_scanner_serialize(void *payload, char *buffer) {
   buffer[0] = SCANNER_SERIALIZATION_VERSION;
   buffer[1] = (char)state->mode;
   buffer[2] = (char)state->regex_state;
-  buffer[3] = (state->regex_at_branch_start ? 1 : 0) |
-    (state->regex_after_alternation ? 2 : 0) |
-    (state->regex_after_anchor ? 4 : 0) |
-    ((unsigned char)state->text_state << 3);
+  buffer[3] =
+    (state->regex_at_branch_start ? SERIALIZED_AT_BRANCH_START_FLAG : 0) |
+    (state->regex_after_alternation ? SERIALIZED_AFTER_ALTERNATION_FLAG : 0) |
+    (state->regex_after_anchor ? SERIALIZED_AFTER_ANCHOR_FLAG : 0) |
+    ((unsigned char)state->text_state << SERIALIZED_TEXT_STATE_SHIFT);
   buffer[4] = (char)(delimiter & UINT32_C(0xff));
   buffer[5] = (char)((delimiter >> 8) & UINT32_C(0xff));
   buffer[6] = (char)((delimiter >> 16) & UINT32_C(0xff));
@@ -330,8 +342,10 @@ static unsigned sed_scanner_serialize(void *payload, char *buffer) {
   buffer[13] = (char)state->regex_bracket_first_element;
   buffer[14] = (char)state->regex_bracket_last_element;
   buffer[15] = (char)state->regex_bracket_element_count;
-  buffer[16] = (state->regex_bracket_range_pending ? 1 : 0) |
-    ((unsigned char)state->regex_duplication_state << 1);
+  buffer[16] =
+    (state->regex_bracket_range_pending ? SERIALIZED_RANGE_PENDING_FLAG : 0) |
+    ((unsigned char)state->regex_duplication_state
+      << SERIALIZED_DUPLICATION_STATE_SHIFT);
   return SCANNER_SERIALIZED_STATE_SIZE;
 }
 
@@ -447,12 +461,16 @@ sed_scanner_deserialize(void *payload, const char *buffer, unsigned length) {
       ((uint32_t)(unsigned char)buffer[7] << 24)),
     .mode = (enum ScannerMode)(unsigned char)buffer[1],
     .regex_state = (enum RegexState)(unsigned char)buffer[2],
-    .regex_at_branch_start = (mode_flags & 1U) != 0,
-    .regex_duplication_state =
-      (enum RegexDuplicationState)((regex_bracket_flags >> 1) & 3U),
-    .regex_after_alternation = (mode_flags & 2U) != 0,
-    .regex_after_anchor = (mode_flags & 4U) != 0,
-    .text_state = (enum TextState)((mode_flags >> 3) & 3U),
+    .regex_at_branch_start =
+      (mode_flags & SERIALIZED_AT_BRANCH_START_FLAG) != 0,
+    .regex_duplication_state = (enum RegexDuplicationState)(
+      (regex_bracket_flags >> SERIALIZED_DUPLICATION_STATE_SHIFT) & 3U
+    ),
+    .regex_after_alternation =
+      (mode_flags & SERIALIZED_AFTER_ALTERNATION_FLAG) != 0,
+    .regex_after_anchor = (mode_flags & SERIALIZED_AFTER_ANCHOR_FLAG) != 0,
+    .text_state =
+      (enum TextState)((mode_flags >> SERIALIZED_TEXT_STATE_SHIFT) & 3U),
     .regex_interval_state = (enum RegexIntervalState)(unsigned char)buffer[10],
     .regex_bracket_term_state =
       (enum RegexBracketTermState)(unsigned char)buffer[11],
@@ -463,7 +481,8 @@ sed_scanner_deserialize(void *payload, const char *buffer, unsigned length) {
     .regex_bracket_last_element =
       (enum RegexBracketPendingElement)(unsigned char)buffer[14],
     .regex_bracket_element_count = (uint8_t)(unsigned char)buffer[15],
-    .regex_bracket_range_pending = (regex_bracket_flags & 1U) != 0,
+    .regex_bracket_range_pending =
+      (regex_bracket_flags & SERIALIZED_RANGE_PENDING_FLAG) != 0,
     .regex_group_depth = deserialize_uint16(buffer, 8),
   };
 
@@ -475,7 +494,7 @@ sed_scanner_deserialize(void *payload, const char *buffer, unsigned length) {
     return;
   }
 
-  if ((mode_flags & (unsigned char)~31U) != 0) {
+  if ((mode_flags & (unsigned char)~SERIALIZED_MODE_FLAGS_MAXIMUM) != 0) {
     return;
   }
   if (candidate.text_state > TEXT_AFTER_ESCAPED_NEWLINE) {
@@ -502,7 +521,7 @@ sed_scanner_deserialize(void *payload, const char *buffer, unsigned length) {
     REGEX_BRACKET_PENDING_COLON ||
     candidate.regex_bracket_element_count >
     3U ||
-    (regex_bracket_flags & (unsigned char)~7U) !=
+    (regex_bracket_flags & (unsigned char)~SERIALIZED_BRACKET_FLAGS_MAXIMUM) !=
     0 ||
 #if SED_REGEX_EXTENDED
     candidate.regex_duplication_state > REGEX_AFTER_REPETITION_MODIFIER
@@ -1095,44 +1114,36 @@ update_bracket_state_after_literal(ScannerState *state, int32_t character) {
 static bool
 regex_literal_boundary(const ScannerState *state, int32_t character) {
   if (state->regex_state == REGEX_OUTSIDE_BRACKET) {
-    return character ==
-      state->delimiter ||
-      character ==
-      '\\' ||
-      character ==
-      '(' ||
-      character ==
-      ')' ||
-      character ==
-      '[' ||
-      character ==
-      '*' ||
-      character ==
-      '+' ||
-      character ==
-      '?' ||
-      character ==
-      '|' ||
-      character ==
-      '{' ||
-      character ==
-      '.' ||
-      character ==
-      '^' ||
-      character == '$';
+    switch (character) {
+    case '\\':
+    case '(':
+    case ')':
+    case '[':
+    case '*':
+    case '+':
+    case '?':
+    case '|':
+    case '{':
+    case '.':
+    case '^':
+    case '$':
+      return true;
+    default:
+      return character == state->delimiter;
+    }
   }
 
-  if (
-    character ==
-    '[' ||
-    (state->regex_state == REGEX_BRACKET_FIRST && character == '^') ||
-    (state->regex_state == REGEX_BRACKET_BODY && character == '-') ||
-    (state->regex_state == REGEX_BRACKET_BODY && character == ']')
-  ) {
+  switch (character) {
+  case '[':
     return true;
+  case '^':
+    return state->regex_state == REGEX_BRACKET_FIRST;
+  case '-':
+  case ']':
+    return state->regex_state == REGEX_BRACKET_BODY;
+  default:
+    return false;
   }
-
-  return false;
 }
 
 static enum LiteralScanResult
@@ -1200,15 +1211,19 @@ static bool scan_regex_bracket_opener(
   lexer->mark_end(lexer);
 
   TSSymbol candidate;
+  enum RegexBracketTermState term_state;
   switch (lexer->lookahead) {
   case ':':
     candidate = REGEX_OPEN_COLON;
+    term_state = REGEX_BRACKET_TERM_COLON;
     break;
   case '.':
     candidate = REGEX_OPEN_DOT;
+    term_state = REGEX_BRACKET_TERM_DOT;
     break;
   case '=':
     candidate = REGEX_OPEN_EQUAL;
+    term_state = REGEX_BRACKET_TERM_EQUAL;
     break;
   default:
     begin_single_bracket_element(state, '[');
@@ -1222,10 +1237,7 @@ static bool scan_regex_bracket_opener(
   consume(lexer);
   begin_compound_bracket_element(state);
   finish_first_bracket_element(state);
-  state->regex_bracket_term_state = candidate == REGEX_OPEN_COLON
-    ? REGEX_BRACKET_TERM_COLON
-    : candidate == REGEX_OPEN_DOT ? REGEX_BRACKET_TERM_DOT
-                                  : REGEX_BRACKET_TERM_EQUAL;
+  state->regex_bracket_term_state = term_state;
   *symbol = candidate;
   return true;
 }
@@ -1245,6 +1257,18 @@ static void record_bracket_term_character(
 
 static bool bracket_meta_character(int32_t character) {
   return character == '^' || character == '-' || character == ']';
+}
+
+static int32_t
+bracket_term_close_marker(enum RegexBracketTermState term_state) {
+  switch (term_state) {
+  case REGEX_BRACKET_TERM_COLON:
+    return ':';
+  case REGEX_BRACKET_TERM_DOT:
+    return '.';
+  default:
+    return '=';
+  }
 }
 
 static TSSymbol regex_bracket_term_content_symbol(
@@ -1599,6 +1623,21 @@ static enum DuplicationContextScan scan_regex_duplication_context_marker(
   return DUPLICATION_CONTEXT_TOKEN;
 }
 
+static bool raw_regex_operator_character(int32_t character) {
+  switch (character) {
+  case '(':
+  case ')':
+  case '*':
+  case '+':
+  case '?':
+  case '|':
+  case '{':
+    return true;
+  default:
+    return false;
+  }
+}
+
 static bool scan_raw_regex_operator(
   TSLexer *lexer,
   ScannerState *state,
@@ -1667,39 +1706,42 @@ static bool scan_raw_regex_operator(
 }
 
 static bool regex_delimiter_is_special(int32_t character) {
+  switch (character) {
 #if SED_REGEX_EXTENDED
-  return character ==
-    '.' ||
-    character ==
-    '[' ||
-    character ==
-    '(' ||
-    character ==
-    ')' ||
-    character ==
-    '*' ||
-    character ==
-    '+' ||
-    character ==
-    '?' ||
-    character ==
-    '{' ||
-    character ==
-    '|' ||
-    character ==
-    '^' ||
-    character == '$';
-#else
-  return character ==
-    '.' ||
-    character ==
-    '[' ||
-    character ==
-    '*' ||
-    character ==
-    '^' ||
-    character == '$';
+  case '(':
+  case ')':
+  case '+':
+  case '?':
+  case '{':
+  case '|':
 #endif
+  case '.':
+  case '[':
+  case '*':
+  case '^':
+  case '$':
+    return true;
+  default:
+    return false;
+  }
+}
+
+static bool escape_quotes_regex_syntax(int32_t character) {
+  switch (character) {
+#if SED_REGEX_EXTENDED
+  case '}':
+#endif
+  case '.':
+  case '*':
+  case '^':
+  case '$':
+  case '[':
+  case '\\':
+  case ']':
+    return true;
+  default:
+    return false;
+  }
 }
 
 static bool scan_regex_escaped_delimiter(
@@ -1815,29 +1857,11 @@ static bool scan_regex_escape_after_backslash(
     return emit_symbol(valid_symbols, REGEX_NEWLINE_ESCAPE, symbol);
   }
 
-  const int32_t character = lexer->lookahead;
-  const bool quotes_regex_syntax = character ==
-    '.' ||
-    character ==
-    '*' ||
-    character ==
-    '^' ||
-    character ==
-    '$' ||
-    character ==
-    '[' ||
-    character ==
-    '\\' ||
-    character ==
-    ']' ||
-    (SED_REGEX_EXTENDED && character == '}');
-  if (!quotes_regex_syntax) {
-    consume(lexer);
-    return emit_symbol(valid_symbols, REGEX_NONPORTABLE_ESCAPE, symbol);
-  }
-
+  const TSSymbol candidate = escape_quotes_regex_syntax(lexer->lookahead)
+    ? REGEX_QUOTED_ESCAPE
+    : REGEX_NONPORTABLE_ESCAPE;
   consume(lexer);
-  return emit_symbol(valid_symbols, REGEX_QUOTED_ESCAPE, symbol);
+  return emit_symbol(valid_symbols, candidate, symbol);
 }
 
 #if !SED_REGEX_EXTENDED
@@ -2069,14 +2093,10 @@ static bool scan_regex_token(
       valid_symbols[REGEX_COLL_ELEM_MULTI] ||
       valid_symbols[REGEX_META_CHAR]
     ) {
-      const int32_t close_marker =
-        state->regex_bracket_term_state == REGEX_BRACKET_TERM_COLON ? ':'
-        : state->regex_bracket_term_state == REGEX_BRACKET_TERM_DOT ? '.'
-                                                                    : '=';
       return scan_regex_bracket_term_content(
         lexer,
         state,
-        close_marker,
+        bracket_term_close_marker(state->regex_bracket_term_state),
         valid_symbols,
         symbol
       );
@@ -2211,21 +2231,7 @@ static bool scan_regex_token(
       );
     }
 
-    if (
-      lexer->lookahead ==
-      '(' ||
-      lexer->lookahead ==
-      ')' ||
-      lexer->lookahead ==
-      '*' ||
-      lexer->lookahead ==
-      '+' ||
-      lexer->lookahead ==
-      '?' ||
-      lexer->lookahead ==
-      '|' ||
-      lexer->lookahead == '{'
-    ) {
+    if (raw_regex_operator_character(lexer->lookahead)) {
       return scan_raw_regex_operator(lexer, state, valid_symbols, symbol);
     }
 
@@ -2646,6 +2652,11 @@ static bool scan_regex_recovery_marker(
   return false;
 }
 
+static TSSymbol missing_text_introducer_symbol(const TSLexer *lexer) {
+  return lexer->eof(lexer) ? MISSING_TEXT_INTRODUCER_MARKER
+                           : NONCONFORMING_MISSING_TEXT_INTRODUCER_MARKER;
+}
+
 static bool scan_command_token(
   TSLexer *lexer,
   ScannerState *state,
@@ -2711,10 +2722,11 @@ static bool scan_command_token(
       *symbol = TEXT_COMMAND_START;
       return true;
     }
-    const TSSymbol introducer_marker = lexer->eof(lexer)
-      ? MISSING_TEXT_INTRODUCER_MARKER
-      : NONCONFORMING_MISSING_TEXT_INTRODUCER_MARKER;
-    return emit_symbol(valid_symbols, introducer_marker, symbol);
+    return emit_symbol(
+      valid_symbols,
+      missing_text_introducer_symbol(lexer),
+      symbol
+    );
   }
 
   if (valid_symbols[DEFAULT_OUTPUT_SUPPRESSION] && lexer->lookahead == 'n') {
@@ -2854,11 +2866,13 @@ static bool scan_command_token(
     }
   }
 
-  const TSSymbol missing_text_introducer = lexer->eof(lexer)
-    ? MISSING_TEXT_INTRODUCER_MARKER
-    : NONCONFORMING_MISSING_TEXT_INTRODUCER_MARKER;
   if (
-    emit_missing_marker(lexer, valid_symbols, missing_text_introducer, symbol)
+    emit_missing_marker(
+      lexer,
+      valid_symbols,
+      missing_text_introducer_symbol(lexer),
+      symbol
+    )
   ) {
     return true;
   }
