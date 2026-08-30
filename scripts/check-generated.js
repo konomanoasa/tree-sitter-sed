@@ -147,6 +147,7 @@ function checkParserBudget(grammar, generatedRoot) {
   const displayPath = relative(generatedRoot, parserPath);
   const parser = readFileSync(parserPath, "utf8");
   const actual = {
+    LANGUAGE_VERSION: readDefine(parser, "LANGUAGE_VERSION", displayPath),
     STATE_COUNT: readDefine(parser, "STATE_COUNT", displayPath),
     LARGE_STATE_COUNT: readDefine(parser, "LARGE_STATE_COUNT", displayPath),
     SYMBOL_COUNT: readDefine(parser, "SYMBOL_COUNT", displayPath),
@@ -178,7 +179,10 @@ function checkParserBudget(grammar, generatedRoot) {
       failed = true;
     }
   }
-  return failed;
+  return {
+    failed,
+    languageVersion: actual.LANGUAGE_VERSION,
+  };
 }
 
 function namedNode(nodeTypes, type, path) {
@@ -301,12 +305,24 @@ function main() {
       return 1;
     }
 
-    let budgetFailed = false;
+    let failed = false;
+    const languageVersions = new Map();
     for (const grammar of grammars) {
       checkPublicCst(grammar, generatedRoot);
-      budgetFailed = checkParserBudget(grammar, generatedRoot) || budgetFailed;
+      const result = checkParserBudget(grammar, generatedRoot);
+      failed = result.failed || failed;
+      languageVersions.set(grammar.name, result.languageVersion);
     }
-    return budgetFailed ? 1 : 0;
+    if (new Set(languageVersions.values()).size !== 1) {
+      console.error(
+        "Generated parsers use different Tree-sitter ABI versions:",
+      );
+      for (const [name, version] of languageVersions) {
+        console.error(`  ${name}: ${version}`);
+      }
+      failed = true;
+    }
+    return failed ? 1 : 0;
   } finally {
     rmSync(generatedRoot, { recursive: true, force: true });
   }

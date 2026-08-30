@@ -1,4 +1,7 @@
 {
+  "files": {
+    "includes": ["**", "!build"]
+  },
   "formatter": {
     "includes": [
       "**",

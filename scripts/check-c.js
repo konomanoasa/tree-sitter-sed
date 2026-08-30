@@ -12,6 +12,14 @@ const { tmpdir } = require("node:os");
 const { delimiter, dirname, isAbsolute, join } = require("node:path");
 const { grammars, root } = require("./tree-sitter");
 
+const bindingHeader = join(
+  root,
+  "bindings",
+  "c",
+  "tree_sitter",
+  "tree-sitter-sed.h",
+);
+const bindingContract = join(root, "test", "binding.test.c");
 const scannerHeader = join(root, "common", "scanner.h");
 const scannerContract = join(root, "test", "scanner.test.c");
 const scannerVariants = grammars.map((grammar) => {
@@ -32,6 +40,8 @@ const scannerVariants = grammars.map((grammar) => {
   };
 });
 const sources = [
+  bindingHeader,
+  bindingContract,
   scannerHeader,
   ...scannerVariants.map((variant) => variant.source),
   scannerContract,
@@ -144,7 +154,7 @@ function main() {
     arguments_.length > 1 ||
     (arguments_.length === 1 && arguments_[0] !== "--write")
   ) {
-    throw new Error("Usage: node scripts/check-scanner.js [--write]");
+    throw new Error("Usage: node scripts/check-c.js [--write]");
   }
 
   const { clang, clangd, clangFormat } = llvmCommands();
@@ -167,12 +177,24 @@ function main() {
 
   run(clangFormat, ["--dry-run", "--Werror", ...sources]);
   for (const source of sources) {
-    run(clangd, ["--log=error", `--check=${source}`]);
+    run(clangd, ["--log=error", "--tweaks=", `--check=${source}`]);
   }
 
-  const testDirectory = mkdtempSync(join(tmpdir(), "tree-sitter-sed-scanner."));
+  const testDirectory = mkdtempSync(join(tmpdir(), "tree-sitter-sed-c."));
   try {
     for (const standard of ["c99", "c17"]) {
+      run(clang, [
+        `-std=${standard}`,
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pedantic",
+        "-I",
+        join(root, "bindings", "c"),
+        "-fsyntax-only",
+        bindingContract,
+      ]);
+
       for (const variant of scannerVariants) {
         const compilerArguments = [
           `-std=${standard}`,

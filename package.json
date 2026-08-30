@@ -5,9 +5,12 @@
   "license": "MIT",
   "repository": "git+https://github.com/konomanoasa/tree-sitter-sed.git",
   "files": [
+    "bindings/c",
+    "CMakeLists.txt",
     "common/*.js",
     "common/scanner.h",
     "grammar.js",
+    "Makefile",
     "queries/*.scm",
     "src/*.c",
     "src/*.json",
@@ -17,11 +20,12 @@
     "sed_ere/src/*.c",
     "sed_ere/src/*.json",
     "sed_ere/src/tree_sitter/*.h",
+    "test/binding.test.c",
     "tree-sitter.json"
   ],
   "scripts": {
-    "check": "biome check . && node scripts/check-scanner.js && node scripts/check-generated.js && npm test",
-    "format": "biome check --write . && node scripts/check-scanner.js --write",
+    "check": "biome check . && node scripts/check-c.js && node scripts/check-generated.js && npm test",
+    "format": "biome check --write . && node scripts/check-c.js --write",
     "generate": "npm run tree-sitter -- generate-all",
     "test": "npm run tree-sitter -- test-corpus --rebuild && node --test",
     "test:fuzz": "npm run tree-sitter -- fuzz-all --iterations 100 --edits 5",

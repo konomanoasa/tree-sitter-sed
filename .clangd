@@ -17,6 +17,18 @@ CompileFlags:
 
 ---
 If:
+  PathMatch: bindings/c/tree_sitter/tree-sitter-sed\.h
+CompileFlags:
+  Add: [-xc]
+
+---
+If:
   PathMatch: test/scanner\.test\.c
 CompileFlags:
   Add: [-DSED_REGEX_EXTENDED=0, -I../src]
+
+---
+If:
+  PathMatch: test/binding\.test\.c
+CompileFlags:
+  Add: [-I../bindings/c]
