@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 
 project(
   tree-sitter-sed
-  VERSION 0.3.0
+  VERSION 0.4.0
   DESCRIPTION "Tree-sitter grammars for POSIX sed."
   HOMEPAGE_URL "https://github.com/konomanoasa/tree-sitter-sed"
   LANGUAGES C

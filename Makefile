@@ -1,6 +1,6 @@
 LANGUAGE_NAME := tree-sitter-sed
 HOMEPAGE_URL := https://github.com/konomanoasa/tree-sitter-sed
-VERSION := 0.3.0
+VERSION := 0.4.0
 DESCRIPTION := Tree-sitter grammars for POSIX sed.
 
 PREFIX ?= /usr/local
