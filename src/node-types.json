@@ -1,10 +1,5 @@
 [
   {
-    "type": "additional_address",
-    "named": true,
-    "fields": {}
-  },
-  {
     "type": "address",
     "named": true,
     "fields": {},
@@ -31,16 +26,6 @@
     "type": "address_clause",
     "named": true,
     "fields": {
-      "excess": {
-        "multiple": true,
-        "required": false,
-        "types": [
-          {
-            "type": "excess_address",
-            "named": true
-          }
-        ]
-      },
       "first": {
         "multiple": false,
         "required": false,
@@ -88,7 +73,7 @@
     "named": true,
     "fields": {
       "issue": {
-        "multiple": false,
+        "multiple": true,
         "required": false,
         "types": [
           {
@@ -280,9 +265,34 @@
     }
   },
   {
+    "type": "blanks_after_negation",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "blank",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "blanks_around_address_separator",
     "named": true,
-    "fields": {}
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "blank",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "block_function",
@@ -1099,7 +1109,18 @@
   {
     "type": "duplicate_negation",
     "named": true,
-    "fields": {}
+    "fields": {
+      "operator": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "negation_operator",
+            "named": true
+          }
+        ]
+      }
+    }
   },
   {
     "type": "editing_command",
@@ -1328,7 +1349,7 @@
       },
       "separator": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "address_separator",
@@ -1337,11 +1358,6 @@
         ]
       }
     }
-  },
-  {
-    "type": "excess_addresses",
-    "named": true,
-    "fields": {}
   },
   {
     "type": "exchange_function",
@@ -1822,6 +1838,10 @@
           "named": true
         },
         {
+          "type": "omitted_address",
+          "named": true
+        },
+        {
           "type": "unclosed_bracket_expression",
           "named": true
         },
@@ -2158,7 +2178,7 @@
         ]
       },
       "operator": {
-        "multiple": true,
+        "multiple": false,
         "required": true,
         "types": [
           {
@@ -2210,10 +2230,6 @@
       "required": true,
       "types": [
         {
-          "type": "additional_address",
-          "named": true
-        },
-        {
           "type": "blanks_around_address_separator",
           "named": true
         },
@@ -2222,7 +2238,7 @@
           "named": true
         },
         {
-          "type": "excess_addresses",
+          "type": "excess_address",
           "named": true
         },
         {
@@ -2308,10 +2324,6 @@
         "multiple": false,
         "required": false,
         "types": [
-          {
-            "type": "back_close_brace",
-            "named": true
-          },
           {
             "type": "back_close_parenthesis",
             "named": true
@@ -3484,12 +3496,32 @@
   {
     "type": "unmatched_interval_close",
     "named": true,
-    "fields": {}
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "back_close_brace",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "unmatched_subexpression_close",
     "named": true,
-    "fields": {}
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "back_close_parenthesis_token",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "unspecified_replacement_escape",
@@ -3725,7 +3757,7 @@
     "named": true
   },
   {
-    "type": "blanks_after_negation",
+    "type": "blank",
     "named": true
   },
   {

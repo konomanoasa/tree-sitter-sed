@@ -1,5 +1,14 @@
 const { issueField, namedExternal } = require("./dsl");
 
+function subexpressionBody($, expression) {
+  return choice(
+    field("expression", expression),
+    issueField($, "empty_subexpression"),
+    issueField($, "missing_subexpression"),
+    $._missing_subexpression_placeholder_marker,
+  );
+}
+
 function intervalExpression($, openingName, closingName) {
   return seq(
     field("opening", namedExternal($, $._regex_interval_open, openingName)),
@@ -438,27 +447,12 @@ function breRules() {
             "opening",
             namedExternal($, $._regex_group_open, "back_open_parenthesis"),
           ),
-          choice(
-            field("expression", $.basic_reg_exp),
-            issueField($, "empty_subexpression"),
-            issueField($, "missing_subexpression"),
-            $._missing_subexpression_placeholder_marker,
-          ),
+          subexpressionBody($, $.basic_reg_exp),
           field("closing", $.back_close_parenthesis),
         ),
         $.backreference,
         issueField($, "unmatched_subexpression_close"),
-        seq(
-          field(
-            "closing",
-            namedExternal(
-              $,
-              $._regex_unmatched_interval_close,
-              "back_close_brace",
-            ),
-          ),
-          issueField($, "unmatched_interval_close"),
-        ),
+        issueField($, "unmatched_interval_close"),
       ),
 
     back_close_parenthesis: ($) =>
@@ -589,12 +583,7 @@ function ereRules() {
             "opening",
             namedExternal($, $._regex_group_open, "open_parenthesis"),
           ),
-          choice(
-            field("expression", $.extended_reg_exp),
-            issueField($, "empty_subexpression"),
-            issueField($, "missing_subexpression"),
-            $._missing_subexpression_placeholder_marker,
-          ),
+          subexpressionBody($, $.extended_reg_exp),
           field("closing", $.close_parenthesis),
         ),
         prec.left(

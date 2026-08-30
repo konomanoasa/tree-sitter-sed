@@ -112,10 +112,10 @@ Preserves BRE interval recovery structure
                 (bre_expression
                   (simple_bre
                     (nondupl_bre
-                      (back_close_brace)
                       (syntax_issue
                         (undefined_syntax
-                          (unmatched_interval_close))))))))
+                          (unmatched_interval_close
+                            (back_close_brace)))))))))
             (delimiter
               (delimiter_token)))))
       (function
@@ -281,7 +281,8 @@ Classifies malformed BRE interval recovery inside the POSIX hierarchy
                     (nondupl_bre
                       (syntax_issue
                         (undefined_syntax
-                          (unmatched_subexpression_close))))))))
+                          (unmatched_subexpression_close
+                            (back_close_parenthesis_token)))))))))
             (delimiter
               (delimiter_token)))))
       (function

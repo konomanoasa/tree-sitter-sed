@@ -32,8 +32,13 @@ for (const grammar of configuration.grammars) {
   }
 }
 const grammars = Object.freeze(
-  configuration.grammars.map(({ name, path, scope }) =>
-    Object.freeze({ name, path, scope }),
+  configuration.grammars.map(({ highlights, name, path, scope }) =>
+    Object.freeze({
+      highlights: Object.freeze([].concat(highlights ?? [])),
+      name,
+      path,
+      scope,
+    }),
   ),
 );
 const executable = join(

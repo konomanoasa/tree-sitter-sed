@@ -1215,7 +1215,7 @@
         },
         {
           "type": "SYMBOL",
-          "name": "_address_clause_with_excess"
+          "name": "_max2_excess_address_clause"
         }
       ]
     },
@@ -1231,206 +1231,16 @@
       "type": "CHOICE",
       "members": [
         {
-          "type": "PREC",
-          "value": 1,
-          "content": {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "first",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "address"
-                }
-              },
-              {
-                "type": "FIELD",
-                "name": "separator",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_address_separator"
-                  },
-                  "named": true,
-                  "value": "address_separator"
-                }
-              },
-              {
-                "type": "FIELD",
-                "name": "second",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "address"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "PREC",
-          "value": -1,
-          "content": {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "SEQ",
-                "members": [
-                  {
-                    "type": "FIELD",
-                    "name": "separator",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_comma_address_separator"
-                      },
-                      "named": true,
-                      "value": "address_separator"
-                    }
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "second",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "address"
-                    }
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_omitted_first_address_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "SEQ",
-                "members": [
-                  {
-                    "type": "FIELD",
-                    "name": "first",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "address"
-                    }
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "separator",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_comma_address_separator"
-                      },
-                      "named": true,
-                      "value": "address_separator"
-                    }
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_omitted_address_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "SEQ",
-                "members": [
-                  {
-                    "type": "FIELD",
-                    "name": "separator",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_comma_address_separator"
-                      },
-                      "named": true,
-                      "value": "address_separator"
-                    }
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_omitted_address_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      ]
-    },
-    "_address_clause_with_excess": {
-      "type": "PREC",
-      "value": 2,
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {
-            "type": "SYMBOL",
-            "name": "_double_address_clause"
-          },
-          {
-            "type": "FIELD",
-            "name": "issue",
-            "content": {
-              "type": "ALIAS",
-              "content": {
-                "type": "SYMBOL",
-                "name": "_additional_address_issue"
-              },
-              "named": true,
-              "value": "syntax_issue"
-            }
-          },
-          {
-            "type": "REPEAT1",
-            "content": {
-              "type": "FIELD",
-              "name": "excess",
-              "content": {
-                "type": "SYMBOL",
-                "name": "excess_address"
-              }
-            }
-          }
-        ]
-      }
-    },
-    "excess_address": {
-      "type": "CHOICE",
-      "members": [
-        {
           "type": "SEQ",
           "members": [
+            {
+              "type": "FIELD",
+              "name": "first",
+              "content": {
+                "type": "SYMBOL",
+                "name": "address"
+              }
+            },
             {
               "type": "FIELD",
               "name": "separator",
@@ -1446,7 +1256,7 @@
             },
             {
               "type": "FIELD",
-              "name": "address",
+              "name": "second",
               "content": {
                 "type": "SYMBOL",
                 "name": "address"
@@ -1457,6 +1267,19 @@
         {
           "type": "SEQ",
           "members": [
+            {
+              "type": "FIELD",
+              "name": "issue",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_omitted_first_address_issue"
+                },
+                "named": true,
+                "value": "syntax_issue"
+              }
+            },
             {
               "type": "FIELD",
               "name": "separator",
@@ -1472,20 +1295,316 @@
             },
             {
               "type": "FIELD",
+              "name": "second",
+              "content": {
+                "type": "SYMBOL",
+                "name": "address"
+              }
+            }
+          ]
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "first",
+              "content": {
+                "type": "SYMBOL",
+                "name": "address"
+              }
+            },
+            {
+              "type": "FIELD",
+              "name": "separator",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_comma_address_separator"
+                },
+                "named": true,
+                "value": "address_separator"
+              }
+            },
+            {
+              "type": "SYMBOL",
+              "name": "_omitted_second_address_issue"
+            }
+          ]
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "FIELD",
               "name": "issue",
               "content": {
                 "type": "ALIAS",
                 "content": {
                   "type": "SYMBOL",
-                  "name": "_omitted_address_issue"
+                  "name": "_omitted_first_address_issue"
                 },
                 "named": true,
                 "value": "syntax_issue"
               }
+            },
+            {
+              "type": "FIELD",
+              "name": "separator",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_comma_address_separator"
+                },
+                "named": true,
+                "value": "address_separator"
+              }
+            },
+            {
+              "type": "SYMBOL",
+              "name": "_omitted_second_address_issue"
             }
           ]
         }
       ]
+    },
+    "_omitted_second_address_issue": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "FIELD",
+          "name": "issue",
+          "content": {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_omitted_address_issue"
+            },
+            "named": true,
+            "value": "syntax_issue"
+          }
+        },
+        {
+          "type": "FIELD",
+          "name": "issue",
+          "content": {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_incomplete_omitted_address_issue"
+            },
+            "named": true,
+            "value": "syntax_issue"
+          }
+        }
+      ]
+    },
+    "_max2_excess_address_clause": {
+      "type": "PREC_DYNAMIC",
+      "value": 1,
+      "content": {
+        "type": "CHOICE",
+        "members": [
+          {
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "_double_address_clause"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "_max2_excess_address_tail"
+              }
+            ]
+          },
+          {
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "_max2_excess_address_clause"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "_max2_excess_address_tail"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "_max1_address_clause": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_single_address_clause"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_max1_excess_address_clause"
+        }
+      ]
+    },
+    "_max1_excess_address_clause": {
+      "type": "PREC_DYNAMIC",
+      "value": 1,
+      "content": {
+        "type": "CHOICE",
+        "members": [
+          {
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "FIELD",
+                "name": "first",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "address"
+                }
+              },
+              {
+                "type": "SYMBOL",
+                "name": "_max1_excess_address_tail"
+              }
+            ]
+          },
+          {
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "FIELD",
+                "name": "issue",
+                "content": {
+                  "type": "ALIAS",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "_omitted_first_address_unit1_issue"
+                  },
+                  "named": true,
+                  "value": "syntax_issue"
+                }
+              },
+              {
+                "type": "SYMBOL",
+                "name": "_max1_excess_address_tail"
+              }
+            ]
+          },
+          {
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "_max1_excess_address_clause"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "_max1_excess_address_tail"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "_max0_address_clause": {
+      "type": "PREC_DYNAMIC",
+      "value": 1,
+      "content": {
+        "type": "CHOICE",
+        "members": [
+          {
+            "type": "FIELD",
+            "name": "issue",
+            "content": {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_excess_address_issue"
+              },
+              "named": true,
+              "value": "syntax_issue"
+            }
+          },
+          {
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "FIELD",
+                "name": "issue",
+                "content": {
+                  "type": "ALIAS",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "_omitted_first_address_unit0_issue"
+                  },
+                  "named": true,
+                  "value": "syntax_issue"
+                }
+              },
+              {
+                "type": "SYMBOL",
+                "name": "_max0_excess_address_tail"
+              }
+            ]
+          },
+          {
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "_max0_address_clause"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "_max0_excess_address_tail"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "_max0_excess_address_tail": {
+      "type": "FIELD",
+      "name": "issue",
+      "content": {
+        "type": "ALIAS",
+        "content": {
+          "type": "SYMBOL",
+          "name": "_excess_address_unit0_issue"
+        },
+        "named": true,
+        "value": "syntax_issue"
+      }
+    },
+    "_max1_excess_address_tail": {
+      "type": "FIELD",
+      "name": "issue",
+      "content": {
+        "type": "ALIAS",
+        "content": {
+          "type": "SYMBOL",
+          "name": "_excess_address_unit1_issue"
+        },
+        "named": true,
+        "value": "syntax_issue"
+      }
+    },
+    "_max2_excess_address_tail": {
+      "type": "FIELD",
+      "name": "issue",
+      "content": {
+        "type": "ALIAS",
+        "content": {
+          "type": "SYMBOL",
+          "name": "_excess_address_unit2_issue"
+        },
+        "named": true,
+        "value": "syntax_issue"
+      }
     },
     "_address_separator": {
       "type": "CHOICE",
@@ -1531,76 +1650,53 @@
       ]
     },
     "_comma_address_separator": {
-      "type": "CHOICE",
+      "type": "SEQ",
       "members": [
         {
-          "type": "PREC",
-          "value": 1,
-          "content": {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "issue",
+              "content": {
+                "type": "ALIAS",
                 "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_blanks_around_address_separator_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SEQ",
-                    "members": [
-                      {
-                        "type": "SYMBOL",
-                        "name": "_blanks"
-                      },
-                      {
-                        "type": "SYMBOL",
-                        "name": "_address_separator_token"
-                      },
-                      {
-                        "type": "CHOICE",
-                        "members": [
-                          {
-                            "type": "SYMBOL",
-                            "name": "_blanks"
-                          },
-                          {
-                            "type": "BLANK"
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    "type": "SEQ",
-                    "members": [
-                      {
-                        "type": "SYMBOL",
-                        "name": "_address_separator_token"
-                      },
-                      {
-                        "type": "SYMBOL",
-                        "name": "_blanks"
-                      }
-                    ]
-                  }
-                ]
+                  "type": "SYMBOL",
+                  "name": "_blanks_around_address_separator_issue"
+                },
+                "named": true,
+                "value": "syntax_issue"
               }
-            ]
-          }
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
         },
         {
           "type": "SYMBOL",
           "name": "_address_separator_token"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "issue",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_blanks_around_address_separator_issue"
+                },
+                "named": true,
+                "value": "syntax_issue"
+              }
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
         }
       ]
     },
@@ -1618,6 +1714,57 @@
       }
     },
     "address": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "line_number_address"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "last_line_address"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "context_address"
+        }
+      ]
+    },
+    "_max0_address": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "line_number_address"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "last_line_address"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "context_address"
+        }
+      ]
+    },
+    "_max1_address": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "line_number_address"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "last_line_address"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "context_address"
+        }
+      ]
+    },
+    "_max2_address": {
       "type": "CHOICE",
       "members": [
         {
@@ -4231,107 +4378,23 @@
               "type": "CHOICE",
               "members": [
                 {
-                  "type": "CHOICE",
+                  "type": "SEQ",
                   "members": [
                     {
-                      "type": "SEQ",
+                      "type": "CHOICE",
                       "members": [
                         {
-                          "type": "CHOICE",
-                          "members": [
-                            {
-                              "type": "SYMBOL",
-                              "name": "_blanks"
-                            },
-                            {
-                              "type": "BLANK"
-                            }
-                          ]
+                          "type": "SYMBOL",
+                          "name": "_blanks"
                         },
                         {
-                          "type": "CHOICE",
-                          "members": [
-                            {
-                              "type": "SEQ",
-                              "members": [
-                                {
-                                  "type": "FIELD",
-                                  "name": "addresses",
-                                  "content": {
-                                    "type": "ALIAS",
-                                    "content": {
-                                      "type": "SYMBOL",
-                                      "name": "_single_address_clause"
-                                    },
-                                    "named": true,
-                                    "value": "address_clause"
-                                  }
-                                },
-                                {
-                                  "type": "CHOICE",
-                                  "members": [
-                                    {
-                                      "type": "SYMBOL",
-                                      "name": "_blanks"
-                                    },
-                                    {
-                                      "type": "BLANK"
-                                    }
-                                  ]
-                                }
-                              ]
-                            },
-                            {
-                              "type": "BLANK"
-                            }
-                          ]
-                        },
-                        {
-                          "type": "CHOICE",
-                          "members": [
-                            {
-                              "type": "FIELD",
-                              "name": "negation",
-                              "content": {
-                                "type": "SYMBOL",
-                                "name": "negation"
-                              }
-                            },
-                            {
-                              "type": "BLANK"
-                            }
-                          ]
-                        },
-                        {
-                          "type": "FIELD",
-                          "name": "function",
-                          "content": {
-                            "type": "ALIAS",
-                            "content": {
-                              "type": "SYMBOL",
-                              "name": "_chainable_1_address_function"
-                            },
-                            "named": true,
-                            "value": "function"
-                          }
+                          "type": "BLANK"
                         }
                       ]
                     },
                     {
-                      "type": "SEQ",
+                      "type": "CHOICE",
                       "members": [
-                        {
-                          "type": "CHOICE",
-                          "members": [
-                            {
-                              "type": "SYMBOL",
-                              "name": "_blanks"
-                            },
-                            {
-                              "type": "BLANK"
-                            }
-                          ]
-                        },
                         {
                           "type": "SEQ",
                           "members": [
@@ -4342,7 +4405,7 @@
                                 "type": "ALIAS",
                                 "content": {
                                   "type": "SYMBOL",
-                                  "name": "_double_address_clause"
+                                  "name": "_max1_address_clause"
                                 },
                                 "named": true,
                                 "value": "address_clause"
@@ -4363,137 +4426,38 @@
                           ]
                         },
                         {
-                          "type": "CHOICE",
-                          "members": [
-                            {
-                              "type": "FIELD",
-                              "name": "negation",
-                              "content": {
-                                "type": "SYMBOL",
-                                "name": "negation"
-                              }
-                            },
-                            {
-                              "type": "BLANK"
-                            }
-                          ]
-                        },
-                        {
-                          "type": "FIELD",
-                          "name": "function",
-                          "content": {
-                            "type": "ALIAS",
-                            "content": {
-                              "type": "SYMBOL",
-                              "name": "_chainable_1_address_function"
-                            },
-                            "named": true,
-                            "value": "function"
-                          }
-                        },
-                        {
-                          "type": "FIELD",
-                          "name": "issue",
-                          "content": {
-                            "type": "ALIAS",
-                            "content": {
-                              "type": "SYMBOL",
-                              "name": "_excess_addresses_issue"
-                            },
-                            "named": true,
-                            "value": "syntax_issue"
-                          }
+                          "type": "BLANK"
                         }
                       ]
                     },
                     {
-                      "type": "SEQ",
+                      "type": "CHOICE",
                       "members": [
                         {
-                          "type": "CHOICE",
-                          "members": [
-                            {
-                              "type": "SYMBOL",
-                              "name": "_blanks"
-                            },
-                            {
-                              "type": "BLANK"
-                            }
-                          ]
-                        },
-                        {
-                          "type": "SEQ",
-                          "members": [
-                            {
-                              "type": "FIELD",
-                              "name": "addresses",
-                              "content": {
-                                "type": "ALIAS",
-                                "content": {
-                                  "type": "SYMBOL",
-                                  "name": "_address_clause_with_excess"
-                                },
-                                "named": true,
-                                "value": "address_clause"
-                              }
-                            },
-                            {
-                              "type": "CHOICE",
-                              "members": [
-                                {
-                                  "type": "SYMBOL",
-                                  "name": "_blanks"
-                                },
-                                {
-                                  "type": "BLANK"
-                                }
-                              ]
-                            }
-                          ]
-                        },
-                        {
-                          "type": "CHOICE",
-                          "members": [
-                            {
-                              "type": "FIELD",
-                              "name": "negation",
-                              "content": {
-                                "type": "SYMBOL",
-                                "name": "negation"
-                              }
-                            },
-                            {
-                              "type": "BLANK"
-                            }
-                          ]
-                        },
-                        {
                           "type": "FIELD",
-                          "name": "function",
+                          "name": "negation",
                           "content": {
-                            "type": "ALIAS",
-                            "content": {
-                              "type": "SYMBOL",
-                              "name": "_chainable_1_address_function"
-                            },
-                            "named": true,
-                            "value": "function"
+                            "type": "SYMBOL",
+                            "name": "negation"
                           }
                         },
                         {
-                          "type": "FIELD",
-                          "name": "issue",
-                          "content": {
-                            "type": "ALIAS",
-                            "content": {
-                              "type": "SYMBOL",
-                              "name": "_excess_addresses_issue"
-                            },
-                            "named": true,
-                            "value": "syntax_issue"
-                          }
+                          "type": "BLANK"
                         }
                       ]
+                    },
+                    {
+                      "type": "FIELD",
+                      "name": "function",
+                      "content": {
+                        "type": "ALIAS",
+                        "content": {
+                          "type": "SYMBOL",
+                          "name": "_chainable_1_address_function"
+                        },
+                        "named": true,
+                        "value": "function"
+                      }
                     }
                   ]
                 },
@@ -4848,69 +4812,23 @@
       "type": "CHOICE",
       "members": [
         {
-          "type": "CHOICE",
+          "type": "SEQ",
           "members": [
             {
-              "type": "SEQ",
+              "type": "CHOICE",
               "members": [
                 {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "SYMBOL",
-                      "name": "_blanks"
-                    },
-                    {
-                      "type": "BLANK"
-                    }
-                  ]
+                  "type": "SYMBOL",
+                  "name": "_blanks"
                 },
                 {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "FIELD",
-                      "name": "negation",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "negation"
-                      }
-                    },
-                    {
-                      "type": "BLANK"
-                    }
-                  ]
-                },
-                {
-                  "type": "FIELD",
-                  "name": "function",
-                  "content": {
-                    "type": "ALIAS",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "_line_terminated_0_address_function"
-                    },
-                    "named": true,
-                    "value": "function"
-                  }
+                  "type": "BLANK"
                 }
               ]
             },
             {
-              "type": "SEQ",
+              "type": "CHOICE",
               "members": [
-                {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "SYMBOL",
-                      "name": "_blanks"
-                    },
-                    {
-                      "type": "BLANK"
-                    }
-                  ]
-                },
                 {
                   "type": "SEQ",
                   "members": [
@@ -4920,17 +4838,8 @@
                       "content": {
                         "type": "ALIAS",
                         "content": {
-                          "type": "CHOICE",
-                          "members": [
-                            {
-                              "type": "SYMBOL",
-                              "name": "_single_address_clause"
-                            },
-                            {
-                              "type": "SYMBOL",
-                              "name": "_double_address_clause"
-                            }
-                          ]
+                          "type": "SYMBOL",
+                          "name": "_max0_address_clause"
                         },
                         "named": true,
                         "value": "address_clause"
@@ -4951,242 +4860,59 @@
                   ]
                 },
                 {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "FIELD",
-                      "name": "negation",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "negation"
-                      }
-                    },
-                    {
-                      "type": "BLANK"
-                    }
-                  ]
-                },
-                {
-                  "type": "FIELD",
-                  "name": "function",
-                  "content": {
-                    "type": "ALIAS",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "_line_terminated_0_address_function"
-                    },
-                    "named": true,
-                    "value": "function"
-                  }
-                },
-                {
-                  "type": "FIELD",
-                  "name": "issue",
-                  "content": {
-                    "type": "ALIAS",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "_excess_addresses_issue"
-                    },
-                    "named": true,
-                    "value": "syntax_issue"
-                  }
+                  "type": "BLANK"
                 }
               ]
             },
             {
-              "type": "SEQ",
+              "type": "CHOICE",
               "members": [
                 {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "SYMBOL",
-                      "name": "_blanks"
-                    },
-                    {
-                      "type": "BLANK"
-                    }
-                  ]
-                },
-                {
-                  "type": "SEQ",
-                  "members": [
-                    {
-                      "type": "FIELD",
-                      "name": "addresses",
-                      "content": {
-                        "type": "ALIAS",
-                        "content": {
-                          "type": "SYMBOL",
-                          "name": "_address_clause_with_excess"
-                        },
-                        "named": true,
-                        "value": "address_clause"
-                      }
-                    },
-                    {
-                      "type": "CHOICE",
-                      "members": [
-                        {
-                          "type": "SYMBOL",
-                          "name": "_blanks"
-                        },
-                        {
-                          "type": "BLANK"
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "FIELD",
-                      "name": "negation",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "negation"
-                      }
-                    },
-                    {
-                      "type": "BLANK"
-                    }
-                  ]
-                },
-                {
                   "type": "FIELD",
-                  "name": "function",
+                  "name": "negation",
                   "content": {
-                    "type": "ALIAS",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "_line_terminated_0_address_function"
-                    },
-                    "named": true,
-                    "value": "function"
+                    "type": "SYMBOL",
+                    "name": "negation"
                   }
                 },
                 {
-                  "type": "FIELD",
-                  "name": "issue",
-                  "content": {
-                    "type": "ALIAS",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "_excess_addresses_issue"
-                    },
-                    "named": true,
-                    "value": "syntax_issue"
-                  }
+                  "type": "BLANK"
                 }
               ]
+            },
+            {
+              "type": "FIELD",
+              "name": "function",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_line_terminated_0_address_function"
+                },
+                "named": true,
+                "value": "function"
+              }
             }
           ]
         },
         {
-          "type": "CHOICE",
+          "type": "SEQ",
           "members": [
             {
-              "type": "SEQ",
+              "type": "CHOICE",
               "members": [
                 {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "SYMBOL",
-                      "name": "_blanks"
-                    },
-                    {
-                      "type": "BLANK"
-                    }
-                  ]
+                  "type": "SYMBOL",
+                  "name": "_blanks"
                 },
                 {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "SEQ",
-                      "members": [
-                        {
-                          "type": "FIELD",
-                          "name": "addresses",
-                          "content": {
-                            "type": "ALIAS",
-                            "content": {
-                              "type": "SYMBOL",
-                              "name": "_single_address_clause"
-                            },
-                            "named": true,
-                            "value": "address_clause"
-                          }
-                        },
-                        {
-                          "type": "CHOICE",
-                          "members": [
-                            {
-                              "type": "SYMBOL",
-                              "name": "_blanks"
-                            },
-                            {
-                              "type": "BLANK"
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "type": "BLANK"
-                    }
-                  ]
-                },
-                {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "FIELD",
-                      "name": "negation",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "negation"
-                      }
-                    },
-                    {
-                      "type": "BLANK"
-                    }
-                  ]
-                },
-                {
-                  "type": "FIELD",
-                  "name": "function",
-                  "content": {
-                    "type": "ALIAS",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "_line_terminated_1_address_function"
-                    },
-                    "named": true,
-                    "value": "function"
-                  }
+                  "type": "BLANK"
                 }
               ]
             },
             {
-              "type": "SEQ",
+              "type": "CHOICE",
               "members": [
-                {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "SYMBOL",
-                      "name": "_blanks"
-                    },
-                    {
-                      "type": "BLANK"
-                    }
-                  ]
-                },
                 {
                   "type": "SEQ",
                   "members": [
@@ -5197,7 +4923,7 @@
                         "type": "ALIAS",
                         "content": {
                           "type": "SYMBOL",
-                          "name": "_double_address_clause"
+                          "name": "_max1_address_clause"
                         },
                         "named": true,
                         "value": "address_clause"
@@ -5218,137 +4944,38 @@
                   ]
                 },
                 {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "FIELD",
-                      "name": "negation",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "negation"
-                      }
-                    },
-                    {
-                      "type": "BLANK"
-                    }
-                  ]
-                },
-                {
-                  "type": "FIELD",
-                  "name": "function",
-                  "content": {
-                    "type": "ALIAS",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "_line_terminated_1_address_function"
-                    },
-                    "named": true,
-                    "value": "function"
-                  }
-                },
-                {
-                  "type": "FIELD",
-                  "name": "issue",
-                  "content": {
-                    "type": "ALIAS",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "_excess_addresses_issue"
-                    },
-                    "named": true,
-                    "value": "syntax_issue"
-                  }
+                  "type": "BLANK"
                 }
               ]
             },
             {
-              "type": "SEQ",
+              "type": "CHOICE",
               "members": [
                 {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "SYMBOL",
-                      "name": "_blanks"
-                    },
-                    {
-                      "type": "BLANK"
-                    }
-                  ]
-                },
-                {
-                  "type": "SEQ",
-                  "members": [
-                    {
-                      "type": "FIELD",
-                      "name": "addresses",
-                      "content": {
-                        "type": "ALIAS",
-                        "content": {
-                          "type": "SYMBOL",
-                          "name": "_address_clause_with_excess"
-                        },
-                        "named": true,
-                        "value": "address_clause"
-                      }
-                    },
-                    {
-                      "type": "CHOICE",
-                      "members": [
-                        {
-                          "type": "SYMBOL",
-                          "name": "_blanks"
-                        },
-                        {
-                          "type": "BLANK"
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "FIELD",
-                      "name": "negation",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "negation"
-                      }
-                    },
-                    {
-                      "type": "BLANK"
-                    }
-                  ]
-                },
-                {
                   "type": "FIELD",
-                  "name": "function",
+                  "name": "negation",
                   "content": {
-                    "type": "ALIAS",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "_line_terminated_1_address_function"
-                    },
-                    "named": true,
-                    "value": "function"
+                    "type": "SYMBOL",
+                    "name": "negation"
                   }
                 },
                 {
-                  "type": "FIELD",
-                  "name": "issue",
-                  "content": {
-                    "type": "ALIAS",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "_excess_addresses_issue"
-                    },
-                    "named": true,
-                    "value": "syntax_issue"
-                  }
+                  "type": "BLANK"
                 }
               ]
+            },
+            {
+              "type": "FIELD",
+              "name": "function",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_line_terminated_1_address_function"
+                },
+                "named": true,
+                "value": "function"
+              }
             }
           ]
         },
@@ -5974,19 +5601,6 @@
                     "type": "BLANK"
                   }
                 ]
-              },
-              {
-                "type": "FIELD",
-                "name": "operator",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "STRING",
-                    "value": "!"
-                  },
-                  "named": true,
-                  "value": "negation_operator"
-                }
               },
               {
                 "type": "FIELD",
@@ -8451,6 +8065,28 @@
       "named": true,
       "value": "undefined_syntax"
     },
+    "_incomplete_omitted_address_reason": {
+      "type": "SYMBOL",
+      "name": "_incomplete_omitted_address_marker"
+    },
+    "_incomplete_omitted_address_outcome": {
+      "type": "ALIAS",
+      "content": {
+        "type": "SYMBOL",
+        "name": "_incomplete_omitted_address_reason"
+      },
+      "named": true,
+      "value": "omitted_address"
+    },
+    "_incomplete_omitted_address_issue": {
+      "type": "ALIAS",
+      "content": {
+        "type": "SYMBOL",
+        "name": "_incomplete_omitted_address_outcome"
+      },
+      "named": true,
+      "value": "incomplete_syntax"
+    },
     "_omitted_first_address_reason": {
       "type": "SYMBOL",
       "name": "_omitted_first_address_marker"
@@ -8469,6 +8105,50 @@
       "content": {
         "type": "SYMBOL",
         "name": "_omitted_first_address_outcome"
+      },
+      "named": true,
+      "value": "undefined_syntax"
+    },
+    "_omitted_first_address_unit0_reason": {
+      "type": "SYMBOL",
+      "name": "_omitted_first_address_marker"
+    },
+    "_omitted_first_address_unit0_outcome": {
+      "type": "ALIAS",
+      "content": {
+        "type": "SYMBOL",
+        "name": "_omitted_first_address_unit0_reason"
+      },
+      "named": true,
+      "value": "omitted_address"
+    },
+    "_omitted_first_address_unit0_issue": {
+      "type": "ALIAS",
+      "content": {
+        "type": "SYMBOL",
+        "name": "_omitted_first_address_unit0_outcome"
+      },
+      "named": true,
+      "value": "undefined_syntax"
+    },
+    "_omitted_first_address_unit1_reason": {
+      "type": "SYMBOL",
+      "name": "_omitted_first_address_marker"
+    },
+    "_omitted_first_address_unit1_outcome": {
+      "type": "ALIAS",
+      "content": {
+        "type": "SYMBOL",
+        "name": "_omitted_first_address_unit1_reason"
+      },
+      "named": true,
+      "value": "omitted_address"
+    },
+    "_omitted_first_address_unit1_issue": {
+      "type": "ALIAS",
+      "content": {
+        "type": "SYMBOL",
+        "name": "_omitted_first_address_unit1_outcome"
       },
       "named": true,
       "value": "undefined_syntax"
@@ -8833,11 +8513,16 @@
       "value": "unspecified_syntax"
     },
     "_blanks_after_negation_reason": {
-      "type": "IMMEDIATE_TOKEN",
+      "type": "ALIAS",
       "content": {
-        "type": "PATTERN",
-        "value": "[[:blank:]]+"
-      }
+        "type": "IMMEDIATE_TOKEN",
+        "content": {
+          "type": "PATTERN",
+          "value": "[[:blank:]]+"
+        }
+      },
+      "named": true,
+      "value": "blank"
     },
     "_blanks_after_negation_outcome": {
       "type": "ALIAS",
@@ -8967,46 +8652,261 @@
       "named": true,
       "value": "implementation_option_syntax"
     },
-    "_excess_addresses_reason": {
-      "type": "SYMBOL",
-      "name": "_excess_addresses_marker"
+    "_excess_address_reason": {
+      "type": "FIELD",
+      "name": "address",
+      "content": {
+        "type": "ALIAS",
+        "content": {
+          "type": "SYMBOL",
+          "name": "_max0_address"
+        },
+        "named": true,
+        "value": "address"
+      }
     },
-    "_excess_addresses_outcome": {
+    "_excess_address_outcome": {
       "type": "ALIAS",
       "content": {
         "type": "SYMBOL",
-        "name": "_excess_addresses_reason"
+        "name": "_excess_address_reason"
       },
       "named": true,
-      "value": "excess_addresses"
+      "value": "excess_address"
     },
-    "_excess_addresses_issue": {
+    "_excess_address_issue": {
       "type": "ALIAS",
       "content": {
         "type": "SYMBOL",
-        "name": "_excess_addresses_outcome"
+        "name": "_excess_address_outcome"
       },
       "named": true,
       "value": "nonconforming_syntax"
     },
-    "_additional_address_reason": {
-      "type": "SYMBOL",
-      "name": "_additional_address_marker"
+    "_excess_address_unit0_reason": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "separator",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_address_separator"
+                },
+                "named": true,
+                "value": "address_separator"
+              }
+            },
+            {
+              "type": "FIELD",
+              "name": "address",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_max0_address"
+                },
+                "named": true,
+                "value": "address"
+              }
+            }
+          ]
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "separator",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_comma_address_separator"
+                },
+                "named": true,
+                "value": "address_separator"
+              }
+            },
+            {
+              "type": "SYMBOL",
+              "name": "_omitted_second_address_issue"
+            }
+          ]
+        }
+      ]
     },
-    "_additional_address_outcome": {
+    "_excess_address_unit0_outcome": {
       "type": "ALIAS",
       "content": {
         "type": "SYMBOL",
-        "name": "_additional_address_reason"
+        "name": "_excess_address_unit0_reason"
       },
       "named": true,
-      "value": "additional_address"
+      "value": "excess_address"
     },
-    "_additional_address_issue": {
+    "_excess_address_unit0_issue": {
       "type": "ALIAS",
       "content": {
         "type": "SYMBOL",
-        "name": "_additional_address_outcome"
+        "name": "_excess_address_unit0_outcome"
+      },
+      "named": true,
+      "value": "nonconforming_syntax"
+    },
+    "_excess_address_unit1_reason": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "separator",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_address_separator"
+                },
+                "named": true,
+                "value": "address_separator"
+              }
+            },
+            {
+              "type": "FIELD",
+              "name": "address",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_max1_address"
+                },
+                "named": true,
+                "value": "address"
+              }
+            }
+          ]
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "separator",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_comma_address_separator"
+                },
+                "named": true,
+                "value": "address_separator"
+              }
+            },
+            {
+              "type": "SYMBOL",
+              "name": "_omitted_second_address_issue"
+            }
+          ]
+        }
+      ]
+    },
+    "_excess_address_unit1_outcome": {
+      "type": "ALIAS",
+      "content": {
+        "type": "SYMBOL",
+        "name": "_excess_address_unit1_reason"
+      },
+      "named": true,
+      "value": "excess_address"
+    },
+    "_excess_address_unit1_issue": {
+      "type": "ALIAS",
+      "content": {
+        "type": "SYMBOL",
+        "name": "_excess_address_unit1_outcome"
+      },
+      "named": true,
+      "value": "nonconforming_syntax"
+    },
+    "_excess_address_unit2_reason": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "separator",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_address_separator"
+                },
+                "named": true,
+                "value": "address_separator"
+              }
+            },
+            {
+              "type": "FIELD",
+              "name": "address",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_max2_address"
+                },
+                "named": true,
+                "value": "address"
+              }
+            }
+          ]
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "separator",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_comma_address_separator"
+                },
+                "named": true,
+                "value": "address_separator"
+              }
+            },
+            {
+              "type": "SYMBOL",
+              "name": "_omitted_second_address_issue"
+            }
+          ]
+        }
+      ]
+    },
+    "_excess_address_unit2_outcome": {
+      "type": "ALIAS",
+      "content": {
+        "type": "SYMBOL",
+        "name": "_excess_address_unit2_reason"
+      },
+      "named": true,
+      "value": "excess_address"
+    },
+    "_excess_address_unit2_issue": {
+      "type": "ALIAS",
+      "content": {
+        "type": "SYMBOL",
+        "name": "_excess_address_unit2_outcome"
       },
       "named": true,
       "value": "nonconforming_syntax"
@@ -9133,8 +9033,13 @@
       "value": "nonconforming_syntax"
     },
     "_blanks_around_address_separator_reason": {
-      "type": "SYMBOL",
-      "name": "_blanks_around_address_separator_marker"
+      "type": "ALIAS",
+      "content": {
+        "type": "SYMBOL",
+        "name": "_blanks_around_address_separator"
+      },
+      "named": true,
+      "value": "blank"
     },
     "_blanks_around_address_separator_outcome": {
       "type": "ALIAS",
@@ -9177,8 +9082,17 @@
       "value": "nonconforming_syntax"
     },
     "_duplicate_negation_reason": {
-      "type": "SYMBOL",
-      "name": "_duplicate_negation_marker"
+      "type": "FIELD",
+      "name": "operator",
+      "content": {
+        "type": "ALIAS",
+        "content": {
+          "type": "STRING",
+          "value": "!"
+        },
+        "named": true,
+        "value": "negation_operator"
+      }
     },
     "_duplicate_negation_outcome": {
       "type": "ALIAS",
@@ -10075,14 +9989,32 @@
   "conflicts": [
     [
       "address_clause",
-      "_chainable_editing_command",
-      "_line_terminated_regular_editing_command_body"
+      "_recovered_editing_command"
     ],
     [
       "address_clause",
-      "_chainable_editing_command",
-      "_line_terminated_regular_editing_command_body",
-      "_recovered_editing_command"
+      "_max1_address_clause"
+    ],
+    [
+      "_double_address_clause",
+      "_excess_address_unit1_reason"
+    ],
+    [
+      "address",
+      "_max0_address"
+    ],
+    [
+      "address",
+      "_max1_address"
+    ],
+    [
+      "_omitted_first_address_reason",
+      "_omitted_first_address_unit0_reason",
+      "_omitted_first_address_unit1_reason"
+    ],
+    [
+      "_omitted_first_address_unit0_reason",
+      "_omitted_first_address_unit1_reason"
     ]
   ],
   "precedences": [],
@@ -10497,7 +10429,15 @@
     },
     {
       "type": "SYMBOL",
+      "name": "_blanks_around_address_separator"
+    },
+    {
+      "type": "SYMBOL",
       "name": "_omitted_address_marker"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_incomplete_omitted_address_marker"
     },
     {
       "type": "SYMBOL",
@@ -10514,14 +10454,6 @@
     {
       "type": "SYMBOL",
       "name": "_empty_alternative_marker"
-    },
-    {
-      "type": "SYMBOL",
-      "name": "_excess_addresses_marker"
-    },
-    {
-      "type": "SYMBOL",
-      "name": "_additional_address_marker"
     },
     {
       "type": "SYMBOL",
@@ -10557,15 +10489,7 @@
     },
     {
       "type": "SYMBOL",
-      "name": "_blanks_around_address_separator_marker"
-    },
-    {
-      "type": "SYMBOL",
       "name": "_missing_address_separator_marker"
-    },
-    {
-      "type": "SYMBOL",
-      "name": "_duplicate_negation_marker"
     },
     {
       "type": "SYMBOL",

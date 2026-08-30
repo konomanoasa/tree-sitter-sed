@@ -5,9 +5,6 @@ const { join } = require("node:path");
 const { after, before, test } = require("node:test");
 const { createTreeSitter, grammars, root } = require("../scripts/tree-sitter");
 
-const configuration = JSON.parse(
-  readFileSync(join(root, "tree-sitter.json"), "utf8"),
-);
 let temporaryDirectory;
 let treeSitter;
 
@@ -17,11 +14,8 @@ before(() => {
   );
   try {
     treeSitter = createTreeSitter();
-    for (const grammar of configuration.grammars) {
-      const paths = Array.isArray(grammar.highlights)
-        ? grammar.highlights
-        : [grammar.highlights];
-      const query = paths
+    for (const grammar of grammars) {
+      const query = grammar.highlights
         .map((path) => readFileSync(join(root, path), "utf8"))
         .join("\n");
       writeFileSync(join(temporaryDirectory, `${grammar.name}.scm`), query);
@@ -43,6 +37,7 @@ after(() => {
 
 for (const grammar of grammars) {
   test(`${grammar.name} highlight query`, () => {
+    assert.ok(grammar.highlights.length > 0, "missing highlight queries");
     const fixture = join(root, "test", "highlight", `${grammar.name}.sed`);
     const highlightResult = treeSitter.run(
       ["highlight", "--check", "--quiet", "--scope", grammar.scope, fixture],

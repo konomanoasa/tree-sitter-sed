@@ -4,6 +4,8 @@ const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { after, before, test } = require("node:test");
 const { createTreeSitter, grammars } = require("../scripts/tree-sitter");
+const sedNodeTypes = require("../src/node-types.json");
+const sedEreNodeTypes = require("../sed_ere/src/node-types.json");
 
 let temporaryDirectory;
 let treeSitter;
@@ -362,6 +364,59 @@ const boundaryCases = [
     nodes: ["translation_string"],
   },
   {
+    name: "omitted second address at source end",
+    scope: "source.sed",
+    source: "1,",
+    issues: [
+      "incomplete_syntax/omitted_address",
+      "incomplete_syntax/missing_function",
+    ],
+    nodes: ["line_number_address", "address_separator_token"],
+  },
+  {
+    name: "omitted second address at a command boundary",
+    scope: "source.sed",
+    source: "1,\np\n",
+    issues: [
+      "undefined_syntax/omitted_address",
+      "nonconforming_syntax/missing_function",
+    ],
+    nodes: ["address_separator_token", "print_function"],
+  },
+  {
+    name: "omitted first and second addresses at source end",
+    scope: "source.sed",
+    source: ",",
+    issues: [
+      "undefined_syntax/omitted_address",
+      "incomplete_syntax/omitted_address",
+      "incomplete_syntax/missing_function",
+    ],
+    nodes: ["address_separator_token"],
+  },
+  {
+    name: "excess address unit with an omission at source end",
+    scope: "source.sed",
+    source: "1,2,",
+    issues: [
+      "nonconforming_syntax/excess_address",
+      "incomplete_syntax/omitted_address",
+      "incomplete_syntax/missing_function",
+    ],
+    nodes: ["line_number_address"],
+  },
+  {
+    name: "omitted second address after separator blanks at source end",
+    scope: "source.sed",
+    source: "1 , ",
+    issues: [
+      "nonconforming_syntax/blanks_around_address_separator",
+      "incomplete_syntax/omitted_address",
+      "incomplete_syntax/missing_function",
+    ],
+    nodes: ["line_number_address", "address_separator_token"],
+  },
+  {
     name: "NUL remains native parser recovery",
     scope: "source.sed",
     source: "s\0p\n",
@@ -406,6 +461,290 @@ test("marker ranges: missing text introducer stays zero-width before a stray bac
   );
 });
 
+test("marker ranges: source-end omission stays zero-width after the separator", () => {
+  const result = parse("source.sed", "1,", [], { ranges: true });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.ok(
+    result.stdout.includes("(omitted_address [0, 2] - [0, 2])"),
+    result.stdout,
+  );
+});
+
+test("ownership: excess address unit owns its separator and address", () => {
+  const result = parse("source.sed", "1,2q\n");
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.ok(
+    result.stdout.includes(
+      [
+        "        issue: (syntax_issue",
+        "          (nonconforming_syntax",
+        "            (excess_address",
+        "              separator: (address_separator",
+        "                token: (address_separator_token))",
+        "              address: (address",
+        "                (line_number_address)))))",
+      ].join("\n"),
+    ),
+    `excess unit must own separator and address inside the clause\n${result.stdout}`,
+  );
+  assert.ok(
+    !/^ {6}issue:/m.test(result.stdout),
+    `editing_command must not carry a trailing address issue\n${result.stdout}`,
+  );
+});
+
+for (const grammar of grammars) {
+  test(`ownership: blank-separated max-zero addresses in ${grammar.name}`, () => {
+    for (const source of ["1 2:x\n", "1 2:x"]) {
+      const result = parse(grammar.scope, source, [], { ranges: true });
+      assert.equal(result.status, 0, result.stdout + result.stderr);
+      assert.deepEqual(issueSignatures(result.stdout), [
+        {
+          outcome: "nonconforming_syntax",
+          reason: "excess_address",
+          range: "[0, 0] - [0, 1]",
+        },
+        {
+          outcome: "nonconforming_syntax",
+          reason: "excess_address",
+          range: "[0, 1] - [0, 3]",
+        },
+        {
+          outcome: "nonconforming_syntax",
+          reason: "missing_address_separator",
+          range: "[0, 1] - [0, 1]",
+        },
+      ]);
+      assert.ok(result.stdout.includes("(label_function "), result.stdout);
+      assert.doesNotMatch(
+        result.stdout,
+        /\((ERROR|MISSING|unknown_function|unexpected_command_text)([ \t\r\n)]|$)/,
+        result.stdout,
+      );
+    }
+  });
+
+  test(`ownership: adjacent context address remains excess in ${grammar.name}`, () => {
+    const result = parse(grammar.scope, "1/ab/q\n", [], { ranges: true });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.deepEqual(issueSignatures(result.stdout), [
+      {
+        outcome: "nonconforming_syntax",
+        reason: "excess_address",
+        range: "[0, 1] - [0, 5]",
+      },
+      {
+        outcome: "nonconforming_syntax",
+        reason: "missing_address_separator",
+        range: "[0, 1] - [0, 1]",
+      },
+    ]);
+    assert.ok(result.stdout.includes("(quit_function "), result.stdout);
+    assert.doesNotMatch(
+      result.stdout,
+      /\((ERROR|MISSING|unknown_function|unexpected_command_text)([ \t\r\n)]|$)/,
+      result.stdout,
+    );
+  });
+}
+
+test("ownership: separator blanks live inside blank issues on both sides", () => {
+  const result = parse("source.sed", "1 \t, \t2p\n", [], { ranges: true });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.ok(
+    result.stdout.includes(
+      [
+        "        separator: (address_separator [0, 1] - [0, 6]",
+        "          issue: (syntax_issue [0, 1] - [0, 3]",
+        "            (nonconforming_syntax [0, 1] - [0, 3]",
+        "              (blanks_around_address_separator [0, 1] - [0, 3]",
+        "                (blank [0, 1] - [0, 3]))))",
+        "          token: (address_separator_token [0, 3] - [0, 4])",
+        "          issue: (syntax_issue [0, 4] - [0, 6]",
+        "            (nonconforming_syntax [0, 4] - [0, 6]",
+        "              (blanks_around_address_separator [0, 4] - [0, 6]",
+        "                (blank [0, 4] - [0, 6])))))",
+      ].join("\n"),
+    ),
+    `each blank run must be owned by its own separator issue\n${result.stdout}`,
+  );
+});
+
+test("ownership: blank after negation lives inside its issue reason", () => {
+  const result = parse("source.sed", "! \tp\n", [], { ranges: true });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.ok(
+    result.stdout.includes(
+      [
+        "        issue: (syntax_issue [0, 1] - [0, 3]",
+        "          (unspecified_syntax [0, 1] - [0, 3]",
+        "            (blanks_after_negation [0, 1] - [0, 3]",
+        "              (blank [0, 1] - [0, 3])))))",
+      ].join("\n"),
+    ),
+    `the negation blank run must be owned by its issue reason\n${result.stdout}`,
+  );
+});
+
+test("schema: blank issue reasons require one blank source child", () => {
+  for (const [grammar, nodeTypes] of [
+    ["sed", sedNodeTypes],
+    ["sed_ere", sedEreNodeTypes],
+  ]) {
+    for (const reason of [
+      "blanks_after_negation",
+      "blanks_around_address_separator",
+    ]) {
+      const nodeType = nodeTypes.find((candidate) => candidate.type === reason);
+      assert.deepEqual(
+        nodeType?.children,
+        {
+          multiple: false,
+          required: true,
+          types: [{ type: "blank", named: true }],
+        },
+        `${reason} must own one blank child in ${grammar}`,
+      );
+    }
+  }
+});
+
+test("ownership: blanks before the function stay outside the separator", () => {
+  const cases = [
+    {
+      source: "1, p\n",
+      issues: [
+        {
+          outcome: "undefined_syntax",
+          reason: "omitted_address",
+          range: "[0, 2] - [0, 2]",
+        },
+      ],
+      separator: "separator: (address_separator [0, 1] - [0, 2]",
+    },
+    {
+      source: ", p\n",
+      issues: [
+        {
+          outcome: "undefined_syntax",
+          reason: "omitted_address",
+          range: "[0, 0] - [0, 0]",
+        },
+        {
+          outcome: "undefined_syntax",
+          reason: "omitted_address",
+          range: "[0, 1] - [0, 1]",
+        },
+      ],
+      separator: "separator: (address_separator [0, 0] - [0, 1]",
+    },
+  ];
+  for (const testCase of cases) {
+    const result = parse("source.sed", testCase.source, [], { ranges: true });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.deepEqual(issueSignatures(result.stdout), testCase.issues);
+    assert.ok(
+      result.stdout.includes(testCase.separator),
+      `the separator must end at its token\n${result.stdout}`,
+    );
+  }
+});
+
+test("ownership: duplicated negation operator lives inside its issue", () => {
+  const result = parse("source.sed", "!!p\n", [], { ranges: true });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.ok(
+    result.stdout.includes(
+      [
+        "      negation: (negation [0, 0] - [0, 2]",
+        "        operator: (negation_operator [0, 0] - [0, 1])",
+        "        issue: (syntax_issue [0, 1] - [0, 2]",
+        "          (nonconforming_syntax [0, 1] - [0, 2]",
+        "            (duplicate_negation [0, 1] - [0, 2]",
+        "              operator: (negation_operator [0, 1] - [0, 2])))))",
+      ].join("\n"),
+    ),
+    `the duplicate operator must appear only inside the issue\n${result.stdout}`,
+  );
+});
+
+test("ownership: unmatched BRE closers own one source child", () => {
+  const cases = [
+    {
+      source: "/\\}/p\n",
+      reason: "unmatched_interval_close",
+      child: "back_close_brace",
+    },
+    {
+      source: "/\\)/p\n",
+      reason: "unmatched_subexpression_close",
+      child: "back_close_parenthesis_token",
+    },
+  ];
+  for (const testCase of cases) {
+    const result = parse("source.sed", testCase.source, [], { ranges: true });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.deepEqual(issueSignatures(result.stdout), [
+      {
+        outcome: "undefined_syntax",
+        reason: testCase.reason,
+        range: "[0, 1] - [0, 3]",
+      },
+    ]);
+    const tree = result.stdout
+      .split("\n")
+      .map((line) => line.trimStart())
+      .join("\n");
+    assert.ok(
+      tree.includes(
+        [
+          "issue: (syntax_issue [0, 1] - [0, 3]",
+          "(undefined_syntax [0, 1] - [0, 3]",
+          `(${testCase.reason} [0, 1] - [0, 3]`,
+          `(${testCase.child} [0, 1] - [0, 3]))))`,
+        ].join("\n"),
+      ),
+      `the issue must own the unmatched closer\n${result.stdout}`,
+    );
+    assert.equal(
+      result.stdout.split(`(${testCase.child} `).length - 1,
+      1,
+      `the source child must appear exactly once\n${result.stdout}`,
+    );
+    assert.doesNotMatch(
+      result.stdout,
+      /\((ERROR|MISSING)([ \t\r\n)]|$)/,
+      `unexpected native parser recovery\n${result.stdout}`,
+    );
+  }
+});
+
+test("schema: unmatched BRE closer reasons require their source child", () => {
+  const cases = [
+    ["unmatched_interval_close", "back_close_brace"],
+    ["unmatched_subexpression_close", "back_close_parenthesis_token"],
+  ];
+  for (const [reason, child] of cases) {
+    const nodeType = sedNodeTypes.find(
+      (candidate) => candidate.type === reason,
+    );
+    assert.deepEqual(
+      nodeType?.children,
+      {
+        multiple: false,
+        required: true,
+        types: [{ type: child, named: true }],
+      },
+      `${reason} must own one ${child} child`,
+    );
+    assert.equal(
+      sedEreNodeTypes.some((candidate) => candidate.type === reason),
+      false,
+      `${reason} must remain BRE-only`,
+    );
+  }
+});
+
 test("recovery localizes a broken top-level editing command", () => {
   const result = parse("source.sed", "p\n/[a\nd\n");
   assert.equal(result.status, 0, result.stdout + result.stderr);
@@ -447,6 +786,38 @@ const explicitConvergenceCases = [
     ],
   },
   {
+    name: "unmatched BRE subexpression close",
+    scope: "source.sed",
+    source: "/\\)/p\n",
+    issues: [
+      {
+        outcome: "undefined_syntax",
+        reason: "unmatched_subexpression_close",
+        range: "[0, 1] - [0, 3]",
+      },
+    ],
+    histories: [
+      { source: "//p\n", edits: ["1 0 \\)"] },
+      { source: "/\\(\\)/p\n", edits: ["1 2 "] },
+    ],
+  },
+  {
+    name: "unmatched BRE interval close",
+    scope: "source.sed",
+    source: "/\\}/p\n",
+    issues: [
+      {
+        outcome: "undefined_syntax",
+        reason: "unmatched_interval_close",
+        range: "[0, 1] - [0, 3]",
+      },
+    ],
+    histories: [
+      { source: "//p\n", edits: ["1 0 \\}"] },
+      { source: "/a\\{1\\}/p\n", edits: ["1 4 "] },
+    ],
+  },
+  {
     name: "missing separator after an unmatched closing brace",
     scope: "source.sed",
     source: "}p\n",
@@ -480,6 +851,167 @@ const explicitConvergenceCases = [
       { source: "s/a/b/w file\n", edits: ["7 0 p"] },
     ],
   })),
+  ...grammars.flatMap((grammar) => {
+    function omitted(range) {
+      return { outcome: "undefined_syntax", reason: "omitted_address", range };
+    }
+    function excess(range) {
+      return {
+        outcome: "nonconforming_syntax",
+        reason: "excess_address",
+        range,
+      };
+    }
+    function missingAddressSeparator(range) {
+      return {
+        outcome: "nonconforming_syntax",
+        reason: "missing_address_separator",
+        range,
+      };
+    }
+    function blanksAroundSeparator(range) {
+      return {
+        outcome: "nonconforming_syntax",
+        reason: "blanks_around_address_separator",
+        range,
+      };
+    }
+    function blanksAfterNegation(range) {
+      return {
+        outcome: "unspecified_syntax",
+        reason: "blanks_after_negation",
+        range,
+      };
+    }
+    return [
+      {
+        name: `omitted first address before the separator in ${grammar.name}`,
+        source: ",2p\n",
+        issues: [omitted("[0, 0] - [0, 0]")],
+        histories: [
+          { source: "1,2p\n", edits: ["0 1 "] },
+          { source: "2p\n", edits: ["0 0 ,"] },
+        ],
+      },
+      {
+        name: `omitted first and second addresses in ${grammar.name}`,
+        source: ",p\n",
+        issues: [omitted("[0, 0] - [0, 0]"), omitted("[0, 1] - [0, 1]")],
+        histories: [
+          { source: "1,p\n", edits: ["0 1 "] },
+          { source: ",2p\n", edits: ["1 1 "] },
+        ],
+      },
+      {
+        name: `omitted second address after the separator in ${grammar.name}`,
+        source: "1,p\n",
+        issues: [omitted("[0, 2] - [0, 2]")],
+        histories: [
+          { source: "1,2p\n", edits: ["2 1 "] },
+          { source: "1p\n", edits: ["1 0 ,"] },
+        ],
+      },
+      {
+        name: `excess address unit on a one-address function in ${grammar.name}`,
+        source: "1,2q\n",
+        issues: [excess("[0, 1] - [0, 3]")],
+        histories: [
+          { source: "1,2p\n", edits: ["3 1 q"] },
+          { source: "1q\n", edits: ["1 0 ,2"] },
+        ],
+      },
+      {
+        name: `leading excess address on a zero-address function in ${grammar.name}`,
+        source: "1:x\n",
+        issues: [excess("[0, 0] - [0, 1]")],
+        histories: [
+          { source: ":x\n", edits: ["0 0 1"] },
+          { source: "1,2:x\n", edits: ["1 2 "] },
+        ],
+      },
+      {
+        name: `blank-separated excess addresses on a zero-address function in ${grammar.name}`,
+        source: "1 2:x\n",
+        issues: [
+          excess("[0, 0] - [0, 1]"),
+          excess("[0, 1] - [0, 3]"),
+          missingAddressSeparator("[0, 1] - [0, 1]"),
+        ],
+        histories: [
+          { source: "1,2:x\n", edits: ["1 1  "] },
+          { source: "1 2q\n", edits: ["3 1 :x"] },
+          { source: "1 2p\n", edits: ["3 1 :x"] },
+          { source: ":x\n", edits: ["0 0 1 2"] },
+        ],
+      },
+      {
+        name: `third address unit on a two-address function in ${grammar.name}`,
+        source: "1,2,3p\n",
+        issues: [excess("[0, 3] - [0, 5]")],
+        histories: [
+          { source: "1,2p\n", edits: ["3 0 ,3"] },
+          { source: "1,2,3q\n", edits: ["5 1 p"] },
+        ],
+      },
+      {
+        name: `omission nested inside an excess address unit in ${grammar.name}`,
+        source: "1,q\n",
+        issues: [excess("[0, 1] - [0, 2]"), omitted("[0, 2] - [0, 2]")],
+        histories: [
+          { source: "1,2q\n", edits: ["2 1 "] },
+          { source: "1q\n", edits: ["1 0 ,"] },
+        ],
+      },
+      {
+        name: `blank runs around one separator in ${grammar.name}`,
+        source: "1 , 2p\n",
+        issues: [
+          blanksAroundSeparator("[0, 1] - [0, 2]"),
+          blanksAroundSeparator("[0, 3] - [0, 4]"),
+        ],
+        histories: [
+          { source: "1,2p\n", edits: ["1 0  ", "3 0  "] },
+          { source: "1 ,2p\n", edits: ["3 0  "] },
+        ],
+      },
+      {
+        name: `pre-function blanks after separator blanks in ${grammar.name}`,
+        source: "1 , p\n",
+        issues: [
+          blanksAroundSeparator("[0, 1] - [0, 2]"),
+          omitted("[0, 3] - [0, 3]"),
+        ],
+        histories: [
+          { source: "1 , 2p\n", edits: ["4 1 "] },
+          { source: "1,p\n", edits: ["1 0  ", "3 0  "] },
+        ],
+      },
+      {
+        name: `blank run after negation in ${grammar.name}`,
+        source: "! \tp\n",
+        issues: [blanksAfterNegation("[0, 1] - [0, 3]")],
+        histories: [
+          { source: "! p\n", edits: ["2 0 \t"] },
+          { source: "!\tp\n", edits: ["1 0  "] },
+        ],
+      },
+      {
+        name: `duplicated negation after an address in ${grammar.name}`,
+        source: "1!!p\n",
+        issues: [
+          {
+            outcome: "nonconforming_syntax",
+            reason: "duplicate_negation",
+            range: "[0, 2] - [0, 3]",
+          },
+        ],
+        histories: [
+          { source: "1!p\n", edits: ["2 0 !"] },
+          { source: "!!p\n", edits: ["0 0 1"] },
+        ],
+      },
+    ].map((testCase) => ({ ...testCase, scope: grammar.scope }));
+  }),
 ];
 
 for (const testCase of explicitConvergenceCases) {
@@ -516,8 +1048,19 @@ const fragments = [
   "$p",
   "1,2p",
   "1 , 2p",
+  "1, p",
   ", 2p",
+  ",2p",
   "1,p",
+  "1,q",
+  "1,2q",
+  "1 2q",
+  "1:x",
+  "1 2:x",
+  "1 2#x",
+  "1,2,3p",
+  "1,2 3p",
+  "1,2 ,3p",
   "/a/p",
   "/a*b/p",
   "/\\(a\\)/p",
@@ -543,7 +1086,9 @@ const fragments = [
   "#comment",
   "#n",
   "!p",
+  "! \tp",
   "1!p",
+  "!!p",
   "}",
   "{p",
   "s/a",

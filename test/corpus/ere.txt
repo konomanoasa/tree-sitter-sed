@@ -295,3 +295,66 @@ Classifies empty ERE subexpressions and alternatives inside the POSIX hierarchy
         (print_function
           (function_verb))))
     (command_separator)))
+
+==================
+Classifies excess address units in ERE mode
+:language(sed_ere)
+==================
+1,2q
+,2p
+1 2:x
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (address_separator
+                (address_separator_token))
+              (address
+                (line_number_address))))))
+      (function
+        (quit_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (syntax_issue
+          (undefined_syntax
+            (omitted_address)))
+        (address_separator
+          (address_separator_token))
+        (address
+          (line_number_address)))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (address
+                (line_number_address)))))
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (address_separator
+                (syntax_issue
+                  (nonconforming_syntax
+                    (missing_address_separator))))
+              (address
+                (line_number_address))))))
+      (function
+        (label_function
+          (function_verb)
+          (label
+            (label_token)))))
+    (command_separator)))

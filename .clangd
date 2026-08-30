@@ -14,3 +14,9 @@ If:
   PathMatch: common/scanner\.h
 CompileFlags:
   Add: [-xc, -DSED_REGEX_EXTENDED=0, -I../src]
+
+---
+If:
+  PathMatch: test/scanner\.test\.c
+CompileFlags:
+  Add: [-DSED_REGEX_EXTENDED=0, -I../src]

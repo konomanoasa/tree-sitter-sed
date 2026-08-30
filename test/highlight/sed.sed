@@ -80,6 +80,13 @@
 #     ^ punctuation.delimiter
 #      ^ keyword
 
+  /\)\}/p
+# ^ punctuation.delimiter
+#  ^^ punctuation.bracket
+#    ^^ punctuation.bracket
+#      ^ punctuation.delimiter
+#       ^ keyword
+
   s|a|\&\\|
 # ^ keyword
 #  ^ punctuation.delimiter

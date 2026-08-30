@@ -1,13 +1,40 @@
 #!/usr/bin/env node
 
 const { spawnSync } = require("node:child_process");
-const { constants, accessSync, realpathSync } = require("node:fs");
+const {
+  constants,
+  accessSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+} = require("node:fs");
+const { tmpdir } = require("node:os");
 const { delimiter, dirname, isAbsolute, join } = require("node:path");
 const { grammars, root } = require("./tree-sitter");
 
+const scannerHeader = join(root, "common", "scanner.h");
+const scannerContract = join(root, "test", "scanner.test.c");
+const scannerVariants = grammars.map((grammar) => {
+  let extended;
+  if (grammar.name === "sed") {
+    extended = false;
+  } else if (grammar.name === "sed_ere") {
+    extended = true;
+  } else {
+    throw new Error(`Unsupported scanner grammar ${grammar.name}.`);
+  }
+  const includeDirectory = join(root, grammar.path, "src");
+  return {
+    extended,
+    includeDirectory,
+    name: grammar.name,
+    source: join(includeDirectory, "scanner.c"),
+  };
+});
 const sources = [
-  join(root, "common", "scanner.h"),
-  ...grammars.map((grammar) => join(root, grammar.path, "src", "scanner.c")),
+  scannerHeader,
+  ...scannerVariants.map((variant) => variant.source),
+  scannerContract,
 ];
 
 function executableCandidates(name) {
@@ -76,7 +103,9 @@ function run(command, arguments_) {
     throw result.error;
   }
   if (result.status !== 0) {
-    process.exit(result.status ?? 1);
+    const error = new Error(`${command} exited with ${result.status}.`);
+    error.exitStatus = result.status ?? 1;
+    throw error;
   }
 }
 
@@ -84,6 +113,7 @@ function llvmCommands() {
   if (process.platform === "darwin") {
     const llvmDirectory = join(output("brew", ["--prefix", "llvm"]), "bin");
     return {
+      clang: findExecutable(join(llvmDirectory, "clang"), []),
       clangd: findExecutable(join(llvmDirectory, "clangd"), []),
       clangFormat: findExecutable(join(llvmDirectory, "clang-format"), []),
     };
@@ -96,6 +126,10 @@ function llvmCommands() {
   );
   const clangDirectory = dirname(realpathSync(clangFormat));
   return {
+    clang: findExecutable(
+      process.env.CLANG ?? "clang",
+      process.env.CLANG === undefined ? [clangDirectory] : pathDirectories,
+    ),
     clangd: findExecutable(
       process.env.CLANGD ?? "clangd",
       process.env.CLANGD === undefined ? [clangDirectory] : pathDirectories,
@@ -104,24 +138,76 @@ function llvmCommands() {
   };
 }
 
-const arguments_ = process.argv.slice(2);
-if (
-  arguments_.length > 1 ||
-  (arguments_.length === 1 && arguments_[0] !== "--write")
-) {
-  throw new Error("Usage: node scripts/check-scanner.js [--write]");
-}
+function main() {
+  const arguments_ = process.argv.slice(2);
+  if (
+    arguments_.length > 1 ||
+    (arguments_.length === 1 && arguments_[0] !== "--write")
+  ) {
+    throw new Error("Usage: node scripts/check-scanner.js [--write]");
+  }
 
-const { clangd, clangFormat } = llvmCommands();
-if (versionMajor(clangFormat) !== versionMajor(clangd)) {
-  throw new Error("clang-format and clangd must use the same LLVM release.");
-}
+  const { clang, clangd, clangFormat } = llvmCommands();
+  if (
+    new Set([
+      versionMajor(clang),
+      versionMajor(clangd),
+      versionMajor(clangFormat),
+    ]).size !== 1
+  ) {
+    throw new Error(
+      "clang, clangd, and clang-format must use the same LLVM release.",
+    );
+  }
 
-if (arguments_[0] === "--write") {
-  run(clangFormat, ["-i", ...sources]);
-} else {
+  if (arguments_[0] === "--write") {
+    run(clangFormat, ["-i", ...sources]);
+    return;
+  }
+
   run(clangFormat, ["--dry-run", "--Werror", ...sources]);
   for (const source of sources) {
     run(clangd, ["--log=error", `--check=${source}`]);
   }
+
+  const testDirectory = mkdtempSync(join(tmpdir(), "tree-sitter-sed-scanner."));
+  try {
+    for (const standard of ["c99", "c17"]) {
+      for (const variant of scannerVariants) {
+        const compilerArguments = [
+          `-std=${standard}`,
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-pedantic",
+          "-I",
+          variant.includeDirectory,
+        ];
+        run(clang, [...compilerArguments, "-fsyntax-only", variant.source]);
+
+        const executableSuffix = process.platform === "win32" ? ".exe" : "";
+        const testBinary = join(
+          testDirectory,
+          `scanner-${variant.name}-${standard}${executableSuffix}`,
+        );
+        run(clang, [
+          ...compilerArguments,
+          `-DSED_REGEX_EXTENDED=${variant.extended ? 1 : 0}`,
+          scannerContract,
+          "-o",
+          testBinary,
+        ]);
+        run(testBinary, []);
+      }
+    }
+  } finally {
+    rmSync(testDirectory, { force: true, recursive: true });
+  }
+}
+
+try {
+  main();
+} catch (error) {
+  process.stderr.write(`${error.message}\n`);
+  process.exitCode = error.exitStatus ?? 1;
 }

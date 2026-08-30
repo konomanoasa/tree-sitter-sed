@@ -404,6 +404,14 @@ function commandListRules() {
 function addressRules(mode) {
   const expression = mode === "bre" ? "basic_reg_exp" : "extended_reg_exp";
 
+  function addressChoice($) {
+    return choice(
+      $.line_number_address,
+      $.last_line_address,
+      $.context_address,
+    );
+  }
+
   function contextAddress($, opening) {
     return seq(
       field("opening", opening),
@@ -418,83 +426,96 @@ function addressRules(mode) {
     );
   }
 
+  function commaSeparator($) {
+    return field(
+      "separator",
+      alias($._comma_address_separator, $.address_separator),
+    );
+  }
+
   return {
     address_clause: ($) =>
       choice(
         $._single_address_clause,
         $._double_address_clause,
-        $._address_clause_with_excess,
+        $._max2_excess_address_clause,
       ),
 
     _single_address_clause: ($) => field("first", $.address),
 
     _double_address_clause: ($) =>
       choice(
-        prec(
-          1,
-          seq(
-            field("first", $.address),
-            field(
-              "separator",
-              alias($._address_separator, $.address_separator),
-            ),
-            field("second", $.address),
-          ),
-        ),
-        prec(
-          -1,
-          choice(
-            seq(
-              field(
-                "separator",
-                alias($._comma_address_separator, $.address_separator),
-              ),
-              field("second", $.address),
-              issueField($, "omitted_first_address"),
-            ),
-            seq(
-              field("first", $.address),
-              field(
-                "separator",
-                alias($._comma_address_separator, $.address_separator),
-              ),
-              issueField($, "omitted_address"),
-            ),
-            seq(
-              field(
-                "separator",
-                alias($._comma_address_separator, $.address_separator),
-              ),
-              issueField($, "omitted_address"),
-            ),
-          ),
-        ),
-      ),
-
-    _address_clause_with_excess: ($) =>
-      prec(
-        2,
         seq(
-          $._double_address_clause,
-          issueField($, "additional_address"),
-          repeat1(field("excess", $.excess_address)),
-        ),
-      ),
-
-    excess_address: ($) =>
-      choice(
-        seq(
+          field("first", $.address),
           field("separator", alias($._address_separator, $.address_separator)),
-          field("address", $.address),
+          field("second", $.address),
         ),
         seq(
-          field(
-            "separator",
-            alias($._comma_address_separator, $.address_separator),
-          ),
-          issueField($, "omitted_address"),
+          issueField($, "omitted_first_address"),
+          commaSeparator($),
+          field("second", $.address),
+        ),
+        seq(
+          field("first", $.address),
+          commaSeparator($),
+          $._omitted_second_address_issue,
+        ),
+        seq(
+          issueField($, "omitted_first_address"),
+          commaSeparator($),
+          $._omitted_second_address_issue,
         ),
       ),
+
+    _omitted_second_address_issue: ($) =>
+      choice(
+        issueField($, "omitted_address"),
+        issueField($, "incomplete_omitted_address"),
+      ),
+
+    _max2_excess_address_clause: ($) =>
+      prec.dynamic(
+        1,
+        choice(
+          seq($._double_address_clause, $._max2_excess_address_tail),
+          seq($._max2_excess_address_clause, $._max2_excess_address_tail),
+        ),
+      ),
+
+    _max1_address_clause: ($) =>
+      choice($._single_address_clause, $._max1_excess_address_clause),
+
+    _max1_excess_address_clause: ($) =>
+      prec.dynamic(
+        1,
+        choice(
+          seq(field("first", $.address), $._max1_excess_address_tail),
+          seq(
+            issueField($, "omitted_first_address_unit1"),
+            $._max1_excess_address_tail,
+          ),
+          seq($._max1_excess_address_clause, $._max1_excess_address_tail),
+        ),
+      ),
+
+    _max0_address_clause: ($) =>
+      prec.dynamic(
+        1,
+        choice(
+          issueField($, "excess_address"),
+          seq(
+            issueField($, "omitted_first_address_unit0"),
+            $._max0_excess_address_tail,
+          ),
+          seq($._max0_address_clause, $._max0_excess_address_tail),
+        ),
+      ),
+
+    _max0_excess_address_tail: ($) => issueField($, "excess_address_unit0"),
+
+    _max1_excess_address_tail: ($) => issueField($, "excess_address_unit1"),
+
+    _max2_excess_address_tail: ($) => issueField($, "excess_address_unit2"),
 
     _address_separator: ($) =>
       choice(
@@ -506,25 +527,23 @@ function addressRules(mode) {
       ),
 
     _comma_address_separator: ($) =>
-      choice(
-        prec(
-          1,
-          seq(
-            issueField($, "blanks_around_address_separator"),
-            choice(
-              seq($._blanks, $._address_separator_token, optional($._blanks)),
-              seq($._address_separator_token, $._blanks),
-            ),
-          ),
-        ),
+      seq(
+        optional(issueField($, "blanks_around_address_separator")),
         $._address_separator_token,
+        optional(issueField($, "blanks_around_address_separator")),
       ),
 
     _address_separator_token: ($) =>
       field("token", alias(",", $.address_separator_token)),
 
-    address: ($) =>
-      choice($.line_number_address, $.last_line_address, $.context_address),
+    address: addressChoice,
+
+    // Keep maximum-specific GLR paths distinct until the function verb.
+    _max0_address: addressChoice,
+
+    _max1_address: addressChoice,
+
+    _max2_address: addressChoice,
 
     line_number_address: () => /[[:digit:]]+/,
 
@@ -809,77 +828,67 @@ function functionRules() {
       ),
   };
 
+  function fileForm(form) {
+    const missingFileReason = `missing_${form}`;
+    return ($) => [
+      choice(
+        seq($._blanks, field(form, $[form])),
+        seq($._blanks, missingAtEndOrBoundary($, missingFileReason)),
+        seq(issueField($, "omitted_file_separator"), field(form, $[form])),
+        missingAtEndOrBoundary($, missingFileReason),
+      ),
+    ];
+  }
+
+  const formArguments = {
+    block: ($) => [
+      field("commands", alias($._block_commands, $.command_list)),
+      field("closing", $.closing_brace),
+      optional($._blanks),
+    ],
+    text: ($) => [
+      choice(
+        seq(
+          field("introducer", $.text_introducer),
+          choice(
+            field("text", $.text),
+            seq(optional(issueField($, "missing_text")), $._text_end),
+          ),
+        ),
+        missingAtEndOrBoundary($, "missing_text_introducer"),
+      ),
+    ],
+    optionalLabel: ($) => [
+      optional(
+        prec.right(
+          seq(
+            field("separator", alias(" ", $.argument_separator)),
+            optional(field("label", $.label)),
+          ),
+        ),
+      ),
+    ],
+    requiredLabel: ($) => [
+      choice(
+        field("label", $.label),
+        missingAtEndOrBoundary($, "missing_label"),
+      ),
+    ],
+    rfile: fileForm("rfile"),
+    wfile: fileForm("wfile"),
+    comment: ($) => [optional(field("comment", $.comment))],
+  };
+
   for (const { rule, spelling } of noArgumentDefinitions) {
     rules[rule] = ($) => functionVerb($, spelling);
   }
 
-  for (const descriptor of functionDefinitions) {
-    const { form, rule, spelling } = descriptor;
-    if (form === undefined || form === "substitute" || form === "translate") {
+  for (const { form, rule, spelling } of functionDefinitions) {
+    const argumentParts = formArguments[form];
+    if (argumentParts === undefined) {
       continue;
     }
-    if (form === "block") {
-      rules[rule] = ($) =>
-        seq(
-          functionVerb($, spelling),
-          field("commands", alias($._block_commands, $.command_list)),
-          field("closing", $.closing_brace),
-          optional($._blanks),
-        );
-    } else if (form === "text") {
-      rules[rule] = ($) =>
-        seq(
-          functionVerb($, spelling),
-          choice(
-            seq(
-              field("introducer", $.text_introducer),
-              choice(
-                field("text", $.text),
-                seq(optional(issueField($, "missing_text")), $._text_end),
-              ),
-            ),
-            missingAtEndOrBoundary($, "missing_text_introducer"),
-          ),
-        );
-    } else if (form === "optionalLabel") {
-      rules[rule] = ($) =>
-        seq(
-          functionVerb($, spelling),
-          optional(
-            prec.right(
-              seq(
-                field("separator", alias(" ", $.argument_separator)),
-                optional(field("label", $.label)),
-              ),
-            ),
-          ),
-        );
-    } else if (form === "requiredLabel") {
-      rules[rule] = ($) =>
-        seq(
-          functionVerb($, spelling),
-          choice(
-            field("label", $.label),
-            missingAtEndOrBoundary($, "missing_label"),
-          ),
-        );
-    } else if (form === "rfile" || form === "wfile") {
-      const missingFileReason =
-        form === "rfile" ? "missing_rfile" : "missing_wfile";
-      rules[rule] = ($) =>
-        seq(
-          functionVerb($, spelling),
-          choice(
-            seq($._blanks, field(form, $[form])),
-            seq($._blanks, missingAtEndOrBoundary($, missingFileReason)),
-            seq(issueField($, "omitted_file_separator"), field(form, $[form])),
-            missingAtEndOrBoundary($, missingFileReason),
-          ),
-        );
-    } else if (form === "comment") {
-      rules[rule] = ($) =>
-        seq(functionVerb($, spelling), optional(field("comment", $.comment)));
-    }
+    rules[rule] = ($) => seq(functionVerb($, spelling), ...argumentParts($));
   }
 
   return rules;
@@ -910,12 +919,30 @@ function editingCommandRules() {
     return alias($[name], $.function);
   }
 
-  function addressedFunction($, functionRule) {
+  function addressClauseForMaximum($, maximum) {
+    if (maximum === 0) {
+      return alias($._max0_address_clause, $.address_clause);
+    }
+    if (maximum === 1) {
+      return alias($._max1_address_clause, $.address_clause);
+    }
+    return $.address_clause;
+  }
+
+  function addressedCommand($, addresses, selectedFunction) {
     return seq(
       optional($._blanks),
-      optional(seq(field("addresses", $.address_clause), optional($._blanks))),
+      optional(seq(field("addresses", addresses), optional($._blanks))),
       optional(field("negation", $.negation)),
-      field("function", alias(functionRule, $.function)),
+      field("function", selectedFunction),
+    );
+  }
+
+  function addressedFunction($, functionRule) {
+    return addressedCommand(
+      $,
+      $.address_clause,
+      alias(functionRule, $.function),
     );
   }
 
@@ -926,69 +953,13 @@ function editingCommandRules() {
       if (names.length === 0) {
         continue;
       }
-      const selectedFunction = functionWrapper($, wrapperName(kind, maximum));
-
-      function addressedForm(
-        addresses,
-        { optionalAddresses = false, reportExcess = false } = {},
-      ) {
-        const parts = [optional($._blanks)];
-        if (addresses !== null) {
-          const addressed = seq(
-            field("addresses", addresses),
-            optional($._blanks),
-          );
-          parts.push(optionalAddresses ? optional(addressed) : addressed);
-        }
-        parts.push(
-          optional(field("negation", $.negation)),
-          field("function", selectedFunction),
-        );
-        if (reportExcess) {
-          parts.push(issueField($, "excess_addresses"));
-        }
-        return seq(...parts);
-      }
-
-      if (maximum === 2) {
-        forms.push(
-          addressedForm($.address_clause, { optionalAddresses: true }),
-        );
-        continue;
-      }
-
-      const excessAddressForm = addressedForm(
-        alias($._address_clause_with_excess, $.address_clause),
-        { reportExcess: true },
+      forms.push(
+        addressedCommand(
+          $,
+          addressClauseForMaximum($, maximum),
+          functionWrapper($, wrapperName(kind, maximum)),
+        ),
       );
-
-      if (maximum === 0) {
-        forms.push(
-          choice(
-            addressedForm(null),
-            addressedForm(
-              alias(
-                choice($._single_address_clause, $._double_address_clause),
-                $.address_clause,
-              ),
-              { reportExcess: true },
-            ),
-            excessAddressForm,
-          ),
-        );
-      } else {
-        forms.push(
-          choice(
-            addressedForm(alias($._single_address_clause, $.address_clause), {
-              optionalAddresses: true,
-            }),
-            addressedForm(alias($._double_address_clause, $.address_clause), {
-              reportExcess: true,
-            }),
-            excessAddressForm,
-          ),
-        );
-      }
     }
 
     return choice(...forms);
@@ -1096,7 +1067,6 @@ function editingCommandRules() {
         repeat(
           seq(
             optional(issueField($, "blanks_after_negation")),
-            field("operator", alias("!", $.negation_operator)),
             issueField($, "duplicate_negation"),
           ),
         ),
@@ -1133,12 +1103,11 @@ function sedRules(mode) {
 function missingMarkerNames(mode) {
   return [
     "omitted_address",
+    "incomplete_omitted_address",
     "omitted_first_address",
     "empty_subexpression",
     "missing_subexpression",
     ...(mode === "ere" ? ["empty_alternative"] : []),
-    "excess_addresses",
-    "additional_address",
     "missing_function",
     "missing_label",
     "missing_rfile",
@@ -1147,9 +1116,7 @@ function missingMarkerNames(mode) {
     "missing_text_introducer",
     "missing_text",
     "missing_command_separator",
-    "blanks_around_address_separator",
     "missing_address_separator",
-    "duplicate_negation",
     "missing_closing_brace",
     "missing_opening_delimiter",
     "missing_separator_before_unmatched_brace",
@@ -1209,11 +1176,24 @@ function issueDefinitions(mode) {
       rule: missing("omitted_address"),
     },
     {
+      id: "incomplete_omitted_address",
+      reason: "omitted_address",
+      outcome: "incomplete_syntax",
+      rule: missing("incomplete_omitted_address"),
+    },
+    {
       id: "omitted_first_address",
       reason: "omitted_address",
       outcome: "undefined_syntax",
       rule: missing("omitted_first_address"),
     },
+    // The marker is shared, but maximum-specific reductions must not merge.
+    ...[0, 1].map((maximum) => ({
+      id: `omitted_first_address_unit${maximum}`,
+      reason: "omitted_address",
+      outcome: "undefined_syntax",
+      rule: missing("omitted_first_address"),
+    })),
     {
       reason: "ordinary_character_escape",
       outcome: "undefined_syntax",
@@ -1234,12 +1214,22 @@ function issueDefinitions(mode) {
           {
             reason: "unmatched_subexpression_close",
             outcome: "undefined_syntax",
-            rule: ($) => $._regex_unmatched_group_close,
+            rule: ($) =>
+              namedExternal(
+                $,
+                $._regex_unmatched_group_close,
+                "back_close_parenthesis_token",
+              ),
           },
           {
             reason: "unmatched_interval_close",
             outcome: "undefined_syntax",
-            rule: ($) => $._unmatched_interval_close_marker,
+            rule: ($) =>
+              namedExternal(
+                $,
+                $._regex_unmatched_interval_close,
+                "back_close_brace",
+              ),
           },
         ]
       : []),
@@ -1310,7 +1300,7 @@ function issueDefinitions(mode) {
     {
       reason: "blanks_after_negation",
       outcome: "unspecified_syntax",
-      rule: () => token.immediate(/[[:blank:]]+/),
+      rule: ($) => alias(token.immediate(/[[:blank:]]+/), $.blank),
     },
     {
       reason: "unspecified_replacement_escape",
@@ -1367,15 +1357,32 @@ function issueDefinitions(mode) {
       rule: missing("omitted_file_separator"),
     },
     {
-      reason: "excess_addresses",
+      reason: "excess_address",
       outcome: "nonconforming_syntax",
-      rule: missing("excess_addresses"),
+      rule: ($) => field("address", alias($._max0_address, $.address)),
     },
-    {
-      reason: "additional_address",
+    ...[0, 1, 2].map((maximum) => ({
+      id: `excess_address_unit${maximum}`,
+      reason: "excess_address",
       outcome: "nonconforming_syntax",
-      rule: missing("additional_address"),
-    },
+      rule: ($) =>
+        choice(
+          seq(
+            field(
+              "separator",
+              alias($._address_separator, $.address_separator),
+            ),
+            field("address", alias($[`_max${maximum}_address`], $.address)),
+          ),
+          seq(
+            field(
+              "separator",
+              alias($._comma_address_separator, $.address_separator),
+            ),
+            $._omitted_second_address_issue,
+          ),
+        ),
+    })),
     {
       reason: "unknown_function",
       outcome: "nonconforming_syntax",
@@ -1404,7 +1411,7 @@ function issueDefinitions(mode) {
     {
       reason: "blanks_around_address_separator",
       outcome: "nonconforming_syntax",
-      rule: missing("blanks_around_address_separator"),
+      rule: ($) => alias($._blanks_around_address_separator, $.blank),
     },
     {
       reason: "missing_address_separator",
@@ -1414,7 +1421,7 @@ function issueDefinitions(mode) {
     {
       reason: "duplicate_negation",
       outcome: "nonconforming_syntax",
-      rule: missing("duplicate_negation"),
+      rule: ($) => field("operator", alias("!", $.negation_operator)),
     },
     {
       reason: "unmatched_closing_brace",
@@ -1642,7 +1649,6 @@ function externalTokens($, mode) {
           $._bre_question_mark_escape_marker,
           $._bre_plus_escape_marker,
           $._regex_unmatched_interval_close,
-          $._unmatched_interval_close_marker,
         ]
       : []),
     ...(mode === "ere" ? [$._regex_alternation_operator] : []),
@@ -1732,6 +1738,7 @@ function externalTokens($, mode) {
     $._replacement_line_unterminated,
     $._translate_line_unterminated_source,
     $._translate_line_unterminated_destination,
+    $._blanks_around_address_separator,
     ...missingMarkerNames(mode).map((name) => $[`_${name}_marker`]),
     $._error_sentinel,
   ];
@@ -1750,16 +1757,19 @@ function defineGrammar(name, mode) {
     extras: () => [],
 
     conflicts: ($) => [
+      [$.address_clause, $._recovered_editing_command],
+      [$.address_clause, $._max1_address_clause],
+      [$._double_address_clause, $._excess_address_unit1_reason],
+      [$.address, $._max0_address],
+      [$.address, $._max1_address],
       [
-        $.address_clause,
-        $._chainable_editing_command,
-        $._line_terminated_regular_editing_command_body,
+        $._omitted_first_address_reason,
+        $._omitted_first_address_unit0_reason,
+        $._omitted_first_address_unit1_reason,
       ],
       [
-        $.address_clause,
-        $._chainable_editing_command,
-        $._line_terminated_regular_editing_command_body,
-        $._recovered_editing_command,
+        $._omitted_first_address_unit0_reason,
+        $._omitted_first_address_unit1_reason,
       ],
     ],
 
