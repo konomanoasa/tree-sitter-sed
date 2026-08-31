@@ -50,11 +50,12 @@ w output
     (command_separator)))
 
 ==================
-Preserves ambiguous replacement delimiters and write-flag command ownership
+Preserves ambiguous replacement delimiters and command boundaries
 :language(sed)
 ==================
 s&a&\&&
 s/a/b/w file;p
+s/a/b/w file;
 w file;p
 
 ---
@@ -110,14 +111,40 @@ w file;p
             (write_flag
               (substitution_flag)
               (wfile
-                (wfile_token))))))
-      (syntax_issue
-        (undefined_syntax
-          (command_after_write_flag))))
+                (wfile_token)))))))
+    (command_separator)
     (editing_command
       (function
         (print_function
           (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character
+                        (ordinary_character_token))))))))
+          (delimiter
+            (delimiter_token))
+          (replacement
+            (replacement_literal
+              (replacement_literal_token)))
+          (delimiter
+            (delimiter_token))
+          (substitution_flags
+            (write_flag
+              (substitution_flag)
+              (wfile
+                (wfile_token)))))))
+    (command_separator)
     (command_separator)
     (editing_command
       (function
@@ -431,10 +458,10 @@ rfile
     (command_separator)))
 
 ==================
-Classifies a flag after write without reinterpreting the write operand
+Exposes flags after write without reinterpreting the write operand
 :language(sed)
 ==================
-s///wg2 file
+s///wpigw2 file
 s///w pig file
 
 ---
@@ -454,10 +481,10 @@ s///w pig file
           (substitution_flags
             (write_flag
               (substitution_flag)
-              (syntax_issue
-                (undefined_syntax
-                  (flag_after_write_flag
-                    (global_flag))))
+              (print_flag)
+              (case_insensitive_flag)
+              (global_flag)
+              (substitution_flag)
               (occurrence_flag)
               (wfile
                 (wfile_token)))))))

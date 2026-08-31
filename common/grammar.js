@@ -684,8 +684,7 @@ function operandRules(mode) {
         choice(
           seq(
             $._flag_after_write_marker,
-            issueField($, "flag_after_write_flag"),
-            repeat(postWriteSubstitutionFlagChoice($)),
+            repeat1(postWriteSubstitutionFlagChoice($)),
             $._blanks,
             choice(
               field("wfile", alias($._substitution_wfile, $.wfile)),
@@ -955,38 +954,22 @@ function editingCommandRules() {
 
     _line_terminated_editing_command: ($) =>
       seq(
-        choice(
-          $._line_terminated_regular_editing_command_body,
-          $._line_terminated_substitute_editing_command_body,
-        ),
+        $._line_terminated_regular_editing_command_body,
         optional(issueField($, "unexpected_command_text")),
       ),
 
     _recovered_line_terminated_editing_command: ($) =>
-      choice(
-        prec.right(
-          seq(
-            $._line_terminated_regular_editing_command_body,
-            optional(issueField($, "unexpected_command_text")),
-            issueField($, "forbidden_command_separator"),
-            optional($._blanks),
-          ),
-        ),
-        prec.right(
-          seq(
-            $._line_terminated_substitute_editing_command_body,
-            optional(issueField($, "unexpected_command_text")),
-            issueField($, "command_after_write_flag"),
-            optional($._blanks),
-          ),
+      prec.right(
+        seq(
+          $._line_terminated_regular_editing_command_body,
+          optional(issueField($, "unexpected_command_text")),
+          issueField($, "forbidden_command_separator"),
+          optional($._blanks),
         ),
       ),
 
     _line_terminated_regular_editing_command_body: ($) =>
       addressedForms($, lineTerminated, "line_terminated"),
-
-    _line_terminated_substitute_editing_command_body: ($) =>
-      addressedFunction($, $._line_terminated_substitute_function),
 
     _recovered_editing_command: ($) =>
       choice(
@@ -1034,10 +1017,10 @@ function editingCommandRules() {
     _missing_function: ($) => missingAtEndOrBoundary($, "missing_function"),
 
     _chainable_substitute_function: ($) =>
-      alias($._substitute_function_without_write, $.substitute_function),
-
-    _line_terminated_substitute_function: ($) =>
-      alias($._substitute_function_with_write, $.substitute_function),
+      choice(
+        alias($._substitute_function_without_write, $.substitute_function),
+        alias($._substitute_function_with_write, $.substitute_function),
+      ),
 
     negation: ($) =>
       seq(
@@ -1249,16 +1232,6 @@ function issueDefinitions(mode) {
       reason: "undefined_translation_escape",
       outcome: "undefined_syntax",
       rule: ($) => $._translate_nonportable_escape,
-    },
-    {
-      reason: "command_after_write_flag",
-      outcome: "undefined_syntax",
-      rule: () => token.immediate(";"),
-    },
-    {
-      reason: "flag_after_write_flag",
-      outcome: "undefined_syntax",
-      rule: ($) => postWriteSubstitutionFlagChoice($),
     },
     {
       reason: "equivalence_class_range_start",

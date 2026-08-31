@@ -130,10 +130,10 @@ Preserves adjacent and leading ERE duplication structures
     (command_separator)))
 
 ==================
-Classifies a flag after write without reinterpreting the write operand
+Exposes flags after write without reinterpreting the write operand
 :language(sed_ere)
 ==================
-s///wg2 file
+s///wpigw2 file
 s///w pig file
 
 ---
@@ -153,10 +153,10 @@ s///w pig file
           (substitution_flags
             (write_flag
               (substitution_flag)
-              (syntax_issue
-                (undefined_syntax
-                  (flag_after_write_flag
-                    (global_flag))))
+              (print_flag)
+              (case_insensitive_flag)
+              (global_flag)
+              (substitution_flag)
               (occurrence_flag)
               (wfile
                 (wfile_token)))))))

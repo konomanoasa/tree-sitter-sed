@@ -904,11 +904,6 @@
     }
   },
   {
-    "type": "command_after_write_flag",
-    "named": true,
-    "fields": {}
-  },
-  {
     "type": "command_list",
     "named": true,
     "fields": {},
@@ -1400,37 +1395,6 @@
         },
         {
           "type": "single_expression",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "flag_after_write_flag",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "case_insensitive_flag",
-          "named": true
-        },
-        {
-          "type": "global_flag",
-          "named": true
-        },
-        {
-          "type": "occurrence_flag",
-          "named": true
-        },
-        {
-          "type": "print_flag",
-          "named": true
-        },
-        {
-          "type": "substitution_flag",
           "named": true
         }
       ]
@@ -3411,15 +3375,7 @@
           "named": true
         },
         {
-          "type": "command_after_write_flag",
-          "named": true
-        },
-        {
           "type": "empty_subexpression",
-          "named": true
-        },
-        {
-          "type": "flag_after_write_flag",
           "named": true
         },
         {
@@ -3611,7 +3567,7 @@
     "named": true,
     "fields": {
       "issue": {
-        "multiple": true,
+        "multiple": false,
         "required": false,
         "types": [
           {

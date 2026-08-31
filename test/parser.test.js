@@ -836,19 +836,23 @@ const explicitConvergenceCases = [
     ],
   },
   ...grammars.map((grammar) => ({
-    name: `flag after write flag in ${grammar.name}`,
+    name: `flags after write remain deterministic in ${grammar.name}`,
     scope: grammar.scope,
     source: "s/a/b/wp file\n",
-    issues: [
-      {
-        outcome: "undefined_syntax",
-        reason: "flag_after_write_flag",
-        range: "[0, 7] - [0, 8]",
-      },
-    ],
+    issues: [],
     histories: [
       { source: "s/a/b/wg file\n", edits: ["7 1 p"] },
       { source: "s/a/b/w file\n", edits: ["7 0 p"] },
+    ],
+  })),
+  ...grammars.map((grammar) => ({
+    name: `command after write remains deterministic in ${grammar.name}`,
+    scope: grammar.scope,
+    source: "s/a/b/w file;p\n",
+    issues: [],
+    histories: [
+      { source: "s/a/b/w file\np\n", edits: ["12 1 ;"] },
+      { source: "s/a/b/w file;d\n", edits: ["13 1 p"] },
     ],
   })),
   ...grammars.flatMap((grammar) => {
