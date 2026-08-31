@@ -340,6 +340,14 @@ function breDuplicationSymbol($) {
   );
 }
 
+function misplacedBreDuplSymbol($, reason) {
+  return choice(
+    seq(issueField($, reason), field("operator", $.bre_dupl_symbol)),
+    issueField($, "malformed_interval"),
+    issueField($, "incomplete_interval"),
+  );
+}
+
 function breRules() {
   return {
     bre_extension_escape: ($) =>
@@ -483,24 +491,10 @@ function breRules() {
       intervalExpression($, "back_open_brace", "back_close_brace"),
 
     leading_bre_dupl_symbol: ($) =>
-      choice(
-        seq(
-          issueField($, "leading_duplication_symbol"),
-          field("operator", $.bre_dupl_symbol),
-        ),
-        issueField($, "malformed_interval"),
-        issueField($, "incomplete_interval"),
-      ),
+      misplacedBreDuplSymbol($, "leading_duplication_symbol"),
 
     adjacent_bre_dupl_symbol: ($) =>
-      choice(
-        seq(
-          issueField($, "adjacent_duplication_symbol"),
-          field("operator", $.bre_dupl_symbol),
-        ),
-        issueField($, "malformed_interval"),
-        issueField($, "incomplete_interval"),
-      ),
+      misplacedBreDuplSymbol($, "adjacent_duplication_symbol"),
   };
 }
 

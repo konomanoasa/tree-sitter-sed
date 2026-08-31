@@ -551,27 +551,15 @@ function operandRules(mode) {
   }
 
   return {
-    _substitute_function_without_write: ($) =>
+    _substitute_function: ($) =>
       choice(
         seq(
           $._complete_substitute_function,
           optional(
-            field(
-              "flags",
-              alias($._substitution_flags_without_write, $.substitution_flags),
-            ),
+            field("flags", alias($._substitution_flags, $.substitution_flags)),
           ),
         ),
         $._incomplete_substitute_function,
-      ),
-
-    _substitute_function_with_write: ($) =>
-      seq(
-        $._complete_substitute_function,
-        field(
-          "flags",
-          alias($._substitution_flags_with_write, $.substitution_flags),
-        ),
       ),
 
     _complete_substitute_function: ($) =>
@@ -659,6 +647,12 @@ function operandRules(mode) {
     escaped_newline: ($) =>
       namedExternal($, $._replacement_escaped_newline, "escaped_newline_token"),
 
+    _substitution_flags: ($) =>
+      choice(
+        $._substitution_flags_without_write,
+        seq(optional($._substitution_flags_without_write), $.write_flag),
+      ),
+
     _substitution_flags_without_write: ($) =>
       choice(
         substitutionFlagChoice($),
@@ -666,9 +660,6 @@ function operandRules(mode) {
           seq($._substitution_flags_without_write, substitutionFlagChoice($)),
         ),
       ),
-
-    _substitution_flags_with_write: ($) =>
-      seq(optional($._substitution_flags_without_write), $.write_flag),
 
     occurrence_flag: () => /[[:digit:]]+/,
 
@@ -954,22 +945,18 @@ function editingCommandRules() {
 
     _line_terminated_editing_command: ($) =>
       seq(
-        $._line_terminated_regular_editing_command_body,
+        addressedForms($, lineTerminated, "line_terminated"),
         optional(issueField($, "unexpected_command_text")),
       ),
 
     _recovered_line_terminated_editing_command: ($) =>
       prec.right(
         seq(
-          $._line_terminated_regular_editing_command_body,
-          optional(issueField($, "unexpected_command_text")),
+          $._line_terminated_editing_command,
           issueField($, "forbidden_command_separator"),
           optional($._blanks),
         ),
       ),
-
-    _line_terminated_regular_editing_command_body: ($) =>
-      addressedForms($, lineTerminated, "line_terminated"),
 
     _recovered_editing_command: ($) =>
       choice(
@@ -1017,10 +1004,7 @@ function editingCommandRules() {
     _missing_function: ($) => missingAtEndOrBoundary($, "missing_function"),
 
     _chainable_substitute_function: ($) =>
-      choice(
-        alias($._substitute_function_without_write, $.substitute_function),
-        alias($._substitute_function_with_write, $.substitute_function),
-      ),
+      alias($._substitute_function, $.substitute_function),
 
     negation: ($) =>
       seq(

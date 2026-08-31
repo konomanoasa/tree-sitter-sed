@@ -2851,16 +2851,26 @@ static bool scan_command_token(
   }
 
   if (at_command_boundary(lexer)) {
-    const TSSymbol first_marker = lexer->eof(lexer)
-      ? MISSING_FUNCTION_MARKER
-      : NONCONFORMING_MISSING_FUNCTION_MARKER;
+    static const TSSymbol boundary_markers[][2] = {
+      {MISSING_FUNCTION_MARKER, NONCONFORMING_MISSING_FUNCTION_MARKER},
+      {MISSING_LABEL_MARKER, NONCONFORMING_MISSING_LABEL_MARKER},
+      {MISSING_RFILE_MARKER, NONCONFORMING_MISSING_RFILE_MARKER},
+      {MISSING_WFILE_MARKER, NONCONFORMING_MISSING_WFILE_MARKER},
+    };
+    const unsigned variant = lexer->eof(lexer) ? 0 : 1;
     for (
-      TSSymbol offset = 0;
-      offset <= MISSING_WFILE_MARKER - MISSING_FUNCTION_MARKER;
-      offset++
+      unsigned index = 0;
+      index < sizeof(boundary_markers) / sizeof(boundary_markers[0]);
+      index++
     ) {
-      const TSSymbol marker = first_marker + offset;
-      if (emit_missing_marker(lexer, valid_symbols, marker, symbol)) {
+      if (
+        emit_missing_marker(
+          lexer,
+          valid_symbols,
+          boundary_markers[index][variant],
+          symbol
+        )
+      ) {
         return true;
       }
     }
