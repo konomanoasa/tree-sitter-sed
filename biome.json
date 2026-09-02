@@ -1,6 +1,6 @@
 {
   "files": {
-    "includes": ["**", "!build"]
+    "includes": ["**", "!build", "!target"]
   },
   "formatter": {
     "includes": [
