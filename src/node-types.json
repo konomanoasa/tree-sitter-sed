@@ -1605,29 +1605,6 @@
     }
   },
   {
-    "type": "implementation_option_syntax",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "bre_subexpression_left_anchor",
-          "named": true
-        },
-        {
-          "type": "bre_subexpression_right_anchor",
-          "named": true
-        },
-        {
-          "type": "omitted_file_separator",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
     "type": "incomplete_bracket_term",
     "named": true,
     "fields": {}
@@ -1821,6 +1798,29 @@
     "type": "invalid_substitution_flag",
     "named": true,
     "fields": {}
+  },
+  {
+    "type": "invalid_syntax",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "bre_subexpression_left_anchor",
+          "named": true
+        },
+        {
+          "type": "bre_subexpression_right_anchor",
+          "named": true
+        },
+        {
+          "type": "omitted_file_separator",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "label",
@@ -2987,11 +2987,11 @@
           "named": true
         },
         {
-          "type": "implementation_option_syntax",
+          "type": "incomplete_syntax",
           "named": true
         },
         {
-          "type": "incomplete_syntax",
+          "type": "invalid_syntax",
           "named": true
         },
         {

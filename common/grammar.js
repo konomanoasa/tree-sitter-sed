@@ -1276,19 +1276,19 @@ function issueDefinitions(mode) {
           },
           {
             reason: "bre_subexpression_left_anchor",
-            outcome: "implementation_option_syntax",
+            outcome: "invalid_syntax",
             rule: ($) => $._regex_bre_subexpression_caret,
           },
           {
             reason: "bre_subexpression_right_anchor",
-            outcome: "implementation_option_syntax",
+            outcome: "invalid_syntax",
             rule: ($) => $._regex_bre_subexpression_dollar,
           },
         ]
       : []),
     {
       reason: "omitted_file_separator",
-      outcome: "implementation_option_syntax",
+      outcome: "invalid_syntax",
       rule: missing("omitted_file_separator"),
     },
     {

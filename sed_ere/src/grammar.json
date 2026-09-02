@@ -8410,7 +8410,7 @@
         "name": "_omitted_file_separator_outcome"
       },
       "named": true,
-      "value": "implementation_option_syntax"
+      "value": "invalid_syntax"
     },
     "_excess_address_reason": {
       "type": "FIELD",

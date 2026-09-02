@@ -437,7 +437,7 @@ s/a/b/000
     (command_separator)))
 
 ==================
-Classifies omitted file separators without flattening read functions
+Rejects an omitted file separator without flattening the read function
 :language(sed)
 ==================
 rfile
@@ -451,7 +451,7 @@ rfile
         (read_function
           (function_verb)
           (syntax_issue
-            (implementation_option_syntax
+            (invalid_syntax
               (omitted_file_separator)))
           (rfile
             (rfile_token)))))

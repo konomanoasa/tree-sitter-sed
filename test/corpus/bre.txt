@@ -124,7 +124,7 @@ Preserves BRE interval recovery structure
     (command_separator)))
 
 ==================
-Preserves implementation-dependent BRE forms without selecting their interpretation
+Rejects optional BRE anchors while preserving implementation-defined escapes
 :language(sed)
 ==================
 /\(^a$\)\+b\?c\|d/p
@@ -161,7 +161,7 @@ Preserves implementation-dependent BRE forms without selecting their interpretat
                                                 (one_char_or_coll_elem_bre
                                                   (bre_subexpression_anchor
                                                     (syntax_issue
-                                                      (implementation_option_syntax
+                                                      (invalid_syntax
                                                         (bre_subexpression_left_anchor)))))))))
                                         (bre_expression
                                           (simple_bre
@@ -175,7 +175,7 @@ Preserves implementation-dependent BRE forms without selecting their interpretat
                                             (one_char_or_coll_elem_bre
                                               (bre_subexpression_anchor
                                                 (syntax_issue
-                                                  (implementation_option_syntax
+                                                  (invalid_syntax
                                                     (bre_subexpression_right_anchor))))))))))
                                   (back_close_parenthesis
                                     (back_close_parenthesis_token))))))
@@ -548,7 +548,7 @@ s😺猫😺犬😺g
     (command_separator)))
 
 ==================
-Keeps a subexpression anchor at branch start for duplication rules
+Keeps invalid BRE subexpression anchors structured for duplication recovery
 :language(sed)
 ==================
 /\(^*\)\(^\{1\}\)/p
@@ -579,7 +579,7 @@ Keeps a subexpression anchor at branch start for duplication rules
                                     (one_char_or_coll_elem_bre
                                       (bre_subexpression_anchor
                                         (syntax_issue
-                                          (implementation_option_syntax
+                                          (invalid_syntax
                                             (bre_subexpression_left_anchor)))))))))
                             (bre_expression
                               (simple_bre
@@ -602,7 +602,7 @@ Keeps a subexpression anchor at branch start for duplication rules
                                   (one_char_or_coll_elem_bre
                                     (bre_subexpression_anchor
                                       (syntax_issue
-                                        (implementation_option_syntax
+                                        (invalid_syntax
                                           (bre_subexpression_left_anchor)))))))))
                           (bre_expression
                             (simple_bre

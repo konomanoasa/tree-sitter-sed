@@ -504,6 +504,69 @@ for (const testCase of boundaryCases) {
   });
 }
 
+const omittedFileSeparatorCases = [
+  {
+    name: "read function",
+    source: "rfile\n",
+    owner: "read_function",
+    operand: "rfile",
+    issueColumn: 1,
+    operandStart: 1,
+    operandEnd: 5,
+  },
+  {
+    name: "write function",
+    source: "wfile\n",
+    owner: "write_function",
+    operand: "wfile",
+    issueColumn: 1,
+    operandStart: 1,
+    operandEnd: 5,
+  },
+  {
+    name: "substitution write flag",
+    source: "s///wfile\n",
+    owner: "write_flag",
+    operand: "wfile",
+    issueColumn: 5,
+    operandStart: 5,
+    operandEnd: 9,
+  },
+];
+
+for (const grammar of grammars) {
+  for (const testCase of omittedFileSeparatorCases) {
+    test(`omitted file separator: ${testCase.name} in ${grammar.name}`, () => {
+      const result = parse(grammar.scope, testCase.source, [], {
+        ranges: true,
+      });
+      assert.equal(result.status, 0, result.stdout + result.stderr);
+      assert.deepEqual(issueSignatures(result.stdout), [
+        {
+          outcome: "invalid_syntax",
+          reason: "omitted_file_separator",
+          range: `[0, ${testCase.issueColumn}] - [0, ${testCase.issueColumn}]`,
+        },
+      ]);
+      assert.ok(
+        result.stdout.includes(`(${testCase.owner} `),
+        `missing ${testCase.owner}\n${result.stdout}`,
+      );
+      assert.ok(
+        result.stdout.includes(
+          `${testCase.operand}: (${testCase.operand} [0, ${testCase.operandStart}] - [0, ${testCase.operandEnd}]`,
+        ),
+        `missing ${testCase.operand} operand\n${result.stdout}`,
+      );
+      assert.doesNotMatch(
+        result.stdout,
+        /\((ERROR|MISSING)([ \t\r\n)]|$)/,
+        `unexpected native parser recovery\n${result.stdout}`,
+      );
+    });
+  }
+}
+
 test("marker ranges: missing text introducer stays zero-width before a stray backslash", () => {
   const result = parse("source.sed", "a\\x\n", [], { ranges: true });
   assert.equal(result.status, 0, result.stdout + result.stderr);

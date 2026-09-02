@@ -15,7 +15,7 @@ const issueOutcomeNames = new Set([
   "undefined_syntax",
   "unspecified_syntax",
   "implementation_defined_syntax",
-  "implementation_option_syntax",
+  "invalid_syntax",
   "nonconforming_syntax",
   "incomplete_syntax",
 ]);

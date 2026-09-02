@@ -8483,7 +8483,7 @@
         "name": "_bre_subexpression_left_anchor_outcome"
       },
       "named": true,
-      "value": "implementation_option_syntax"
+      "value": "invalid_syntax"
     },
     "_bre_subexpression_right_anchor_reason": {
       "type": "SYMBOL",
@@ -8505,7 +8505,7 @@
         "name": "_bre_subexpression_right_anchor_outcome"
       },
       "named": true,
-      "value": "implementation_option_syntax"
+      "value": "invalid_syntax"
     },
     "_omitted_file_separator_reason": {
       "type": "SYMBOL",
@@ -8527,7 +8527,7 @@
         "name": "_omitted_file_separator_outcome"
       },
       "named": true,
-      "value": "implementation_option_syntax"
+      "value": "invalid_syntax"
     },
     "_excess_address_reason": {
       "type": "FIELD",
