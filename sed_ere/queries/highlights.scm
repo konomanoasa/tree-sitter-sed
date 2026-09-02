@@ -63,12 +63,40 @@
   (close_bracket_token)
   (close_parenthesis_token)
   (closing_brace_token)
-  (colon_close)
   (open_brace)
   (open_bracket)
-  (open_colon)
   (open_parenthesis)
 ] @punctuation.bracket
+
+(character_class
+  "[" @punctuation.bracket
+  .
+  ":" @punctuation.delimiter)
+
+(character_class
+  ":" @punctuation.delimiter
+  .
+  "]" @punctuation.bracket)
+
+(collating_symbol
+  "[" @punctuation.bracket
+  .
+  "." @punctuation.delimiter)
+
+(collating_symbol
+  "." @punctuation.delimiter
+  .
+  "]" @punctuation.bracket)
+
+(equivalence_class
+  "[" @punctuation.bracket
+  .
+  "=" @punctuation.delimiter)
+
+(equivalence_class
+  "=" @punctuation.delimiter
+  .
+  "]" @punctuation.bracket)
 
 [
   (nonmatching_list_operator)
@@ -85,11 +113,7 @@
   (coll_elem_multi)
   (coll_elem_single)
   (collating_element_token)
-  (dot_close)
-  (equal_close)
   (meta_char)
-  (open_dot)
-  (open_equal)
   (period_token)
 ] @character.special
 

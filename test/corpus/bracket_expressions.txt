@@ -48,22 +48,16 @@ Mirrors the POSIX bracket expression production hierarchy
                                     (expression_term
                                       (single_expression
                                         (character_class
-                                          (open_colon)
-                                          (class_name)
-                                          (colon_close)))))
+                                          (class_name)))))
                                   (expression_term
                                     (single_expression
                                       (end_range
                                         (collating_symbol
-                                          (open_dot)
-                                          (meta_char)
-                                          (dot_close))))))
+                                          (meta_char))))))
                                 (expression_term
                                   (single_expression
                                     (equivalence_class
-                                      (open_equal)
-                                      (coll_elem_single)
-                                      (equal_close)))))
+                                      (coll_elem_single)))))
                               (trailing_hyphen)))
                           (close_bracket
                             (close_bracket_token)))))))))
@@ -110,9 +104,7 @@ Distinguishes POSIX collating tokens and range endings
                                             (single_expression
                                               (end_range
                                                 (collating_symbol
-                                                  (open_dot)
-                                                  (coll_elem_single)
-                                                  (dot_close))))))))
+                                                  (coll_elem_single))))))))
                                     (close_bracket
                                       (close_bracket_token))))))
                             (ere_expression
@@ -126,9 +118,7 @@ Distinguishes POSIX collating tokens and range endings
                                           (single_expression
                                             (end_range
                                               (collating_symbol
-                                                (open_dot)
-                                                (coll_elem_multi)
-                                                (dot_close))))))))
+                                                (coll_elem_multi))))))))
                                   (close_bracket
                                     (close_bracket_token))))))
                           (ere_expression
@@ -142,9 +132,7 @@ Distinguishes POSIX collating tokens and range endings
                                         (single_expression
                                           (end_range
                                             (collating_symbol
-                                              (open_dot)
-                                              (meta_char)
-                                              (dot_close))))))))
+                                              (meta_char))))))))
                                 (close_bracket
                                   (close_bracket_token))))))
                         (ere_expression
@@ -157,9 +145,7 @@ Distinguishes POSIX collating tokens and range endings
                                     (expression_term
                                       (single_expression
                                         (equivalence_class
-                                          (open_equal)
-                                          (coll_elem_single)
-                                          (equal_close)))))))
+                                          (coll_elem_single)))))))
                               (close_bracket
                                 (close_bracket_token))))))
                       (ere_expression
@@ -172,9 +158,7 @@ Distinguishes POSIX collating tokens and range endings
                                   (expression_term
                                     (single_expression
                                       (equivalence_class
-                                        (open_equal)
-                                        (coll_elem_multi)
-                                        (equal_close)))))))
+                                        (coll_elem_multi)))))))
                             (close_bracket
                               (close_bracket_token))))))
                     (ere_expression
@@ -362,9 +346,7 @@ Recovers malformed terms and non-portable ranges
                                           (undefined_syntax
                                             (character_class_range_end)))
                                         (character_class
-                                          (open_colon)
-                                          (class_name)
-                                          (colon_close))))))))
+                                          (class_name))))))))
                             (close_bracket
                               (close_bracket_token))))))
                     (ere_expression
@@ -378,9 +360,7 @@ Recovers malformed terms and non-portable ranges
                                   (range_expression
                                     (start_range
                                       (equivalence_class
-                                        (open_equal)
-                                        (coll_elem_single)
-                                        (equal_close))
+                                        (coll_elem_single))
                                       (syntax_issue
                                         (unspecified_syntax
                                           (equivalence_class_range_start)))
@@ -409,9 +389,7 @@ Recovers malformed terms and non-portable ranges
                                       (unspecified_syntax
                                         (equivalence_class_range_end)))
                                     (equivalence_class
-                                      (open_equal)
-                                      (coll_elem_single)
-                                      (equal_close))))))))
+                                      (coll_elem_single))))))))
                         (close_bracket
                           (close_bracket_token))))))
                 (ere_expression
@@ -425,7 +403,6 @@ Recovers malformed terms and non-portable ranges
                               (single_expression
                                 (end_range
                                   (collating_symbol
-                                    (open_dot)
                                     (coll_elem_single)
                                     (syntax_issue
                                       (undefined_syntax

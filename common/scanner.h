@@ -1234,7 +1234,6 @@ static bool scan_regex_bracket_opener(
   if (!valid_symbols[candidate]) {
     return false;
   }
-  consume(lexer);
   begin_compound_bracket_element(state);
   finish_first_bracket_element(state);
   state->regex_bracket_term_state = term_state;
@@ -1386,11 +1385,10 @@ static bool scan_regex_bracket_term_close(
     return false;
   }
 
-  advance(lexer);
+  consume(lexer);
   if (lexer->lookahead != ']') {
     return false;
   }
-  consume(lexer);
   state->regex_bracket_term_state = REGEX_BRACKET_TERM_NONE;
   finish_compound_bracket_element(state);
   return emit_symbol(valid_symbols, candidate, symbol);

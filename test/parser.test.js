@@ -6,6 +6,10 @@ const { after, before, test } = require("node:test");
 const { createTreeSitter, grammars } = require("../scripts/tree-sitter");
 const sedNodeTypes = require("../src/node-types.json");
 const sedEreNodeTypes = require("../sed_ere/src/node-types.json");
+const nodeTypesByName = new Map([
+  ["sed", sedNodeTypes],
+  ["sed_ere", sedEreNodeTypes],
+]);
 
 let temporaryDirectory;
 let treeSitter;
@@ -31,7 +35,12 @@ after(() => {
   }
 });
 
-function parse(scope, source, edits = [], { ranges = false } = {}) {
+function parse(
+  scope,
+  source,
+  edits = [],
+  { cst = false, ranges = false } = {},
+) {
   const sourcePath = join(temporaryDirectory, `fixture-${fixtureNumber}.sed`);
   fixtureNumber += 1;
   writeFileSync(sourcePath, source);
@@ -40,6 +49,7 @@ function parse(scope, source, edits = [], { ranges = false } = {}) {
       "parse",
       "--scope",
       scope,
+      ...(cst ? ["--cst"] : []),
       ...(ranges ? [] : ["--no-ranges"]),
       sourcePath,
       ...(edits.length === 0 ? [] : ["--edits", ...edits]),
@@ -54,6 +64,48 @@ function parse(scope, source, edits = [], { ranges = false } = {}) {
     throw result.error;
   }
   return result;
+}
+
+function cstLines(tree) {
+  return tree
+    .split("\n")
+    .map((line) => line.trim().replaceAll("\t", " ").replaceAll(/ +/g, " "));
+}
+
+function directDelimiterLeafLines(tree, ownerType) {
+  const rowPattern = /^([0-9]+:[0-9]+) +- +([0-9]+:[0-9]+)( +)([^ ].*)$/;
+  const rows = tree
+    .split("\n")
+    .map((line) => {
+      const match = rowPattern.exec(line);
+      if (match === null) {
+        return null;
+      }
+      return {
+        column: line.length - match[4].length,
+        content: match[4],
+        line: `${match[1]} - ${match[2]} ${match[4]}`,
+      };
+    })
+    .filter((row) => row !== null);
+  const ownerIndex = rows.findIndex(({ content }) => content === ownerType);
+  assert.notEqual(ownerIndex, -1, `missing ${ownerType}\n${tree}`);
+  const ownerColumn = rows[ownerIndex].column;
+  const descendants = [];
+  for (let index = ownerIndex + 1; index < rows.length; index++) {
+    if (rows[index].column <= ownerColumn) {
+      break;
+    }
+    descendants.push(rows[index]);
+  }
+  const directColumn = Math.min(...descendants.map(({ column }) => column));
+  const delimiterLeaves = new Set(['"["', '":"', '"."', '"="', '"]"']);
+  return descendants
+    .filter(
+      ({ column, content }) =>
+        column === directColumn && delimiterLeaves.has(content),
+    )
+    .map(({ line }) => line);
 }
 
 function nodeHeader(line) {
@@ -609,6 +661,240 @@ test("schema: blank issue reasons require one blank source child", () => {
   }
 });
 
+test("schema: bracket terms use anonymous delimiter symbols", () => {
+  const obsoleteDelimiterTypes = [
+    "open_colon",
+    "colon_close",
+    "open_dot",
+    "dot_close",
+    "open_equal",
+    "equal_close",
+  ];
+  const payloadFields = [
+    ["character_class", "name", ["class_name"]],
+    [
+      "collating_symbol",
+      "element",
+      ["coll_elem_multi", "coll_elem_single", "meta_char"],
+    ],
+    ["equivalence_class", "element", ["coll_elem_multi", "coll_elem_single"]],
+  ];
+
+  for (const grammar of grammars) {
+    const nodeTypes = nodeTypesByName.get(grammar.name);
+    assert.ok(
+      nodeTypes !== undefined,
+      `missing node-types for ${grammar.name}`,
+    );
+    const nodeType = (type) =>
+      nodeTypes.find((candidate) => candidate.type === type);
+
+    for (const delimiter of ["[", ":", ".", "=", "]"]) {
+      assert.equal(
+        nodeType(delimiter)?.named,
+        false,
+        `${delimiter} must be anonymous in ${grammar.name}`,
+      );
+    }
+    for (const obsolete of obsoleteDelimiterTypes) {
+      assert.equal(
+        nodeType(obsolete),
+        undefined,
+        `${obsolete} must not be public in ${grammar.name}`,
+      );
+    }
+    for (const [type, field, types] of payloadFields) {
+      const term = nodeType(type);
+      assert.deepEqual(
+        Object.keys(term?.fields ?? {}).sort(),
+        [field, "issue"].sort(),
+        `${type} fields in ${grammar.name}`,
+      );
+      assert.deepEqual(
+        term?.fields[field],
+        {
+          multiple: false,
+          required: false,
+          types: types.map((payloadType) => ({
+            type: payloadType,
+            named: true,
+          })),
+        },
+        `${type}.${field} in ${grammar.name}`,
+      );
+    }
+  }
+});
+
+test("bracket terms directly own one-byte delimiter leaves", () => {
+  const source = "/[[:alpha:][.].][=a=]]/p\n";
+  const expectedBlocks = {
+    character_class: [
+      "0:2 - 0:11 character_class",
+      '0:2 - 0:3 "["',
+      '0:3 - 0:4 ":"',
+      "0:4 - 0:9 name: class_name `alpha`",
+      '0:9 - 0:10 ":"',
+      '0:10 - 0:11 "]"',
+    ],
+    collating_symbol: [
+      "0:11 - 0:16 collating_symbol",
+      '0:11 - 0:12 "["',
+      '0:12 - 0:13 "."',
+      "0:13 - 0:14 element: meta_char `]`",
+      '0:14 - 0:15 "."',
+      '0:15 - 0:16 "]"',
+    ],
+    equivalence_class: [
+      "0:16 - 0:21 equivalence_class",
+      '0:16 - 0:17 "["',
+      '0:17 - 0:18 "="',
+      "0:18 - 0:19 element: coll_elem_single `a`",
+      '0:19 - 0:20 "="',
+      '0:20 - 0:21 "]"',
+    ],
+  };
+
+  for (const grammar of grammars) {
+    const result = parse(grammar.scope, source, [], {
+      cst: true,
+      ranges: true,
+    });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    const lines = cstLines(result.stdout);
+    for (const [type, expected] of Object.entries(expectedBlocks)) {
+      const start = lines.indexOf(expected[0]);
+      assert.notEqual(start, -1, `${type} is missing in ${grammar.name}`);
+      assert.deepEqual(
+        lines.slice(start, start + expected.length),
+        expected,
+        `${type} delimiter leaves in ${grammar.name}`,
+      );
+    }
+  }
+});
+
+test("incomplete bracket terms do not synthesize closing leaves", () => {
+  const cases = [
+    {
+      source: "/[[:alpha",
+      type: "character_class",
+      marker: ":",
+      eof: 9,
+    },
+    {
+      source: "/[[.a",
+      type: "collating_symbol",
+      marker: ".",
+      eof: 5,
+    },
+    {
+      source: "/[[=a",
+      type: "equivalence_class",
+      marker: "=",
+      eof: 5,
+    },
+  ];
+
+  for (const grammar of grammars) {
+    for (const testCase of cases) {
+      const standard = parse(grammar.scope, testCase.source, [], {
+        ranges: true,
+      });
+      assert.equal(standard.status, 0, standard.stdout + standard.stderr);
+      assert.deepEqual(
+        issueSignatures(standard.stdout).filter(
+          ({ reason }) => reason === "incomplete_bracket_term",
+        ),
+        [
+          {
+            outcome: "incomplete_syntax",
+            reason: "incomplete_bracket_term",
+            range: `[0, ${testCase.eof}] - [0, ${testCase.eof}]`,
+          },
+        ],
+        `${testCase.type} issue in ${grammar.name}`,
+      );
+
+      const result = parse(grammar.scope, testCase.source, [], {
+        cst: true,
+        ranges: true,
+      });
+      assert.equal(result.status, 0, result.stdout + result.stderr);
+      assert.ok(
+        cstLines(result.stdout).some((line) =>
+          line.endsWith(` ${testCase.type}`),
+        ),
+        `${testCase.type} is missing in ${grammar.name}`,
+      );
+      assert.deepEqual(
+        directDelimiterLeafLines(result.stdout, testCase.type),
+        ['0:2 - 0:3 "["', `0:3 - 0:4 "${testCase.marker}"`],
+        `${testCase.type} delimiter leaves in ${grammar.name}`,
+      );
+      assert.doesNotMatch(
+        result.stdout,
+        /(^|[^A-Za-z0-9_])MISSING([^A-Za-z0-9_]|$)/,
+        `${testCase.type} must not synthesize a closing delimiter in ${grammar.name}`,
+      );
+    }
+  }
+});
+
+test("malformed empty bracket terms preserve every source delimiter", () => {
+  const source = "/[[::]][[..]][[==]]/p\n";
+  const expectedIssues = [4, 10, 16].map((column) => ({
+    outcome: "undefined_syntax",
+    reason: "malformed_bracket_term",
+    range: `[0, ${column}] - [0, ${column}]`,
+  }));
+  const expectedLeaves = {
+    character_class: [
+      '0:2 - 0:3 "["',
+      '0:3 - 0:4 ":"',
+      '0:4 - 0:5 ":"',
+      '0:5 - 0:6 "]"',
+    ],
+    collating_symbol: [
+      '0:8 - 0:9 "["',
+      '0:9 - 0:10 "."',
+      '0:10 - 0:11 "."',
+      '0:11 - 0:12 "]"',
+    ],
+    equivalence_class: [
+      '0:14 - 0:15 "["',
+      '0:15 - 0:16 "="',
+      '0:16 - 0:17 "="',
+      '0:17 - 0:18 "]"',
+    ],
+  };
+
+  for (const grammar of grammars) {
+    const standard = parse(grammar.scope, source, [], { ranges: true });
+    assert.equal(standard.status, 0, standard.stdout + standard.stderr);
+    assert.deepEqual(
+      issueSignatures(standard.stdout).filter(
+        ({ reason }) => reason === "malformed_bracket_term",
+      ),
+      expectedIssues,
+      `empty bracket term issues in ${grammar.name}`,
+    );
+
+    const result = parse(grammar.scope, source, [], {
+      cst: true,
+      ranges: true,
+    });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    for (const [type, leaves] of Object.entries(expectedLeaves)) {
+      assert.deepEqual(
+        directDelimiterLeafLines(result.stdout, type),
+        leaves,
+        `${type} delimiter leaves in ${grammar.name}`,
+      );
+    }
+  }
+});
+
 test("ownership: blanks before the function stay outside the separator", () => {
   const cases = [
     {
@@ -766,7 +1052,48 @@ test("recovery localizes a broken top-level editing command", () => {
   );
 });
 
+const bracketDelimiterConvergenceCases = grammars.flatMap((grammar) => [
+  {
+    name: `bracket term opening marker in ${grammar.name}`,
+    scope: grammar.scope,
+    source: "/[[:alpha:]]/p\n",
+    issues: [],
+    compareCst: true,
+    histories: [
+      { source: "/[[xalpha:]]/p\n", edits: ["3 1 :"] },
+      {
+        source: "/[[=alpha=]]/p\n",
+        edits: ["3 1 :", "9 1 :"],
+      },
+    ],
+  },
+  {
+    name: `bracket term closing bracket restoration in ${grammar.name}`,
+    scope: grammar.scope,
+    source: "/[[:alpha:]x]/p\n",
+    issues: [],
+    compareCst: true,
+    histories: [{ source: "/[[:alpha:x]/p\n", edits: ["10 0 ]"] }],
+  },
+  {
+    name: `bracket term closing bracket deletion in ${grammar.name}`,
+    scope: grammar.scope,
+    source: "/[[:alpha:x]/p\n",
+    issues: [
+      {
+        outcome: "undefined_syntax",
+        reason: "malformed_bracket_term",
+        range: "[0, 11] - [0, 11]",
+      },
+    ],
+    compareCst: true,
+    delimiterOwner: "character_class",
+    histories: [{ source: "/[[:alpha:]x]/p\n", edits: ["10 1 "] }],
+  },
+]);
+
 const explicitConvergenceCases = [
+  ...bracketDelimiterConvergenceCases,
   {
     name: "recovery-free substitution",
     scope: "source.sed",
@@ -1025,6 +1352,15 @@ for (const testCase of explicitConvergenceCases) {
     if (testCase.issues !== undefined) {
       assert.deepEqual(issueSignatures(fresh.stdout), testCase.issues);
     }
+    const freshCst = testCase.compareCst
+      ? parse(testCase.scope, testCase.source, [], {
+          cst: true,
+          ranges: true,
+        })
+      : null;
+    if (freshCst !== null) {
+      assert.equal(freshCst.status, 0, freshCst.stdout + freshCst.stderr);
+    }
     for (const history of testCase.histories) {
       assert.deepEqual(
         applyEdits(history.source, history.edits),
@@ -1038,6 +1374,35 @@ for (const testCase of explicitConvergenceCases) {
         incremental,
         `${testCase.scope}: ${testCase.name}`,
       );
+      if (freshCst !== null) {
+        const incrementalCst = parse(
+          testCase.scope,
+          history.source,
+          history.edits,
+          { cst: true, ranges: true },
+        );
+        assert.equal(
+          incrementalCst.status,
+          0,
+          incrementalCst.stdout + incrementalCst.stderr,
+        );
+        if ((testCase.issues ?? []).length === 0) {
+          assert.equal(
+            incrementalCst.stdout,
+            freshCst.stdout,
+            `${testCase.scope}: ${testCase.name}: fresh and incremental CSTs differ`,
+          );
+        } else {
+          assert.deepEqual(
+            directDelimiterLeafLines(
+              incrementalCst.stdout,
+              testCase.delimiterOwner,
+            ),
+            directDelimiterLeafLines(freshCst.stdout, testCase.delimiterOwner),
+            `${testCase.scope}: ${testCase.name}: fresh and incremental delimiter leaves differ`,
+          );
+        }
+      }
     }
   });
 }

@@ -415,16 +415,6 @@
     "type": "character_class",
     "named": true,
     "fields": {
-      "closing": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "colon_close",
-            "named": true
-          }
-        ]
-      },
       "issue": {
         "multiple": false,
         "required": false,
@@ -441,16 +431,6 @@
         "types": [
           {
             "type": "class_name",
-            "named": true
-          }
-        ]
-      },
-      "opening": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "open_colon",
             "named": true
           }
         ]
@@ -564,16 +544,6 @@
     "type": "collating_symbol",
     "named": true,
     "fields": {
-      "closing": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "dot_close",
-            "named": true
-          }
-        ]
-      },
       "element": {
         "multiple": false,
         "required": false,
@@ -598,16 +568,6 @@
         "types": [
           {
             "type": "syntax_issue",
-            "named": true
-          }
-        ]
-      },
-      "opening": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "open_dot",
             "named": true
           }
         ]
@@ -947,16 +907,6 @@
     "type": "equivalence_class",
     "named": true,
     "fields": {
-      "closing": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "equal_close",
-            "named": true
-          }
-        ]
-      },
       "element": {
         "multiple": false,
         "required": false,
@@ -977,16 +927,6 @@
         "types": [
           {
             "type": "syntax_issue",
-            "named": true
-          }
-        ]
-      },
-      "opening": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "open_equal",
             "named": true
           }
         ]
@@ -3531,11 +3471,31 @@
     }
   },
   {
+    "type": ".",
+    "named": false
+  },
+  {
+    "type": ":",
+    "named": false
+  },
+  {
     "type": ";",
     "named": false
   },
   {
+    "type": "=",
+    "named": false
+  },
+  {
+    "type": "[",
+    "named": false
+  },
+  {
     "type": "\\",
+    "named": false
+  },
+  {
+    "type": "]",
     "named": false
   },
   {
@@ -3587,10 +3547,6 @@
     "named": true
   },
   {
-    "type": "colon_close",
-    "named": true
-  },
-  {
     "type": "command_separator",
     "named": true
   },
@@ -3607,15 +3563,7 @@
     "named": true
   },
   {
-    "type": "dot_close",
-    "named": true
-  },
-  {
     "type": "dup_count_token",
-    "named": true
-  },
-  {
-    "type": "equal_close",
     "named": true
   },
   {
@@ -3684,18 +3632,6 @@
   },
   {
     "type": "open_bracket",
-    "named": true
-  },
-  {
-    "type": "open_colon",
-    "named": true
-  },
-  {
-    "type": "open_dot",
-    "named": true
-  },
-  {
-    "type": "open_equal",
     "named": true
   },
   {

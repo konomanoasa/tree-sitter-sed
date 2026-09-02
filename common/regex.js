@@ -64,24 +64,21 @@ function intervalExpression($, openingName, closingName) {
 function compoundBracketExpression(
   $,
   openingExternal,
-  openingName,
+  marker,
   contentField,
   content,
   closingExternal,
-  closingName,
 ) {
-  const closing = namedExternal($, closingExternal, closingName);
+  const closing = seq(alias(closingExternal, marker), "]");
   return seq(
-    field("opening", namedExternal($, openingExternal, openingName)),
+    alias(openingExternal, "["),
+    marker,
     choice(
       seq(
         field(contentField, content),
         choice(
-          field("closing", closing),
-          seq(
-            issueField($, "malformed_bracket_term"),
-            optional(field("closing", closing)),
-          ),
+          closing,
+          seq(issueField($, "malformed_bracket_term"), optional(closing)),
           issueField($, "incomplete_bracket_term"),
         ),
       ),
@@ -90,7 +87,7 @@ function compoundBracketExpression(
           issueField($, "malformed_bracket_term"),
           issueField($, "incomplete_bracket_term"),
         ),
-        optional(field("closing", closing)),
+        optional(closing),
       ),
     ),
   );
@@ -255,7 +252,7 @@ function bracketRules() {
       compoundBracketExpression(
         $,
         $._regex_open_dot,
-        "open_dot",
+        ".",
         "element",
         choice(
           namedExternal($, $._regex_coll_elem_single, "coll_elem_single"),
@@ -263,32 +260,29 @@ function bracketRules() {
           namedExternal($, $._regex_meta_char, "meta_char"),
         ),
         $._regex_dot_close,
-        "dot_close",
       ),
 
     equivalence_class: ($) =>
       compoundBracketExpression(
         $,
         $._regex_open_equal,
-        "open_equal",
+        "=",
         "element",
         choice(
           namedExternal($, $._regex_coll_elem_single, "coll_elem_single"),
           namedExternal($, $._regex_coll_elem_multi, "coll_elem_multi"),
         ),
         $._regex_equal_close,
-        "equal_close",
       ),
 
     character_class: ($) =>
       compoundBracketExpression(
         $,
         $._regex_open_colon,
-        "open_colon",
+        ":",
         "name",
         namedExternal($, $._regex_class_name, "class_name"),
         $._regex_colon_close,
-        "colon_close",
       ),
   };
 }

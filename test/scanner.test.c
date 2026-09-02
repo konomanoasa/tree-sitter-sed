@@ -170,11 +170,127 @@ static void check_failed_scan_preserves_state(void) {
   assert_same_state(&expected, &state);
 }
 
+static void check_bracket_term_delimiter_leaf_ranges(void) {
+  static const struct {
+    const char *opening_source;
+    const char *closing_source;
+    TSSymbol opening_symbol;
+    TSSymbol closing_symbol;
+    enum RegexBracketTermState term_state;
+  } cases[] = {
+    {"[:x",
+      ":]x",
+      REGEX_OPEN_COLON,
+      REGEX_COLON_CLOSE,
+      REGEX_BRACKET_TERM_COLON},
+    {"[.x", ".]x", REGEX_OPEN_DOT, REGEX_DOT_CLOSE, REGEX_BRACKET_TERM_DOT},
+    {"[=x",
+      "=]x",
+      REGEX_OPEN_EQUAL,
+      REGEX_EQUAL_CLOSE,
+      REGEX_BRACKET_TERM_EQUAL},
+  };
+
+  for (size_t index = 0; index < sizeof(cases) / sizeof(cases[0]); index++) {
+    ScannerState state = make_regex_state();
+    state.regex_state = REGEX_BRACKET_FIRST;
+    set_regex_position(&state, false, REGEX_DUPLICATION_NONE, false, false);
+    MockLexer opening = make_mock_lexer(cases[index].opening_source);
+    bool opening_symbols[ERROR_SENTINEL + 1] = {false};
+    opening_symbols[cases[index].opening_symbol] = true;
+    TSSymbol symbol = ERROR_SENTINEL;
+
+    assert(scan_regex_bracket_opener(
+      &opening.lexer,
+      &state,
+      opening_symbols,
+      &symbol
+    ));
+    assert(symbol == cases[index].opening_symbol);
+    assert(opening.mark == 1);
+    assert(opening.source[opening.mark] == cases[index].closing_source[0]);
+    assert(state.regex_state == REGEX_BRACKET_BODY);
+    assert(state.regex_bracket_term_state == cases[index].term_state);
+
+    ScannerState deserialized = {0};
+    char buffer[TREE_SITTER_SERIALIZATION_BUFFER_SIZE] = {0};
+    serialize_state(&state, buffer);
+    sed_scanner_deserialize(
+      &deserialized,
+      buffer,
+      SCANNER_SERIALIZED_STATE_SIZE
+    );
+    assert_same_state(&state, &deserialized);
+
+    MockLexer closing = make_mock_lexer(cases[index].closing_source);
+    bool closing_symbols[ERROR_SENTINEL + 1] = {false};
+    closing_symbols[cases[index].closing_symbol] = true;
+    symbol = ERROR_SENTINEL;
+
+    assert(scan_regex_bracket_term_close(
+      &closing.lexer,
+      &state,
+      cases[index].closing_source[0],
+      cases[index].closing_symbol,
+      closing_symbols,
+      &symbol
+    ));
+    assert(symbol == cases[index].closing_symbol);
+    assert(closing.mark == 1);
+    assert(closing.source[closing.mark] == ']');
+    assert(state.regex_bracket_term_state == REGEX_BRACKET_TERM_NONE);
+    assert(state.regex_bracket_pending_element == REGEX_BRACKET_PENDING_OTHER);
+
+    ScannerState incomplete_state = make_regex_state();
+    set_regex_position(
+      &incomplete_state,
+      false,
+      REGEX_DUPLICATION_NONE,
+      false,
+      false
+    );
+    incomplete_state.regex_state = REGEX_BRACKET_BODY;
+    incomplete_state.regex_bracket_term_state = cases[index].term_state;
+    ScannerState expected = incomplete_state;
+    char incomplete_source[] = {cases[index].closing_source[0], 'x', '\0'};
+    MockLexer incomplete = make_mock_lexer(incomplete_source);
+    symbol = ERROR_SENTINEL;
+
+    assert(!scan_regex_bracket_term_close(
+      &incomplete.lexer,
+      &incomplete_state,
+      incomplete_source[0],
+      cases[index].closing_symbol,
+      closing_symbols,
+      &symbol
+    ));
+    assert_same_state(&expected, &incomplete_state);
+  }
+
+  ScannerState state = make_regex_state();
+  state.regex_state = REGEX_BRACKET_FIRST;
+  set_regex_position(&state, false, REGEX_DUPLICATION_NONE, false, false);
+  MockLexer opening = make_mock_lexer("[x");
+  bool valid_symbols[ERROR_SENTINEL + 1] = {false};
+  valid_symbols[REGEX_BRACKET_LITERAL] = true;
+  TSSymbol symbol = ERROR_SENTINEL;
+
+  assert(
+    scan_regex_bracket_opener(&opening.lexer, &state, valid_symbols, &symbol)
+  );
+  assert(symbol == REGEX_BRACKET_LITERAL);
+  assert(opening.mark == 1);
+  assert(opening.source[opening.mark] == 'x');
+  assert(state.regex_state == REGEX_BRACKET_BODY);
+  assert(state.regex_bracket_term_state == REGEX_BRACKET_TERM_NONE);
+}
+
 int main(void) {
   check_lifecycle();
   check_serialization_round_trip();
   check_invalid_serialization_resets_state();
   check_variant_serialization();
   check_failed_scan_preserves_state();
+  check_bracket_term_delimiter_leaf_ranges();
   return 0;
 }
