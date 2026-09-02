@@ -16,10 +16,10 @@ npm install tree-sitter-sed
 
 This repository contains the following two grammars.
 
-| Grammar   | Regexp | C function              | Rust constant  |
-| --------- | ------ | ----------------------- | -------------- |
-| `sed`     | BRE    | `tree_sitter_sed()`     | `LANGUAGE`     |
-| `sed_ere` | ERE    | `tree_sitter_sed_ere()` | `LANGUAGE_ERE` |
+| Grammar   | Regexp | C function              |
+| --------- | ------ | ----------------------- |
+| `sed`     | BRE    | `tree_sitter_sed()`     |
+| `sed_ere` | ERE    | `tree_sitter_sed_ere()` |
 
 ## Development
 
