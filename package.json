@@ -1,6 +1,6 @@
 {
   "name": "tree-sitter-sed",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Tree-sitter grammars for POSIX sed.",
   "license": "MIT",
   "repository": "git+https://github.com/konomanoasa/tree-sitter-sed.git",
@@ -27,6 +27,8 @@
     "check": "biome check . && node scripts/check-c.js && node scripts/check-generated.js && npm test",
     "format": "biome check --write . && node scripts/check-c.js --write",
     "generate": "npm run tree-sitter -- generate-all",
+    "parse": "npm run tree-sitter -- parse --scope source.sed",
+    "parse:ere": "npm run tree-sitter -- parse --scope source.sed.ere",
     "test": "npm run tree-sitter -- test-corpus --rebuild && node --test",
     "test:fuzz": "npm run tree-sitter -- fuzz-all --iterations 100 --edits 5",
     "tree-sitter": "node scripts/tree-sitter.js"

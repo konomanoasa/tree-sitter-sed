@@ -8,16 +8,8 @@ POSIX.1-2024 `sed`.
 
 ## Installation
 
-### npm
-
 ```sh
 npm install tree-sitter-sed
-```
-
-### Cargo
-
-```sh
-cargo add tree-sitter-sed
 ```
 
 ## Grammars
@@ -28,6 +20,14 @@ This repository contains the following two grammars.
 | --------- | ------ | ----------------------- | -------------- |
 | `sed`     | BRE    | `tree_sitter_sed()`     | `LANGUAGE`     |
 | `sed_ere` | ERE    | `tree_sitter_sed_ere()` | `LANGUAGE_ERE` |
+
+## Development
+
+```sh
+npm install
+npm run parse -- script.sed
+npm run parse:ere -- script.sed
+```
 
 ## Specifications
 
