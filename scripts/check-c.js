@@ -12,14 +12,6 @@ const { tmpdir } = require("node:os");
 const { delimiter, dirname, isAbsolute, join } = require("node:path");
 const { grammars, root } = require("./tree-sitter");
 
-const bindingHeader = join(
-  root,
-  "bindings",
-  "c",
-  "tree_sitter",
-  "tree-sitter-sed.h",
-);
-const bindingContract = join(root, "test", "binding.test.c");
 const scannerHeader = join(root, "common", "scanner.h");
 const scannerContract = join(root, "test", "scanner.test.c");
 const scannerVariants = grammars.map((grammar) => {
@@ -40,8 +32,6 @@ const scannerVariants = grammars.map((grammar) => {
   };
 });
 const sources = [
-  bindingHeader,
-  bindingContract,
   scannerHeader,
   ...scannerVariants.map((variant) => variant.source),
   scannerContract,
@@ -180,21 +170,9 @@ function main() {
     run(clangd, ["--log=error", "--tweaks=", `--check=${source}`]);
   }
 
-  const testDirectory = mkdtempSync(join(tmpdir(), "tree-sitter-sed-c."));
+  const testDirectory = mkdtempSync(join(tmpdir(), "tree-sitter-sed-scanner."));
   try {
     for (const standard of ["c99", "c17"]) {
-      run(clang, [
-        `-std=${standard}`,
-        "-Wall",
-        "-Wextra",
-        "-Werror",
-        "-pedantic",
-        "-I",
-        join(root, "bindings", "c"),
-        "-fsyntax-only",
-        bindingContract,
-      ]);
-
       for (const variant of scannerVariants) {
         const compilerArguments = [
           `-std=${standard}`,

@@ -7,4 +7,7 @@
 *.pc
 build/
 
+Cargo.lock
+target/
+
 node_modules/
