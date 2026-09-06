@@ -366,9 +366,8 @@ static bool regex_position_is_reset(const ScannerState *state) {
     !state->regex_after_anchor;
 }
 
-// Any character other than backslash or newline delimits; NUL and the
-// lexer's decode-error value are not characters and would not survive
-// serialization, so they are rejected before a delimiter token is emitted.
+// Reject NUL and decode errors before emission: they cannot survive delimiter
+// serialization.
 static bool delimiter_character_is_valid(int32_t character) {
   const uint32_t code_point = (uint32_t)character;
   return code_point !=
@@ -625,7 +624,6 @@ static bool consume_as(
   return emit_symbol(valid_symbols, candidate, symbol);
 }
 
-// Emits the token that ends the current mode and returns to command level.
 static bool end_mode(
   ScannerState *state,
   const bool *valid_symbols,
@@ -636,7 +634,6 @@ static bool end_mode(
   return emit_symbol(valid_symbols, candidate, symbol);
 }
 
-// The delimiter under the lookahead ends the current delimited mode.
 static bool scan_active_mode_delimiter(
   TSLexer *lexer,
   ScannerState *state,
@@ -680,7 +677,6 @@ static bool scan_active_mode_delimiter(
   return consume_as(lexer, valid_symbols, candidate, symbol);
 }
 
-// Reads "\\" followed by a newline as the introducer of a text operand.
 static bool scan_text_command_start(TSLexer *lexer, ScannerState *state) {
   lexer->mark_end(lexer);
   advance(lexer);
@@ -694,8 +690,6 @@ static bool scan_text_command_start(TSLexer *lexer, ScannerState *state) {
   return true;
 }
 
-// Consumes the rest of the physical line, or of the command when a semicolon
-// may end it; false when nothing precedes that end.
 static bool scan_line_rest(TSLexer *lexer, bool ends_at_semicolon) {
   bool consumed = false;
   while (
@@ -710,9 +704,6 @@ static bool scan_line_rest(TSLexer *lexer, bool ends_at_semicolon) {
   return consumed;
 }
 
-// An rfile or wfile operand follows its separating blanks and runs to the end
-// of the line; the wfile of a substitution write flag ends before a semicolon,
-// where the script may continue with another command.
 static bool scan_file_argument(TSLexer *lexer, bool ends_at_semicolon) {
   return !is_blank(lexer->lookahead) &&
     scan_line_rest(lexer, ends_at_semicolon);
@@ -793,8 +784,6 @@ static bool at_command_boundary(TSLexer *lexer) {
     lexer->lookahead == '}';
 }
 
-// The marker of the separator that is missing before the closing brace or the
-// source end under the lookahead, or ERROR_SENTINEL when neither follows.
 static TSSymbol missing_command_separator_marker(
   const TSLexer *lexer,
   const bool *valid_symbols
@@ -878,8 +867,6 @@ static bool scan_text_token(
   TSSymbol *symbol
 ) {
   if (lexer->eof(lexer)) {
-    // A line of text is missing after the introducer and after an escaped
-    // newline.
     if (
       state->text_state !=
       TEXT_HAS_CONTENT &&
@@ -1072,9 +1059,6 @@ scan_regex_literal(TSLexer *lexer, ScannerState *state) {
   return LITERAL_SCAN_TOKEN;
 }
 
-// The token that ends a delimited mode at a physical line boundary: the
-// incomplete form at the end of the source, the nonconforming form before a
-// newline.
 static TSSymbol
 unterminated_mode_symbol(enum ScannerMode mode, bool at_end_of_source) {
   switch (mode) {
@@ -1100,8 +1084,6 @@ unterminated_mode_symbol(enum ScannerMode mode, bool at_end_of_source) {
   return ERROR_SENTINEL;
 }
 
-// The compound bracket terms: the marker character that follows the opening
-// "[" and precedes the closing "]", and the symbols of those two delimiters.
 static const struct {
   int32_t marker;
   TSSymbol open_symbol;
@@ -1193,8 +1175,6 @@ static TSSymbol regex_bracket_term_content_symbol(
   if (!bracket_meta_character(single_character)) {
     return REGEX_COLL_ELEM_SINGLE;
   }
-  // Only collating symbols admit META_CHAR; an equivalence class of one is
-  // outside the POSIX bracket expression grammar.
   return state->regex_bracket_term_state == REGEX_BRACKET_TERM_DOT
     ? REGEX_META_CHAR
     : REGEX_MALFORMED_BRACKET_TERM;
@@ -1211,8 +1191,6 @@ static bool scan_regex_bracket_term_content(
   uint8_t character_count = 0;
   int32_t single_character = 0;
   bool stopped_at_close = false;
-  // A leading ']' is the element of a collating symbol or equivalence class
-  // ("[.].]"); a class name never starts with one.
   bool leading_bracket_is_content =
     state->regex_bracket_term_state != REGEX_BRACKET_TERM_COLON;
   lexer->mark_end(lexer);
@@ -1264,7 +1242,6 @@ static bool scan_regex_bracket_term_content(
   return emit_symbol(valid_symbols, candidate, symbol);
 }
 
-// Reads the marker under the lookahead and the "]" that must follow it.
 static bool scan_regex_bracket_term_close(
   TSLexer *lexer,
   ScannerState *state,
@@ -1282,7 +1259,6 @@ static bool scan_regex_bracket_term_close(
   return emit_symbol(valid_symbols, candidate, symbol);
 }
 
-// Reads the brace under the lookahead that opens an interval.
 static bool scan_regex_interval_open(
   TSLexer *lexer,
   ScannerState *state,
@@ -1304,7 +1280,6 @@ static bool end_interval(
   return emit_symbol(valid_symbols, candidate, symbol);
 }
 
-// Reads the brace under the lookahead that closes an interval.
 static bool scan_regex_interval_close(
   TSLexer *lexer,
   ScannerState *state,
@@ -1326,8 +1301,6 @@ interval_escape_ends_content(const ScannerState *state, int32_t escaped) {
 }
 #endif
 
-// Ends a malformed content unit whose backslash has been consumed: the escaped
-// character joins the unit unless the line or the source ends there.
 static void finish_malformed_escape(TSLexer *lexer) {
   if (!lexer->eof(lexer) && lexer->lookahead != '\n') {
     advance(lexer);
@@ -1335,12 +1308,8 @@ static void finish_malformed_escape(TSLexer *lexer) {
   lexer->mark_end(lexer);
 }
 
-// Consumes the run of malformed interval content that starts at the lexer
-// position, marking the token end after each unit. The run ends before the
-// interval close, the RE delimiter, a newline, the end of the source, and any
-// construct that owns source of its own: a bracket expression, a subexpression
-// delimiter, and an ERE alternation. Other escape sequences are units of the
-// run, and a backslash that ends the line or the source is one as well.
+// Leave independently parsed constructs outside the malformed interval token
+// so recovery preserves their source ownership.
 static void
 scan_malformed_interval_content(TSLexer *lexer, const ScannerState *state) {
   for (;;) {
@@ -1399,9 +1368,6 @@ static bool raw_duplication_symbol_follows(
 #endif
 }
 
-// The marker that precedes a duplication symbol at the start of a branch or
-// directly after another duplication symbol, or ERROR_SENTINEL elsewhere. An
-// ERE repetition modifier follows a duplication symbol without a marker.
 static TSSymbol regex_duplication_context_marker(
   const TSLexer *lexer,
   const ScannerState *state
@@ -1727,8 +1693,6 @@ static bool scan_empty_regex_construct(
 }
 #endif
 
-// A special character outside a bracket expression: an anchor, the period, an
-// escape, a raw operator, or the bracket that opens a bracket expression.
 static bool scan_regex_special_token(
   TSLexer *lexer,
   ScannerState *state,
@@ -1805,8 +1769,6 @@ static bool scan_regex_special_token(
   return false;
 }
 
-// Reads the "]" under the lookahead that closes a bracket expression, after
-// the marker of the unspecified three-element form when the list has one.
 static bool scan_regex_bracket_close(
   TSLexer *lexer,
   ScannerState *state,
@@ -1829,9 +1791,6 @@ static bool scan_regex_bracket_close(
   return emit_symbol(valid_symbols, REGEX_BRACKET_CLOSE, symbol);
 }
 
-// Reads the "-" under the lookahead inside a bracket list: a range operator,
-// the hyphen that ends a range or the list, or the marker before a character
-// class or equivalence class used as a range start.
 static bool scan_regex_bracket_hyphen(
   TSLexer *lexer,
   ScannerState *state,
@@ -1884,8 +1843,6 @@ static bool scan_regex_bracket_hyphen(
   return false;
 }
 
-// A special character inside a bracket expression: the negation, the closing
-// bracket, a hyphen, or the bracket that opens a compound term.
 static bool scan_regex_bracket_special_token(
   TSLexer *lexer,
   ScannerState *state,
@@ -1937,8 +1894,6 @@ static bool scan_regex_token(
       return true;
     }
     if (lexer->lookahead == '\\') {
-      // The escape is read past its backslash: an interval takes the marker,
-      // and any other escape is the token at that position.
       advance(lexer);
       if (lexer->lookahead == '{' && state->delimiter != '{') {
         *symbol = marker;
@@ -2176,8 +2131,6 @@ static bool scan_translate_escape(
   return consume_as(lexer, valid_symbols, candidate, symbol);
 }
 
-// A replacement or translation string: literal runs, escapes, and the
-// unescaped ampersand that only the replacement treats specially.
 static bool scan_operand_token(
   TSLexer *lexer,
   ScannerState *state,
@@ -2405,7 +2358,6 @@ static bool scan_command_token(
   const bool *valid_symbols,
   TSSymbol *symbol
 ) {
-  // A separator that terminates no function terminates an empty command.
   if (
     valid_symbols[EMPTY_COMMAND_MARKER] &&
     (lexer->lookahead == ';' || lexer->lookahead == '\n')
@@ -2427,8 +2379,6 @@ static bool scan_command_token(
     return true;
   }
 
-  // A run of flag characters after the write flag precedes the blank before
-  // the wfile; without that blank the run is a wfile with no separation.
   if (valid_symbols[FLAG_AFTER_WRITE_MARKER]) {
     switch (scan_flag_after_write_marker(lexer)) {
     case FLAG_AFTER_WRITE_MATCH:
@@ -2470,8 +2420,6 @@ static bool scan_command_token(
       *symbol = TEXT_COMMAND_START;
       return true;
     }
-    // A backslash that ends the script begins an introducer whose newline is
-    // missing; any other continuation leaves the introducer missing.
     if (lexer->eof(lexer)) {
       lexer->mark_end(lexer);
       return emit_symbol(valid_symbols, TEXT_INCOMPLETE_INTRODUCER, symbol);
@@ -2502,7 +2450,6 @@ static bool scan_command_token(
     return true;
   }
 
-  // After '!', an address-like character is a reserved unknown function.
   if (
     valid_symbols[RESERVED_UNKNOWN_FUNCTION_TOKEN] && can_start_address(lexer)
   ) {
@@ -2511,8 +2458,6 @@ static bool scan_command_token(
     return true;
   }
 
-  // An unescaped context address opens only with '/'; the other delimited
-  // operands accept any delimiter character.
   static const struct {
     TSSymbol symbol;
     enum ScannerMode mode;

@@ -13,8 +13,6 @@ function missingAtEndOrBoundary($, reason) {
   );
 }
 
-// An rfile, wfile, or write flag operand follows one or more blanks, or is
-// missing at the end of the command.
 function blankSeparatedFileOperand($, name, operand) {
   return seq(
     $._blanks,
@@ -22,8 +20,6 @@ function blankSeparatedFileOperand($, name, operand) {
   );
 }
 
-// The operand forms of an r or w function or a write flag; zero separation
-// is an extension.
 function fileOperandForms($, name, operand) {
   return [
     blankSeparatedFileOperand($, name, operand),
@@ -315,7 +311,6 @@ function commandListRules() {
         ),
       ),
 
-    // A command that a semicolon may terminate.
     _separable_command_item: ($) =>
       choice($.empty_command, $._chainable_command_item),
 
@@ -548,8 +543,6 @@ function addressRules(mode) {
   };
 }
 
-// A function whose two operands share one delimiter character: the opening
-// delimiter may be missing, and each operand may end at a line boundary.
 function delimitedFunction($, spelling, name, first, middleReason, rest) {
   return seq(
     functionVerb($, spelling),
@@ -841,7 +834,6 @@ function functionRules() {
     rules[rule] = ($) => functionVerb($, spelling);
   }
 
-  // The substitute and translate forms are defined by operandRules.
   for (const { form, rule, spelling } of functionDefinitions) {
     const argumentParts = formArguments[form];
     if (argumentParts === undefined) {

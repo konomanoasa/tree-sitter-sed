@@ -499,8 +499,6 @@ const boundaryCases = [
   },
 ];
 
-// A byte sequence the lexer cannot decode is not a character, so it never
-// becomes a delimiter; like NUL it stays native parser recovery.
 const decodeErrorDelimiterCases = [
   { name: "substitute", source: "s\xffa\xffb\xff\n" },
   { name: "translate", source: "y\xffa\xffb\xff\n" },
