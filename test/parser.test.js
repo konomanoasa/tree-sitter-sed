@@ -4,11 +4,9 @@ const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { after, before, test } = require("node:test");
 const { createTreeSitter, grammars } = require("../scripts/tree-sitter");
-const sedNodeTypes = require("../src/node-types.json");
-const sedEreNodeTypes = require("../sed_ere/src/node-types.json");
 const nodeTypesByName = new Map([
-  ["sed", sedNodeTypes],
-  ["sed_ere", sedEreNodeTypes],
+  ["sed", require("../src/node-types.json")],
+  ["sed_ere", require("../sed_ere/src/node-types.json")],
 ]);
 
 let temporaryDirectory;
@@ -63,6 +61,12 @@ function parse(
   if (result.error) {
     throw result.error;
   }
+  return result;
+}
+
+function parseSuccessfully(scope, source, edits = [], options = {}) {
+  const result = parse(scope, source, edits, options);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
   return result;
 }
 
@@ -145,6 +149,14 @@ function issueSignatures(tree) {
 function issuePaths(tree) {
   return issueSignatures(tree).map(
     ({ outcome, reason }) => `${outcome}/${reason}`,
+  );
+}
+
+function assertNoNodes(tree, ...types) {
+  assert.doesNotMatch(
+    tree,
+    new RegExp(`\\((${types.join("|")})([ \\t\\r\\n)]|$)`),
+    `unexpected ${types.join(", ")} node\n${tree}`,
   );
 }
 
@@ -340,6 +352,18 @@ const boundaryCases = [
     nodes: ["bracket_expression", "print_function"],
   },
   {
+    name: "empty BRE subexpression at source end",
+    scope: "source.sed",
+    source: "/\\(",
+    issues: [
+      "incomplete_syntax/missing_subexpression",
+      "incomplete_syntax/unclosed_subexpression",
+      "incomplete_syntax/incomplete_regular_expression",
+      "incomplete_syntax/missing_function",
+    ],
+    nodes: ["back_open_parenthesis"],
+  },
+  {
     name: "unfinished ERE alternative and group at source end",
     scope: "source.sed.ere",
     source: "/(a|",
@@ -388,11 +412,8 @@ const boundaryCases = [
     name: "text introducer backslash without a newline at source end",
     scope: "source.sed",
     source: "a\\",
-    issues: [
-      "incomplete_syntax/missing_text_introducer",
-      "nonconforming_syntax/unexpected_command_text",
-    ],
-    nodes: ["append_function"],
+    issues: ["incomplete_syntax/incomplete_text_introducer"],
+    nodes: ["append_function", "text_introducer"],
   },
   {
     name: "BRE extension escape remains neutral after duplication",
@@ -478,6 +499,28 @@ const boundaryCases = [
   },
 ];
 
+// A byte sequence the lexer cannot decode is not a character, so it never
+// becomes a delimiter; like NUL it stays native parser recovery.
+const decodeErrorDelimiterCases = [
+  { name: "substitute", source: "s\xffa\xffb\xff\n" },
+  { name: "translate", source: "y\xffa\xffb\xff\n" },
+  { name: "context address", source: "\\\xffa\xffp\n" },
+];
+
+for (const grammar of grammars) {
+  for (const testCase of decodeErrorDelimiterCases) {
+    test(`decode error delimiter: ${testCase.name} in ${grammar.name}`, () => {
+      const result = parse(
+        grammar.scope,
+        Buffer.from(testCase.source, "latin1"),
+      );
+      assert.equal(result.status, 1, result.stdout + result.stderr);
+      assert.ok(result.stdout.includes("(ERROR"), result.stdout);
+      assertNoNodes(result.stdout, "delimiter", "delimiter_token");
+    });
+  }
+}
+
 for (const testCase of boundaryCases) {
   test(`boundary: ${testCase.name}`, () => {
     const result = parse(testCase.scope, testCase.source);
@@ -495,11 +538,7 @@ for (const testCase of boundaryCases) {
       );
     }
     if (!testCase.nativeRecovery) {
-      assert.doesNotMatch(
-        result.stdout,
-        /\((ERROR|MISSING)([ \t\r\n)]|$)/,
-        `unexpected native parser recovery\n${result.stdout}`,
-      );
+      assertNoNodes(result.stdout, "ERROR", "MISSING");
     }
   });
 }
@@ -537,10 +576,9 @@ const omittedFileSeparatorCases = [
 for (const grammar of grammars) {
   for (const testCase of omittedFileSeparatorCases) {
     test(`omitted file separator: ${testCase.name} in ${grammar.name}`, () => {
-      const result = parse(grammar.scope, testCase.source, [], {
+      const result = parseSuccessfully(grammar.scope, testCase.source, [], {
         ranges: true,
       });
-      assert.equal(result.status, 0, result.stdout + result.stderr);
       assert.deepEqual(issueSignatures(result.stdout), [
         {
           outcome: "invalid_syntax",
@@ -558,27 +596,126 @@ for (const grammar of grammars) {
         ),
         `missing ${testCase.operand} operand\n${result.stdout}`,
       );
-      assert.doesNotMatch(
-        result.stdout,
-        /\((ERROR|MISSING)([ \t\r\n)]|$)/,
-        `unexpected native parser recovery\n${result.stdout}`,
-      );
+      assertNoNodes(result.stdout, "ERROR", "MISSING");
     });
   }
 }
 
 test("marker ranges: missing text introducer stays zero-width before a stray backslash", () => {
-  const result = parse("source.sed", "a\\x\n", [], { ranges: true });
-  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const result = parseSuccessfully("source.sed", "a\\x\n", [], {
+    ranges: true,
+  });
   assert.ok(
     result.stdout.includes("(missing_text_introducer [0, 1] - [0, 1])"),
     result.stdout,
   );
 });
 
+test("ownership: an incomplete text introducer owns its backslash", () => {
+  const result = parseSuccessfully("source.sed", "a\\", [], { ranges: true });
+  assert.ok(
+    result.stdout.includes(
+      [
+        "          introducer: (text_introducer [0, 1] - [0, 2]",
+        "            issue: (syntax_issue [0, 1] - [0, 2]",
+        "              (incomplete_syntax [0, 1] - [0, 2]",
+        "                (incomplete_text_introducer [0, 1] - [0, 2]))))))",
+      ].join("\n"),
+    ),
+    `the introducer must own the backslash\n${result.stdout}`,
+  );
+  assertNoNodes(result.stdout, "ERROR", "MISSING", "unexpected_command_text");
+});
+
+test("ownership: a malformed interval ends before a following construct", () => {
+  const cases = [
+    {
+      scope: "source.sed",
+      source: "/a\\{1[bc]\\}/p\n",
+      issues: [
+        {
+          outcome: "undefined_syntax",
+          reason: "malformed_interval",
+          range: "[0, 5] - [0, 5]",
+        },
+        {
+          outcome: "undefined_syntax",
+          reason: "unmatched_interval_close",
+          range: "[0, 9] - [0, 11]",
+        },
+      ],
+      nodes: ["bracket_expression", "back_close_brace"],
+    },
+    {
+      scope: "source.sed",
+      source: "/\\(a\\{2\\)/p\n",
+      issues: [
+        {
+          outcome: "undefined_syntax",
+          reason: "malformed_interval",
+          range: "[0, 7] - [0, 7]",
+        },
+      ],
+      nodes: ["back_close_parenthesis_token"],
+    },
+    {
+      scope: "source.sed",
+      source: "/a\\{1,2,3\\}/p\n",
+      issues: [
+        {
+          outcome: "undefined_syntax",
+          reason: "malformed_interval",
+          range: "[0, 7] - [0, 9]",
+        },
+      ],
+      nodes: ["back_close_brace"],
+    },
+    {
+      scope: "source.sed.ere",
+      source: "/a{1[bc]}/p\n",
+      issues: [
+        {
+          outcome: "undefined_syntax",
+          reason: "malformed_interval",
+          range: "[0, 4] - [0, 4]",
+        },
+      ],
+      nodes: ["bracket_expression"],
+    },
+    {
+      scope: "source.sed.ere",
+      source: "/(a{2)/p\n",
+      issues: [
+        {
+          outcome: "undefined_syntax",
+          reason: "malformed_interval",
+          range: "[0, 5] - [0, 5]",
+        },
+      ],
+      nodes: ["close_parenthesis_token"],
+    },
+  ];
+  for (const testCase of cases) {
+    const result = parseSuccessfully(testCase.scope, testCase.source, [], {
+      ranges: true,
+    });
+    assert.deepEqual(
+      issueSignatures(result.stdout),
+      testCase.issues,
+      `${testCase.scope}: ${JSON.stringify(testCase.source)}\n${result.stdout}`,
+    );
+    for (const node of testCase.nodes) {
+      assert.ok(
+        result.stdout.includes(`(${node}`),
+        `missing ${node}\n${result.stdout}`,
+      );
+    }
+    assertNoNodes(result.stdout, "ERROR", "MISSING", "unclosed_subexpression");
+  }
+});
+
 test("marker ranges: source-end omission stays zero-width after the separator", () => {
-  const result = parse("source.sed", "1,", [], { ranges: true });
-  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const result = parseSuccessfully("source.sed", "1,", [], { ranges: true });
   assert.ok(
     result.stdout.includes("(omitted_address [0, 2] - [0, 2])"),
     result.stdout,
@@ -586,8 +723,7 @@ test("marker ranges: source-end omission stays zero-width after the separator", 
 });
 
 test("ownership: excess address unit owns its separator and address", () => {
-  const result = parse("source.sed", "1,2q\n");
-  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const result = parseSuccessfully("source.sed", "1,2q\n");
   assert.ok(
     result.stdout.includes(
       [
@@ -611,8 +747,9 @@ test("ownership: excess address unit owns its separator and address", () => {
 for (const grammar of grammars) {
   test(`ownership: blank-separated max-zero addresses in ${grammar.name}`, () => {
     for (const source of ["1 2:x\n", "1 2:x"]) {
-      const result = parse(grammar.scope, source, [], { ranges: true });
-      assert.equal(result.status, 0, result.stdout + result.stderr);
+      const result = parseSuccessfully(grammar.scope, source, [], {
+        ranges: true,
+      });
       assert.deepEqual(issueSignatures(result.stdout), [
         {
           outcome: "nonconforming_syntax",
@@ -631,17 +768,20 @@ for (const grammar of grammars) {
         },
       ]);
       assert.ok(result.stdout.includes("(label_function "), result.stdout);
-      assert.doesNotMatch(
+      assertNoNodes(
         result.stdout,
-        /\((ERROR|MISSING|unknown_function|unexpected_command_text)([ \t\r\n)]|$)/,
-        result.stdout,
+        "ERROR",
+        "MISSING",
+        "unknown_function",
+        "unexpected_command_text",
       );
     }
   });
 
   test(`ownership: adjacent context address remains excess in ${grammar.name}`, () => {
-    const result = parse(grammar.scope, "1/ab/q\n", [], { ranges: true });
-    assert.equal(result.status, 0, result.stdout + result.stderr);
+    const result = parseSuccessfully(grammar.scope, "1/ab/q\n", [], {
+      ranges: true,
+    });
     assert.deepEqual(issueSignatures(result.stdout), [
       {
         outcome: "nonconforming_syntax",
@@ -655,17 +795,69 @@ for (const grammar of grammars) {
       },
     ]);
     assert.ok(result.stdout.includes("(quit_function "), result.stdout);
-    assert.doesNotMatch(
+    assertNoNodes(
       result.stdout,
-      /\((ERROR|MISSING|unknown_function|unexpected_command_text)([ \t\r\n)]|$)/,
-      result.stdout,
+      "ERROR",
+      "MISSING",
+      "unknown_function",
+      "unexpected_command_text",
     );
   });
 }
 
+const verbOperands = {
+  "{": "p;}",
+  a: "\\\nx",
+  b: "",
+  c: "\\\nx",
+  d: "",
+  D: "",
+  g: "",
+  G: "",
+  h: "",
+  H: "",
+  i: "\\\nx",
+  l: "",
+  n: "",
+  N: "",
+  p: "",
+  P: "",
+  q: "",
+  r: " file",
+  s: "/a/b/",
+  t: "",
+  w: " file",
+  x: "",
+  y: "/a/b/",
+  ":": "x",
+  "=": "",
+  "#": "c",
+};
+const addressPrefixes = ["1 ", "1\t", "1!", "1 !", "$ ", "/x/ ", "\\,x, "];
+
+for (const grammar of grammars) {
+  test(`known verbs stay functions after address blanks and negation in ${grammar.name}`, () => {
+    for (const [verb, operand] of Object.entries(verbOperands)) {
+      for (const prefix of addressPrefixes) {
+        const source = `${prefix}${verb}${operand}\n`;
+        const result = parseSuccessfully(grammar.scope, source);
+        assert.deepEqual(
+          issuePaths(result.stdout),
+          verb === ":" || verb === "#"
+            ? ["nonconforming_syntax/excess_address"]
+            : [],
+          `${JSON.stringify(source)}\n${result.stdout}`,
+        );
+        assertNoNodes(result.stdout, "ERROR", "MISSING", "unknown_function");
+      }
+    }
+  });
+}
+
 test("ownership: separator blanks live inside blank issues on both sides", () => {
-  const result = parse("source.sed", "1 \t, \t2p\n", [], { ranges: true });
-  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const result = parseSuccessfully("source.sed", "1 \t, \t2p\n", [], {
+    ranges: true,
+  });
   assert.ok(
     result.stdout.includes(
       [
@@ -686,8 +878,9 @@ test("ownership: separator blanks live inside blank issues on both sides", () =>
 });
 
 test("ownership: blank after negation lives inside its issue reason", () => {
-  const result = parse("source.sed", "! \tp\n", [], { ranges: true });
-  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const result = parseSuccessfully("source.sed", "! \tp\n", [], {
+    ranges: true,
+  });
   assert.ok(
     result.stdout.includes(
       [
@@ -702,10 +895,7 @@ test("ownership: blank after negation lives inside its issue reason", () => {
 });
 
 test("schema: blank issue reasons require one blank source child", () => {
-  for (const [grammar, nodeTypes] of [
-    ["sed", sedNodeTypes],
-    ["sed_ere", sedEreNodeTypes],
-  ]) {
+  for (const [grammar, nodeTypes] of nodeTypesByName) {
     for (const reason of [
       "blanks_after_negation",
       "blanks_around_address_separator",
@@ -724,7 +914,7 @@ test("schema: blank issue reasons require one blank source child", () => {
   }
 });
 
-test("schema: bracket terms use anonymous delimiter symbols", () => {
+test("schema: bracket term delimiters are the only anonymous symbols", () => {
   const obsoleteDelimiterTypes = [
     "open_colon",
     "colon_close",
@@ -733,6 +923,7 @@ test("schema: bracket terms use anonymous delimiter symbols", () => {
     "open_equal",
     "equal_close",
   ];
+  const anonymousDelimiters = ["[", ":", ".", "=", "]"];
   const payloadFields = [
     ["character_class", "name", ["class_name"]],
     [
@@ -752,13 +943,14 @@ test("schema: bracket terms use anonymous delimiter symbols", () => {
     const nodeType = (type) =>
       nodeTypes.find((candidate) => candidate.type === type);
 
-    for (const delimiter of ["[", ":", ".", "=", "]"]) {
-      assert.equal(
-        nodeType(delimiter)?.named,
-        false,
-        `${delimiter} must be anonymous in ${grammar.name}`,
-      );
-    }
+    assert.deepEqual(
+      nodeTypes
+        .filter((candidate) => !candidate.named)
+        .map((candidate) => candidate.type)
+        .sort(),
+      [...anonymousDelimiters].sort(),
+      `only bracket term delimiters may be anonymous in ${grammar.name}`,
+    );
     for (const obsolete of obsoleteDelimiterTypes) {
       assert.equal(
         nodeType(obsolete),
@@ -819,11 +1011,10 @@ test("bracket terms directly own one-byte delimiter leaves", () => {
   };
 
   for (const grammar of grammars) {
-    const result = parse(grammar.scope, source, [], {
+    const result = parseSuccessfully(grammar.scope, source, [], {
       cst: true,
       ranges: true,
     });
-    assert.equal(result.status, 0, result.stdout + result.stderr);
     const lines = cstLines(result.stdout);
     for (const [type, expected] of Object.entries(expectedBlocks)) {
       const start = lines.indexOf(expected[0]);
@@ -861,10 +1052,9 @@ test("incomplete bracket terms do not synthesize closing leaves", () => {
 
   for (const grammar of grammars) {
     for (const testCase of cases) {
-      const standard = parse(grammar.scope, testCase.source, [], {
+      const standard = parseSuccessfully(grammar.scope, testCase.source, [], {
         ranges: true,
       });
-      assert.equal(standard.status, 0, standard.stdout + standard.stderr);
       assert.deepEqual(
         issueSignatures(standard.stdout).filter(
           ({ reason }) => reason === "incomplete_bracket_term",
@@ -879,11 +1069,10 @@ test("incomplete bracket terms do not synthesize closing leaves", () => {
         `${testCase.type} issue in ${grammar.name}`,
       );
 
-      const result = parse(grammar.scope, testCase.source, [], {
+      const result = parseSuccessfully(grammar.scope, testCase.source, [], {
         cst: true,
         ranges: true,
       });
-      assert.equal(result.status, 0, result.stdout + result.stderr);
       assert.ok(
         cstLines(result.stdout).some((line) =>
           line.endsWith(` ${testCase.type}`),
@@ -933,8 +1122,9 @@ test("malformed empty bracket terms preserve every source delimiter", () => {
   };
 
   for (const grammar of grammars) {
-    const standard = parse(grammar.scope, source, [], { ranges: true });
-    assert.equal(standard.status, 0, standard.stdout + standard.stderr);
+    const standard = parseSuccessfully(grammar.scope, source, [], {
+      ranges: true,
+    });
     assert.deepEqual(
       issueSignatures(standard.stdout).filter(
         ({ reason }) => reason === "malformed_bracket_term",
@@ -943,11 +1133,10 @@ test("malformed empty bracket terms preserve every source delimiter", () => {
       `empty bracket term issues in ${grammar.name}`,
     );
 
-    const result = parse(grammar.scope, source, [], {
+    const result = parseSuccessfully(grammar.scope, source, [], {
       cst: true,
       ranges: true,
     });
-    assert.equal(result.status, 0, result.stdout + result.stderr);
     for (const [type, leaves] of Object.entries(expectedLeaves)) {
       assert.deepEqual(
         directDelimiterLeafLines(result.stdout, type),
@@ -989,8 +1178,9 @@ test("ownership: blanks before the function stay outside the separator", () => {
     },
   ];
   for (const testCase of cases) {
-    const result = parse("source.sed", testCase.source, [], { ranges: true });
-    assert.equal(result.status, 0, result.stdout + result.stderr);
+    const result = parseSuccessfully("source.sed", testCase.source, [], {
+      ranges: true,
+    });
     assert.deepEqual(issueSignatures(result.stdout), testCase.issues);
     assert.ok(
       result.stdout.includes(testCase.separator),
@@ -999,9 +1189,88 @@ test("ownership: blanks before the function stay outside the separator", () => {
   }
 });
 
+test("ownership: empty commands own their blanks and end before their separator", () => {
+  const result = parseSuccessfully("source.sed", "  ;;  ;p\np; \n \n", [], {
+    ranges: true,
+  });
+  assert.deepEqual(
+    result.stdout
+      .split("\n")
+      .filter((line) => line.includes("(empty_command"))
+      .map((line) => line.trim()),
+    [
+      "(empty_command [0, 0] - [0, 2])",
+      "(empty_command [0, 3] - [0, 3])",
+      "(empty_command [0, 4] - [0, 6])",
+      "(empty_command [1, 2] - [1, 3])",
+      "(empty_command [2, 0] - [2, 1])",
+    ],
+    result.stdout,
+  );
+  assert.ok(
+    result.stdout.includes("(editing_command [1, 0] - [1, 1]"),
+    `the command before the separator must not own the blank\n${result.stdout}`,
+  );
+});
+
+test("ownership: unterminated blanks and separators before a closing brace form no empty command", () => {
+  for (const source of ["p;", " ", "p; ", "{p;}", "{p; }\n", "{}"]) {
+    const result = parseSuccessfully("source.sed", source);
+    assertNoNodes(result.stdout, "empty_command", "ERROR", "MISSING");
+  }
+});
+
+test("ownership: leading blanks stay inside a command that omits its first address", () => {
+  const cases = [
+    { source: " ,p\n", command: "(editing_command [0, 0] - [0, 3]" },
+    { source: "\t,2p\n", command: "(editing_command [0, 0] - [0, 4]" },
+    { source: "{\n ,p\n}\n", command: "(editing_command [1, 0] - [1, 3]" },
+  ];
+  for (const testCase of cases) {
+    const result = parseSuccessfully("source.sed", testCase.source, [], {
+      ranges: true,
+    });
+    assert.ok(
+      result.stdout.startsWith("(script [0, 0] - "),
+      `the script must own the leading blank\n${result.stdout}`,
+    );
+    assert.ok(
+      result.stdout.includes(testCase.command),
+      `the editing command must own its leading blank\n${result.stdout}`,
+    );
+  }
+});
+
+test("ownership: equivalence class meta characters are malformed terms", () => {
+  for (const grammar of grammars) {
+    const result = parseSuccessfully(grammar.scope, "/[[=-=]][[=]=]]/p\n", [], {
+      ranges: true,
+    });
+    assert.deepEqual(issueSignatures(result.stdout), [
+      {
+        outcome: "undefined_syntax",
+        reason: "malformed_bracket_term",
+        range: "[0, 4] - [0, 5]",
+      },
+      {
+        outcome: "undefined_syntax",
+        reason: "malformed_bracket_term",
+        range: "[0, 11] - [0, 12]",
+      },
+    ]);
+    assertNoNodes(
+      result.stdout,
+      "ERROR",
+      "MISSING",
+      "coll_elem_single",
+      "coll_elem_multi",
+      "meta_char",
+    );
+  }
+});
+
 test("ownership: duplicated negation operator lives inside its issue", () => {
-  const result = parse("source.sed", "!!p\n", [], { ranges: true });
-  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const result = parseSuccessfully("source.sed", "!!p\n", [], { ranges: true });
   assert.ok(
     result.stdout.includes(
       [
@@ -1031,8 +1300,9 @@ test("ownership: unmatched BRE closers own one source child", () => {
     },
   ];
   for (const testCase of cases) {
-    const result = parse("source.sed", testCase.source, [], { ranges: true });
-    assert.equal(result.status, 0, result.stdout + result.stderr);
+    const result = parseSuccessfully("source.sed", testCase.source, [], {
+      ranges: true,
+    });
     assert.deepEqual(issueSignatures(result.stdout), [
       {
         outcome: "undefined_syntax",
@@ -1060,11 +1330,7 @@ test("ownership: unmatched BRE closers own one source child", () => {
       1,
       `the source child must appear exactly once\n${result.stdout}`,
     );
-    assert.doesNotMatch(
-      result.stdout,
-      /\((ERROR|MISSING)([ \t\r\n)]|$)/,
-      `unexpected native parser recovery\n${result.stdout}`,
-    );
+    assertNoNodes(result.stdout, "ERROR", "MISSING");
   }
 });
 
@@ -1074,9 +1340,9 @@ test("schema: unmatched BRE closer reasons require their source child", () => {
     ["unmatched_subexpression_close", "back_close_parenthesis_token"],
   ];
   for (const [reason, child] of cases) {
-    const nodeType = sedNodeTypes.find(
-      (candidate) => candidate.type === reason,
-    );
+    const nodeType = nodeTypesByName
+      .get("sed")
+      .find((candidate) => candidate.type === reason);
     assert.deepEqual(
       nodeType?.children,
       {
@@ -1087,7 +1353,9 @@ test("schema: unmatched BRE closer reasons require their source child", () => {
       `${reason} must own one ${child} child`,
     );
     assert.equal(
-      sedEreNodeTypes.some((candidate) => candidate.type === reason),
+      nodeTypesByName
+        .get("sed_ere")
+        .some((candidate) => candidate.type === reason),
       false,
       `${reason} must remain BRE-only`,
     );
@@ -1095,8 +1363,7 @@ test("schema: unmatched BRE closer reasons require their source child", () => {
 });
 
 test("recovery localizes a broken top-level editing command", () => {
-  const result = parse("source.sed", "p\n/[a\nd\n");
-  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const result = parseSuccessfully("source.sed", "p\n/[a\nd\n");
   assert.deepEqual(issuePaths(result.stdout), [
     "undefined_syntax/unclosed_bracket_expression",
     "nonconforming_syntax/unterminated_regular_expression",
@@ -1410,8 +1677,9 @@ const explicitConvergenceCases = [
 
 for (const testCase of explicitConvergenceCases) {
   test(`incremental: ${testCase.name}`, () => {
-    const fresh = parse(testCase.scope, testCase.source, [], { ranges: true });
-    assert.equal(fresh.status, 0, fresh.stdout + fresh.stderr);
+    const fresh = parseSuccessfully(testCase.scope, testCase.source, [], {
+      ranges: true,
+    });
     if (testCase.issues !== undefined) {
       assert.deepEqual(issueSignatures(fresh.stdout), testCase.issues);
     }
@@ -1505,6 +1773,7 @@ const fragments = [
   "s/a/b/2",
   "y/ab/cd/",
   "b x",
+  "b }x",
   "t",
   ":l",
   "a\\\ntext",

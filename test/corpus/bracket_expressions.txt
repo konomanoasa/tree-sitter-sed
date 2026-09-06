@@ -415,3 +415,113 @@ Recovers malformed terms and non-portable ranges
         (print_function
           (function_verb))))
     (command_separator)))
+
+==================
+Rejects meta characters inside equivalence classes
+:language(sed)
+==================
+/[[=-=]][[=]=]][[=^=]][[.^.]][[.-.]]/p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (context_address
+            (delimiter
+              (delimiter_token))
+            (basic_reg_exp
+              (bre_branch
+                (bre_branch
+                  (bre_branch
+                    (bre_branch
+                      (bre_branch
+                        (bre_expression
+                          (simple_bre
+                            (nondupl_bre
+                              (one_char_or_coll_elem_bre
+                                (bracket_expression
+                                  (open_bracket)
+                                  (matching_list
+                                    (bracket_list
+                                      (follow_list
+                                        (expression_term
+                                          (single_expression
+                                            (equivalence_class
+                                              (syntax_issue
+                                                (undefined_syntax
+                                                  (malformed_bracket_term)))))))))
+                                  (close_bracket
+                                    (close_bracket_token))))))))
+                      (bre_expression
+                        (simple_bre
+                          (nondupl_bre
+                            (one_char_or_coll_elem_bre
+                              (bracket_expression
+                                (open_bracket)
+                                (matching_list
+                                  (bracket_list
+                                    (follow_list
+                                      (expression_term
+                                        (single_expression
+                                          (equivalence_class
+                                            (syntax_issue
+                                              (undefined_syntax
+                                                (malformed_bracket_term)))))))))
+                                (close_bracket
+                                  (close_bracket_token))))))))
+                    (bre_expression
+                      (simple_bre
+                        (nondupl_bre
+                          (one_char_or_coll_elem_bre
+                            (bracket_expression
+                              (open_bracket)
+                              (matching_list
+                                (bracket_list
+                                  (follow_list
+                                    (expression_term
+                                      (single_expression
+                                        (equivalence_class
+                                          (coll_elem_single)))))))
+                              (close_bracket
+                                (close_bracket_token))))))))
+                  (bre_expression
+                    (simple_bre
+                      (nondupl_bre
+                        (one_char_or_coll_elem_bre
+                          (bracket_expression
+                            (open_bracket)
+                            (matching_list
+                              (bracket_list
+                                (follow_list
+                                  (expression_term
+                                    (single_expression
+                                      (end_range
+                                        (collating_symbol
+                                          (coll_elem_single))))))))
+                            (close_bracket
+                              (close_bracket_token))))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (bracket_expression
+                          (open_bracket)
+                          (matching_list
+                            (bracket_list
+                              (follow_list
+                                (expression_term
+                                  (single_expression
+                                    (end_range
+                                      (collating_symbol
+                                        (meta_char))))))))
+                          (close_bracket
+                            (close_bracket_token)))))))))
+            (delimiter
+              (delimiter_token)))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))

@@ -14,6 +14,8 @@
   (back_qm)
   (left_anchor_token)
   (negation_operator)
+  (nonmatching_list_operator)
+  (range_operator)
   (right_anchor_token)
   (zero_or_more_operator)
 ] @operator
@@ -97,11 +99,6 @@
   "=" @punctuation.delimiter
   .
   "]" @punctuation.bracket)
-
-[
-  (nonmatching_list_operator)
-  (range_operator)
-] @punctuation.special
 
 [
   (range_end_hyphen)

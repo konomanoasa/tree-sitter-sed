@@ -275,7 +275,8 @@ Classifies malformed BRE interval recovery inside the POSIX hierarchy
                           (dup_count_token))
                         (syntax_issue
                           (undefined_syntax
-                            (malformed_interval)))))))
+                            (malformed_interval)))
+                        (back_close_brace)))))
                 (bre_expression
                   (simple_bre
                     (nondupl_bre
@@ -656,4 +657,357 @@ Classifies empty BRE subexpressions inside the POSIX hierarchy
       (function
         (print_function
           (function_verb))))
+    (command_separator)))
+
+==================
+Ends an empty BRE interval at its own closing brace
+:language(sed)
+==================
+/\{\}a\{1\}/p
+s/x*\{\}y\{2\}/z/
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (context_address
+            (delimiter
+              (delimiter_token))
+            (basic_reg_exp
+              (bre_branch
+                (bre_branch
+                  (bre_expression
+                    (simple_bre
+                      (leading_bre_dupl_symbol
+                        (syntax_issue
+                          (undefined_syntax
+                            (leading_duplication_symbol)))
+                        (bre_dupl_symbol
+                          (back_open_brace)
+                          (syntax_issue
+                            (undefined_syntax
+                              (malformed_interval)))
+                          (back_close_brace))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (ordinary_character
+                          (ordinary_character_token))))
+                    (bre_dupl_symbol
+                      (back_open_brace)
+                      (dup_count
+                        (dup_count_token))
+                      (back_close_brace))))))
+            (delimiter
+              (delimiter_token)))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (basic_reg_exp
+            (bre_branch
+              (bre_branch
+                (bre_expression
+                  (simple_bre
+                    (simple_bre
+                      (nondupl_bre
+                        (one_char_or_coll_elem_bre
+                          (ordinary_character
+                            (ordinary_character_token))))
+                      (bre_dupl_symbol
+                        (zero_or_more_operator)))
+                    (adjacent_bre_dupl_symbol
+                      (syntax_issue
+                        (undefined_syntax
+                          (adjacent_duplication_symbol)))
+                      (bre_dupl_symbol
+                        (back_open_brace)
+                        (syntax_issue
+                          (undefined_syntax
+                            (malformed_interval)))
+                        (back_close_brace))))))
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character
+                        (ordinary_character_token))))
+                  (bre_dupl_symbol
+                    (back_open_brace)
+                    (dup_count
+                      (dup_count_token))
+                    (back_close_brace))))))
+          (delimiter
+            (delimiter_token))
+          (replacement
+            (replacement_literal
+              (replacement_literal_token)))
+          (delimiter
+            (delimiter_token)))))
+    (command_separator)))
+
+==================
+Keeps a dollar sign literal before an escaped closing-parenthesis delimiter
+:language(sed)
+==================
+s)\(a$\))x)
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (back_open_parenthesis)
+                    (basic_reg_exp
+                      (bre_branch
+                        (bre_branch
+                          (bre_branch
+                            (bre_expression
+                              (simple_bre
+                                (nondupl_bre
+                                  (one_char_or_coll_elem_bre
+                                    (ordinary_character
+                                      (ordinary_character_token)))))))
+                          (bre_expression
+                            (simple_bre
+                              (nondupl_bre
+                                (one_char_or_coll_elem_bre
+                                  (ordinary_character
+                                    (ordinary_character_token)))))))
+                        (bre_expression
+                          (simple_bre
+                            (nondupl_bre
+                              (one_char_or_coll_elem_bre
+                                (quoted_character
+                                  (escaped_delimiter
+                                    (escaped_delimiter_token)))))))))
+                    (back_close_parenthesis
+                      (syntax_issue
+                        (undefined_syntax
+                          (unclosed_subexpression)))))))))
+          (delimiter
+            (delimiter_token))
+          (replacement
+            (replacement_literal
+              (replacement_literal_token)))
+          (delimiter
+            (delimiter_token)))))
+    (command_separator)))
+
+==================
+Leaves following constructs outside a malformed BRE interval
+:language(sed)
+==================
+/a\{1[bc]\}/p
+/\(a\{2\)/p
+/a\{1x\}/p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (context_address
+            (delimiter
+              (delimiter_token))
+            (basic_reg_exp
+              (bre_branch
+                (bre_branch
+                  (bre_branch
+                    (bre_expression
+                      (simple_bre
+                        (nondupl_bre
+                          (one_char_or_coll_elem_bre
+                            (ordinary_character
+                              (ordinary_character_token))))
+                        (bre_dupl_symbol
+                          (back_open_brace)
+                          (dup_count
+                            (dup_count_token))
+                          (syntax_issue
+                            (undefined_syntax
+                              (malformed_interval)))))))
+                  (bre_expression
+                    (simple_bre
+                      (nondupl_bre
+                        (one_char_or_coll_elem_bre
+                          (bracket_expression
+                            (open_bracket)
+                            (matching_list
+                              (bracket_list
+                                (follow_list
+                                  (follow_list
+                                    (expression_term
+                                      (single_expression
+                                        (end_range
+                                          (collating_element
+                                            (collating_element_token))))))
+                                  (expression_term
+                                    (single_expression
+                                      (end_range
+                                        (collating_element
+                                          (collating_element_token))))))))
+                            (close_bracket
+                              (close_bracket_token))))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (syntax_issue
+                        (undefined_syntax
+                          (unmatched_interval_close
+                            (back_close_brace)))))))))
+            (delimiter
+              (delimiter_token)))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address
+          (context_address
+            (delimiter
+              (delimiter_token))
+            (basic_reg_exp
+              (bre_branch
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (back_open_parenthesis)
+                      (basic_reg_exp
+                        (bre_branch
+                          (bre_expression
+                            (simple_bre
+                              (nondupl_bre
+                                (one_char_or_coll_elem_bre
+                                  (ordinary_character
+                                    (ordinary_character_token))))
+                              (bre_dupl_symbol
+                                (back_open_brace)
+                                (dup_count
+                                  (dup_count_token))
+                                (syntax_issue
+                                  (undefined_syntax
+                                    (malformed_interval))))))))
+                      (back_close_parenthesis
+                        (back_close_parenthesis_token)))))))
+            (delimiter
+              (delimiter_token)))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address
+          (context_address
+            (delimiter
+              (delimiter_token))
+            (basic_reg_exp
+              (bre_branch
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (ordinary_character
+                          (ordinary_character_token))))
+                    (bre_dupl_symbol
+                      (back_open_brace)
+                      (dup_count
+                        (dup_count_token))
+                      (syntax_issue
+                        (undefined_syntax
+                          (malformed_interval)))
+                      (back_close_brace))))))
+            (delimiter
+              (delimiter_token)))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+Keeps the delimiter inside a bracket expression after a malformed BRE interval
+:language(sed)
+==================
+s.a\{1[.]b.x.
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (basic_reg_exp
+            (bre_branch
+              (bre_branch
+                (bre_branch
+                  (bre_expression
+                    (simple_bre
+                      (nondupl_bre
+                        (one_char_or_coll_elem_bre
+                          (ordinary_character
+                            (ordinary_character_token))))
+                      (bre_dupl_symbol
+                        (back_open_brace)
+                        (dup_count
+                          (dup_count_token))
+                        (syntax_issue
+                          (undefined_syntax
+                            (malformed_interval)))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (bracket_expression
+                          (open_bracket)
+                          (matching_list
+                            (bracket_list
+                              (follow_list
+                                (expression_term
+                                  (single_expression
+                                    (end_range
+                                      (collating_element
+                                        (collating_element_token))))))))
+                          (close_bracket
+                            (close_bracket_token))))))))
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character
+                        (ordinary_character_token))))))))
+          (delimiter
+            (delimiter_token))
+          (replacement
+            (replacement_literal
+              (replacement_literal_token)))
+          (delimiter
+            (delimiter_token)))))
     (command_separator)))

@@ -230,3 +230,41 @@ p};p
         (print_function
           (function_verb))))
     (command_separator)))
+
+==================
+Owns forbidden separators and invalid delimiters inside their issues
+:language(sed)
+==================
+b;p
+s\a\b\
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (branch_function
+          (function_verb)))
+      (syntax_issue
+        (nonconforming_syntax
+          (forbidden_command_separator
+            (command_separator)))))
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (syntax_issue
+              (nonconforming_syntax
+                (invalid_delimiter
+                  (delimiter_token)))))))
+      (syntax_issue
+        (nonconforming_syntax
+          (unexpected_command_text))))
+    (command_separator)))

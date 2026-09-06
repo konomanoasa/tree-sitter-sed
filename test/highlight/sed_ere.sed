@@ -99,10 +99,10 @@
   /[^]a-c[:alpha:][.].][=a=]-]/p
 # ^ punctuation.delimiter
 #  ^ punctuation.bracket
-#   ^ punctuation.special
+#   ^ operator
 #    ^ character.special
 #     ^ character.special
-#      ^ punctuation.special
+#      ^ operator
 #       ^ character.special
 #        ^ punctuation.bracket
 #         ^ punctuation.delimiter
@@ -128,7 +128,7 @@
 # ^ punctuation.delimiter
 #  ^ punctuation.bracket
 #   ^ character.special
-#    ^ punctuation.special
+#    ^ operator
 #     ^ string.regexp
 #      ^ punctuation.bracket
 #       ^ punctuation.delimiter

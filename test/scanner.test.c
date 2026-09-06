@@ -230,8 +230,6 @@ static void check_bracket_term_delimiter_leaf_ranges(void) {
     assert(scan_regex_bracket_term_close(
       &closing.lexer,
       &state,
-      cases[index].closing_source[0],
-      cases[index].closing_symbol,
       closing_symbols,
       &symbol
     ));
@@ -259,8 +257,6 @@ static void check_bracket_term_delimiter_leaf_ranges(void) {
     assert(!scan_regex_bracket_term_close(
       &incomplete.lexer,
       &incomplete_state,
-      incomplete_source[0],
-      cases[index].closing_symbol,
       closing_symbols,
       &symbol
     ));

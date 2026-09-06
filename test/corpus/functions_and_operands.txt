@@ -145,6 +145,7 @@ w file;p
               (wfile
                 (wfile_token)))))))
     (command_separator)
+    (empty_command)
     (command_separator)
     (editing_command
       (function

@@ -358,3 +358,170 @@ Classifies excess address units in ERE mode
           (label
             (label_token)))))
     (command_separator)))
+
+==================
+Leaves following constructs outside a malformed ERE interval
+:language(sed_ere)
+==================
+/a{1[bc]}/p
+/(a{2)/p
+/a{1|b/p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (context_address
+            (delimiter
+              (delimiter_token))
+            (extended_reg_exp
+              (ere_branch
+                (ere_branch
+                  (ere_branch
+                    (ere_expression
+                      (ere_expression
+                        (one_char_or_coll_elem_ere
+                          (ordinary_character
+                            (ordinary_character_token))))
+                      (ere_dupl_symbol
+                        (open_brace)
+                        (dup_count
+                          (dup_count_token))
+                        (syntax_issue
+                          (undefined_syntax
+                            (malformed_interval))))))
+                  (ere_expression
+                    (one_char_or_coll_elem_ere
+                      (bracket_expression
+                        (open_bracket)
+                        (matching_list
+                          (bracket_list
+                            (follow_list
+                              (follow_list
+                                (expression_term
+                                  (single_expression
+                                    (end_range
+                                      (collating_element
+                                        (collating_element_token))))))
+                              (expression_term
+                                (single_expression
+                                  (end_range
+                                    (collating_element
+                                      (collating_element_token))))))))
+                        (close_bracket
+                          (close_bracket_token))))))
+                (ere_expression
+                  (one_char_or_coll_elem_ere
+                    (ordinary_character
+                      (ordinary_character_token))))))
+            (delimiter
+              (delimiter_token)))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address
+          (context_address
+            (delimiter
+              (delimiter_token))
+            (extended_reg_exp
+              (ere_branch
+                (ere_expression
+                  (open_parenthesis)
+                  (extended_reg_exp
+                    (ere_branch
+                      (ere_expression
+                        (ere_expression
+                          (one_char_or_coll_elem_ere
+                            (ordinary_character
+                              (ordinary_character_token))))
+                        (ere_dupl_symbol
+                          (open_brace)
+                          (dup_count
+                            (dup_count_token))
+                          (syntax_issue
+                            (undefined_syntax
+                              (malformed_interval)))))))
+                  (close_parenthesis
+                    (close_parenthesis_token)))))
+            (delimiter
+              (delimiter_token)))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address
+          (context_address
+            (delimiter
+              (delimiter_token))
+            (extended_reg_exp
+              (extended_reg_exp
+                (ere_branch
+                  (ere_expression
+                    (ere_expression
+                      (one_char_or_coll_elem_ere
+                        (ordinary_character
+                          (ordinary_character_token))))
+                    (ere_dupl_symbol
+                      (open_brace)
+                      (dup_count
+                        (dup_count_token))
+                      (syntax_issue
+                        (undefined_syntax
+                          (malformed_interval)))))))
+              (ere_alternation_operator
+                (ere_alternation_operator_token))
+              (ere_branch
+                (ere_expression
+                  (one_char_or_coll_elem_ere
+                    (ordinary_character
+                      (ordinary_character_token))))))
+            (delimiter
+              (delimiter_token)))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+Structures a leading malformed ERE interval
+:language(sed_ere)
+==================
+/{x}/p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (context_address
+            (delimiter
+              (delimiter_token))
+            (extended_reg_exp
+              (ere_branch
+                (ere_expression
+                  (leading_ere_dupl_symbol
+                    (syntax_issue
+                      (undefined_syntax
+                        (leading_duplication_symbol)))
+                    (ere_dupl_symbol
+                      (open_brace)
+                      (syntax_issue
+                        (undefined_syntax
+                          (malformed_interval)))
+                      (close_brace))))))
+            (delimiter
+              (delimiter_token)))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))

@@ -214,8 +214,8 @@ Nests a command list inside a block function
         (block_function
           (function_verb)
           (command_list
-            (empty_command
-              (command_separator))
+            (empty_command)
+            (command_separator)
             (editing_command
               (function
                 (print_function
@@ -226,6 +226,7 @@ Nests a command list inside a block function
                 (delete_function
                   (function_verb))))
             (command_separator)
+            (empty_command)
             (command_separator))
           (closing_brace
             (closing_brace_token)))))
@@ -259,8 +260,8 @@ Does not recognize output suppression after an initial semicolon
 
 (script
   (command_list
-    (empty_command
-      (command_separator))
+    (empty_command)
+    (command_separator)
     (editing_command
       (function
         (comment_function
@@ -280,8 +281,8 @@ Does not recognize output suppression after an initial newline
 
 (script
   (command_list
-    (empty_command
-      (command_separator))
+    (empty_command)
+    (command_separator)
     (editing_command
       (function
         (comment_function
@@ -683,8 +684,8 @@ Recovers a block whose leading empty command precedes a missing separator
         (block_function
           (function_verb)
           (command_list
-            (empty_command
-              (command_separator))
+            (empty_command)
+            (command_separator)
             (editing_command
               (function
                 (print_function
@@ -1041,6 +1042,162 @@ Keeps excess address units before blanks, negation, and separators
               (function
                 (quit_function
                   (function_verb))))
+            (command_separator))
+          (closing_brace
+            (closing_brace_token)))))
+    (command_separator)))
+
+==================
+Keeps one-address functions after address blanks and negation
+:language(sed)
+==================
+1 a\
+x
+$!i\
+y
+2 !r file
+$ q
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address)))
+      (function
+        (append_function
+          (function_verb)
+          (text_introducer
+            (text_introducer_token))
+          (text
+            (text_literal
+              (text_literal_token))))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address
+          (last_line_address)))
+      (negation
+        (negation_operator))
+      (function
+        (insert_function
+          (function_verb)
+          (text_introducer
+            (text_introducer_token))
+          (text
+            (text_literal
+              (text_literal_token))))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address)))
+      (negation
+        (negation_operator))
+      (function
+        (read_function
+          (function_verb)
+          (rfile
+            (rfile_token)))))
+    (command_separator)
+    (editing_command
+      (address_clause
+        (address
+          (last_line_address)))
+      (function
+        (quit_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+Keeps labels that start with a closing brace
+:language(sed)
+==================
+b }x
+t }
+{b }
+}
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (branch_function
+          (function_verb)
+          (argument_separator)
+          (label
+            (label_token)))))
+    (command_separator)
+    (editing_command
+      (function
+        (test_function
+          (function_verb)
+          (argument_separator)
+          (label
+            (label_token)))))
+    (command_separator)
+    (editing_command
+      (function
+        (block_function
+          (function_verb)
+          (command_list
+            (editing_command
+              (function
+                (branch_function
+                  (function_verb)
+                  (argument_separator)
+                  (label
+                    (label_token)))))
+            (command_separator))
+          (closing_brace
+            (closing_brace_token)))))
+    (command_separator)))
+
+==================
+Terminates empty commands at semicolons and newlines
+:language(sed)
+==================
+;;p
+p;;
+ ;
+{;}
+
+---
+
+(script
+  (command_list
+    (empty_command)
+    (command_separator)
+    (empty_command)
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (empty_command)
+    (command_separator)
+    (empty_command)
+    (command_separator)
+    (empty_command)
+    (command_separator)
+    (empty_command)
+    (command_separator)
+    (editing_command
+      (function
+        (block_function
+          (function_verb)
+          (command_list
+            (empty_command)
             (command_separator))
           (closing_brace
             (closing_brace_token)))))

@@ -12,7 +12,9 @@
   (ere_alternation_operator_token)
   (left_anchor_token)
   (negation_operator)
+  (nonmatching_list_operator)
   (one_or_more_operator)
+  (range_operator)
   (repetition_modifier)
   (right_anchor_token)
   (zero_or_more_operator)
@@ -97,11 +99,6 @@
   "=" @punctuation.delimiter
   .
   "]" @punctuation.bracket)
-
-[
-  (nonmatching_list_operator)
-  (range_operator)
-] @punctuation.special
 
 [
   (range_end_hyphen)

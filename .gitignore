@@ -1,11 +1,7 @@
 .DS_Store
 
 *.dylib
-
-*.a
 *.o
-*.pc
-build/
 
 Cargo.lock
 target/
