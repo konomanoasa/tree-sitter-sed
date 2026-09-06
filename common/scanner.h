@@ -555,6 +555,11 @@ static void advance(TSLexer *lexer) {
   lexer->advance(lexer, false);
 }
 
+static void consume(TSLexer *lexer) {
+  advance(lexer);
+  lexer->mark_end(lexer);
+}
+
 static bool is_blank(int32_t character) {
   return character == ' ' || character == '\t';
 }
@@ -595,32 +600,43 @@ static bool scan_simple_delimiter(
   state->delimiter = lexer->lookahead;
   state->mode = next_mode;
   reset_mode_tracking(state);
-  state->regex_at_branch_start =
-    next_mode == MODE_REGEX_ADDRESS || next_mode == MODE_SUBSTITUTE_PATTERN;
-  advance(lexer);
-  lexer->mark_end(lexer);
+  state->regex_at_branch_start = is_regex_mode(next_mode);
+  consume(lexer);
   return true;
 }
 
-static bool scan_mode_delimiter(
-  TSLexer *lexer,
-  ScannerState *state,
-  enum ScannerMode next_mode
-) {
-  if (lexer->lookahead != state->delimiter) {
+static bool
+emit_symbol(const bool *valid_symbols, TSSymbol candidate, TSSymbol *symbol) {
+  if (!valid_symbols[candidate]) {
     return false;
   }
 
-  state->mode = next_mode;
-  reset_mode_tracking(state);
-  if (next_mode == MODE_NONE) {
-    state->delimiter = 0;
-  }
-  advance(lexer);
-  lexer->mark_end(lexer);
+  *symbol = candidate;
   return true;
 }
 
+static bool consume_as(
+  TSLexer *lexer,
+  const bool *valid_symbols,
+  TSSymbol candidate,
+  TSSymbol *symbol
+) {
+  consume(lexer);
+  return emit_symbol(valid_symbols, candidate, symbol);
+}
+
+// Emits the token that ends the current mode and returns to command level.
+static bool end_mode(
+  ScannerState *state,
+  const bool *valid_symbols,
+  TSSymbol candidate,
+  TSSymbol *symbol
+) {
+  reset_state(state);
+  return emit_symbol(valid_symbols, candidate, symbol);
+}
+
+// The delimiter under the lookahead ends the current delimited mode.
 static bool scan_active_mode_delimiter(
   TSLexer *lexer,
   ScannerState *state,
@@ -656,61 +672,16 @@ static bool scan_active_mode_delimiter(
     return false;
   }
 
-  if (
-    !valid_symbols[candidate] || !scan_mode_delimiter(lexer, state, next_mode)
-  ) {
-    return false;
+  state->mode = next_mode;
+  reset_mode_tracking(state);
+  if (next_mode == MODE_NONE) {
+    state->delimiter = 0;
   }
-
-  *symbol = candidate;
-  return true;
+  return consume_as(lexer, valid_symbols, candidate, symbol);
 }
 
-static void consume(TSLexer *lexer) {
-  advance(lexer);
-  lexer->mark_end(lexer);
-}
-
-static bool
-emit_symbol(const bool *valid_symbols, TSSymbol candidate, TSSymbol *symbol) {
-  if (!valid_symbols[candidate]) {
-    return false;
-  }
-
-  *symbol = candidate;
-  return true;
-}
-
-static bool consume_as(
-  TSLexer *lexer,
-  const bool *valid_symbols,
-  TSSymbol candidate,
-  TSSymbol *symbol
-) {
-  consume(lexer);
-  return emit_symbol(valid_symbols, candidate, symbol);
-}
-
-// Emits the token that ends the current mode and returns to command level.
-static bool end_mode(
-  ScannerState *state,
-  const bool *valid_symbols,
-  TSSymbol candidate,
-  TSSymbol *symbol
-) {
-  if (!emit_symbol(valid_symbols, candidate, symbol)) {
-    return false;
-  }
-
-  reset_state(state);
-  return true;
-}
-
+// Reads "\\" followed by a newline as the introducer of a text operand.
 static bool scan_text_command_start(TSLexer *lexer, ScannerState *state) {
-  if (state->mode != MODE_NONE || lexer->lookahead != '\\') {
-    return false;
-  }
-
   lexer->mark_end(lexer);
   advance(lexer);
 
@@ -723,47 +694,28 @@ static bool scan_text_command_start(TSLexer *lexer, ScannerState *state) {
   return true;
 }
 
-static bool scan_to_physical_line_end(TSLexer *lexer, bool consumed) {
-  while (!lexer->eof(lexer)) {
-    if (lexer->lookahead == '\n') {
-      return consumed;
-    }
-
+// Consumes the rest of the physical line, or of the command when a semicolon
+// may end it; false when nothing precedes that end.
+static bool scan_line_rest(TSLexer *lexer, bool ends_at_semicolon) {
+  bool consumed = false;
+  while (
+    !lexer->eof(lexer) &&
+    lexer->lookahead !=
+    '\n' &&
+    !(ends_at_semicolon && lexer->lookahead == ';')
+  ) {
     consume(lexer);
     consumed = true;
   }
-
   return consumed;
 }
 
-static bool scan_file_argument(TSLexer *lexer) {
-  if (
-    lexer->eof(lexer) || is_blank(lexer->lookahead) || lexer->lookahead == '\n'
-  ) {
-    return false;
-  }
-
-  consume(lexer);
-  return scan_to_physical_line_end(lexer, true);
-}
-
-static bool scan_substitution_wfile_argument(TSLexer *lexer) {
-  if (
-    lexer->eof(lexer) ||
-    is_blank(lexer->lookahead) ||
-    lexer->lookahead ==
-    '\n' ||
-    lexer->lookahead == ';'
-  ) {
-    return false;
-  }
-
-  do {
-    consume(lexer);
-  } while (
-    !lexer->eof(lexer) && lexer->lookahead != '\n' && lexer->lookahead != ';'
-  );
-  return true;
+// An rfile or wfile operand follows its separating blanks and runs to the end
+// of the line; the wfile of a substitution write flag ends before a semicolon,
+// where the script may continue with another command.
+static bool scan_file_argument(TSLexer *lexer, bool ends_at_semicolon) {
+  return !is_blank(lexer->lookahead) &&
+    scan_line_rest(lexer, ends_at_semicolon);
 }
 
 enum FlagAfterWriteScan {
@@ -841,6 +793,27 @@ static bool at_command_boundary(TSLexer *lexer) {
     lexer->lookahead == '}';
 }
 
+// The marker of the separator that is missing before the closing brace or the
+// source end under the lookahead, or ERROR_SENTINEL when neither follows.
+static TSSymbol missing_command_separator_marker(
+  const TSLexer *lexer,
+  const bool *valid_symbols
+) {
+  if (lexer->lookahead == '}') {
+    if (valid_symbols[MISSING_SEPARATOR_BEFORE_UNMATCHED_BRACE_MARKER]) {
+      return MISSING_SEPARATOR_BEFORE_UNMATCHED_BRACE_MARKER;
+    }
+    if (valid_symbols[MISSING_COMMAND_SEPARATOR_MARKER]) {
+      return MISSING_COMMAND_SEPARATOR_MARKER;
+    }
+  } else if (
+    lexer->eof(lexer) && valid_symbols[INCOMPLETE_COMMAND_SEPARATOR_MARKER]
+  ) {
+    return INCOMPLETE_COMMAND_SEPARATOR_MARKER;
+  }
+  return ERROR_SENTINEL;
+}
+
 enum PostBlankRecoveryScan {
   POST_BLANK_RECOVERY_SKIPPED,
   POST_BLANK_RECOVERY_TOKEN,
@@ -892,22 +865,10 @@ static enum PostBlankRecoveryScan scan_post_blank_recovery(
     *symbol = MISSING_ADDRESS_SEPARATOR_MARKER;
     return POST_BLANK_RECOVERY_TOKEN;
   }
-  if (lexer->lookahead == '}') {
-    if (valid_symbols[MISSING_SEPARATOR_BEFORE_UNMATCHED_BRACE_MARKER]) {
-      *symbol = MISSING_SEPARATOR_BEFORE_UNMATCHED_BRACE_MARKER;
-      return POST_BLANK_RECOVERY_TOKEN;
-    }
-    if (valid_symbols[MISSING_COMMAND_SEPARATOR_MARKER]) {
-      *symbol = MISSING_COMMAND_SEPARATOR_MARKER;
-      return POST_BLANK_RECOVERY_TOKEN;
-    }
-    return POST_BLANK_RECOVERY_FAILED;
-  }
-  if (lexer->eof(lexer) && valid_symbols[INCOMPLETE_COMMAND_SEPARATOR_MARKER]) {
-    *symbol = INCOMPLETE_COMMAND_SEPARATOR_MARKER;
-    return POST_BLANK_RECOVERY_TOKEN;
-  }
-  return POST_BLANK_RECOVERY_FAILED;
+  // The blanks precede the marker as padding of the brace or the source end.
+  *symbol = missing_command_separator_marker(lexer, valid_symbols);
+  return *symbol == ERROR_SENTINEL ? POST_BLANK_RECOVERY_FAILED
+                                   : POST_BLANK_RECOVERY_TOKEN;
 }
 
 static bool scan_text_token(
@@ -917,16 +878,11 @@ static bool scan_text_token(
   TSSymbol *symbol
 ) {
   if (lexer->eof(lexer)) {
-    if (state->text_state == TEXT_AFTER_ESCAPED_NEWLINE) {
-      if (!emit_marker(lexer, valid_symbols, MISSING_TEXT_MARKER, symbol)) {
-        return false;
-      }
-      state->text_state = TEXT_HAS_CONTENT;
-      return true;
-    }
+    // A line of text is missing after the introducer and after an escaped
+    // newline.
     if (
-      state->text_state ==
-      TEXT_EMPTY &&
+      state->text_state !=
+      TEXT_HAS_CONTENT &&
       emit_marker(lexer, valid_symbols, MISSING_TEXT_MARKER, symbol)
     ) {
       state->text_state = TEXT_HAS_CONTENT;
@@ -942,8 +898,7 @@ static bool scan_text_token(
   }
 
   if (lexer->lookahead == '\\') {
-    advance(lexer);
-    lexer->mark_end(lexer);
+    consume(lexer);
 
     if (lexer->eof(lexer)) {
       state->text_state = TEXT_HAS_CONTENT;
@@ -965,17 +920,13 @@ static bool scan_text_token(
     return emit_symbol(valid_symbols, TEXT_UNSPECIFIED_ESCAPE, symbol);
   }
 
-  if (!valid_symbols[TEXT_LITERAL]) {
-    return false;
-  }
   do {
     consume(lexer);
   } while (
     !lexer->eof(lexer) && lexer->lookahead != '\\' && lexer->lookahead != '\n'
   );
   state->text_state = TEXT_HAS_CONTENT;
-  *symbol = TEXT_LITERAL;
-  return true;
+  return emit_symbol(valid_symbols, TEXT_LITERAL, symbol);
 }
 
 static bool regex_is_inside_bracket(const ScannerState *state) {
@@ -1065,16 +1016,6 @@ static void finish_first_bracket_element(ScannerState *state) {
   }
 }
 
-static void
-update_bracket_state_after_literal(ScannerState *state, int32_t character) {
-  if (state->regex_state == REGEX_BRACKET_FIRST) {
-    state->regex_state =
-      character == '^' ? REGEX_BRACKET_AFTER_CARET : REGEX_BRACKET_BODY;
-  } else if (state->regex_state == REGEX_BRACKET_AFTER_CARET) {
-    state->regex_state = REGEX_BRACKET_BODY;
-  }
-}
-
 static bool
 regex_literal_boundary(const ScannerState *state, int32_t character) {
   if (state->regex_state == REGEX_OUTSIDE_BRACKET) {
@@ -1126,8 +1067,8 @@ scan_regex_literal(TSLexer *lexer, ScannerState *state) {
   consume(lexer);
   if (regex_is_inside_bracket(state)) {
     begin_single_bracket_element(state, character);
+    finish_first_bracket_element(state);
   }
-  update_bracket_state_after_literal(state, character);
   return LITERAL_SCAN_TOKEN;
 }
 
@@ -1211,15 +1152,14 @@ static bool scan_regex_bracket_opener(
     return emit_symbol(valid_symbols, REGEX_BRACKET_LITERAL, symbol);
   }
 
-  const TSSymbol candidate = bracket_terms[term_state].open_symbol;
-  if (!valid_symbols[candidate]) {
-    return false;
-  }
   begin_compound_bracket_element(state);
   finish_first_bracket_element(state);
   state->regex_bracket_term_state = term_state;
-  *symbol = candidate;
-  return true;
+  return emit_symbol(
+    valid_symbols,
+    bracket_terms[term_state].open_symbol,
+    symbol
+  );
 }
 
 static void record_bracket_term_character(
@@ -1324,18 +1264,13 @@ static bool scan_regex_bracket_term_content(
   return emit_symbol(valid_symbols, candidate, symbol);
 }
 
+// Reads the marker under the lookahead and the "]" that must follow it.
 static bool scan_regex_bracket_term_close(
   TSLexer *lexer,
   ScannerState *state,
   const bool *valid_symbols,
   TSSymbol *symbol
 ) {
-  if (
-    lexer->lookahead != bracket_terms[state->regex_bracket_term_state].marker
-  ) {
-    return false;
-  }
-
   consume(lexer);
   if (lexer->lookahead != ']') {
     return false;
@@ -1347,23 +1282,37 @@ static bool scan_regex_bracket_term_close(
   return emit_symbol(valid_symbols, candidate, symbol);
 }
 
-static bool scan_regex_interval(
+// Reads the brace under the lookahead that opens an interval.
+static bool scan_regex_interval_open(
   TSLexer *lexer,
   ScannerState *state,
   const bool *valid_symbols,
   TSSymbol *symbol
 ) {
-  advance(lexer);
-  lexer->mark_end(lexer);
+  consume(lexer);
   state->regex_in_interval = true;
   return emit_symbol(valid_symbols, REGEX_INTERVAL_OPEN, symbol);
 }
 
-static bool
-end_interval(ScannerState *state, TSSymbol candidate, TSSymbol *symbol) {
+static bool end_interval(
+  ScannerState *state,
+  const bool *valid_symbols,
+  TSSymbol candidate,
+  TSSymbol *symbol
+) {
   state->regex_in_interval = false;
-  *symbol = candidate;
-  return true;
+  return emit_symbol(valid_symbols, candidate, symbol);
+}
+
+// Reads the brace under the lookahead that closes an interval.
+static bool scan_regex_interval_close(
+  TSLexer *lexer,
+  ScannerState *state,
+  const bool *valid_symbols,
+  TSSymbol *symbol
+) {
+  consume(lexer);
+  return end_interval(state, valid_symbols, REGEX_INTERVAL_CLOSE, symbol);
 }
 
 #if !SED_REGEX_EXTENDED
@@ -1434,15 +1383,6 @@ scan_malformed_interval_content(TSLexer *lexer, const ScannerState *state) {
   }
 }
 
-#if !SED_REGEX_EXTENDED
-static bool scan_regex_after_backslash(
-  TSLexer *lexer,
-  ScannerState *state,
-  const bool *valid_symbols,
-  TSSymbol *symbol
-);
-#endif
-
 static bool raw_duplication_symbol_follows(
   const TSLexer *lexer,
   const ScannerState *state
@@ -1459,67 +1399,31 @@ static bool raw_duplication_symbol_follows(
 #endif
 }
 
-enum DuplicationContextScan {
-  DUPLICATION_CONTEXT_SKIPPED,
-  DUPLICATION_CONTEXT_TOKEN,
-  DUPLICATION_CONTEXT_CONSUMED,
-};
-
-static enum DuplicationContextScan scan_regex_duplication_context_marker(
-  TSLexer *lexer,
-  ScannerState *state,
-  const bool *valid_symbols,
-  TSSymbol *symbol
+// The marker that precedes a duplication symbol at the start of a branch or
+// directly after another duplication symbol, or ERROR_SENTINEL elsewhere. An
+// ERE repetition modifier follows a duplication symbol without a marker.
+static TSSymbol regex_duplication_context_marker(
+  const TSLexer *lexer,
+  const ScannerState *state
 ) {
-  TSSymbol candidate;
   if (state->regex_at_branch_start) {
-    candidate = REGEX_LEADING_DUPLICATION_MARKER;
-  } else if (state->regex_duplication_state != REGEX_DUPLICATION_NONE) {
+    return REGEX_LEADING_DUPLICATION_MARKER;
+  }
+  if (state->regex_duplication_state == REGEX_DUPLICATION_NONE) {
+    return ERROR_SENTINEL;
+  }
 #if SED_REGEX_EXTENDED
-    if (
-      state->regex_duplication_state ==
-      REGEX_AFTER_DUPLICATION_SYMBOL &&
-      lexer->lookahead == '?'
-    ) {
-      return DUPLICATION_CONTEXT_SKIPPED;
-    }
-#endif
-    candidate = REGEX_ADJACENT_DUPLICATION_MARKER;
-  } else {
-    return DUPLICATION_CONTEXT_SKIPPED;
+  if (
+    state->regex_duplication_state ==
+    REGEX_AFTER_DUPLICATION_SYMBOL &&
+    lexer->lookahead == '?'
+  ) {
+    return ERROR_SENTINEL;
   }
-
-  if (!valid_symbols[candidate]) {
-    return DUPLICATION_CONTEXT_SKIPPED;
-  }
-
-  // The marker precedes the duplication symbol, whose interval is then
-  // scanned like any other so that malformed content keeps its structure.
-  lexer->mark_end(lexer);
-  if (raw_duplication_symbol_follows(lexer, state)) {
-    *symbol = candidate;
-    return DUPLICATION_CONTEXT_TOKEN;
-  }
-
-#if SED_REGEX_EXTENDED
-  if (lexer->lookahead != '{') {
-    return DUPLICATION_CONTEXT_SKIPPED;
-  }
-  *symbol = candidate;
-  return DUPLICATION_CONTEXT_TOKEN;
 #else
-  if (lexer->lookahead != '\\') {
-    return DUPLICATION_CONTEXT_SKIPPED;
-  }
-  advance(lexer);
-  if (lexer->lookahead != '{' || state->delimiter == '{') {
-    return scan_regex_after_backslash(lexer, state, valid_symbols, symbol)
-      ? DUPLICATION_CONTEXT_TOKEN
-      : DUPLICATION_CONTEXT_CONSUMED;
-  }
-  *symbol = candidate;
-  return DUPLICATION_CONTEXT_TOKEN;
+  (void)lexer;
 #endif
+  return REGEX_ADJACENT_DUPLICATION_MARKER;
 }
 
 static bool raw_regex_operator_character(int32_t character) {
@@ -1547,7 +1451,7 @@ static bool scan_raw_regex_operator(
 
   if (character == '{') {
 #if SED_REGEX_EXTENDED
-    return scan_regex_interval(lexer, state, valid_symbols, symbol);
+    return scan_regex_interval_open(lexer, state, valid_symbols, symbol);
 #else
     return consume_as(lexer, valid_symbols, REGEX_LITERAL, symbol);
 #endif
@@ -1685,9 +1589,7 @@ static bool scan_regex_escape_after_backslash(
 #if !SED_REGEX_EXTENDED
   if (lexer->lookahead == '}') {
     if (valid_symbols[REGEX_INTERVAL_CLOSE]) {
-      consume(lexer);
-      state->regex_in_interval = false;
-      return emit_symbol(valid_symbols, REGEX_INTERVAL_CLOSE, symbol);
+      return scan_regex_interval_close(lexer, state, valid_symbols, symbol);
     }
     if (valid_symbols[REGEX_UNMATCHED_INTERVAL_CLOSE]) {
       return consume_as(
@@ -1718,7 +1620,7 @@ static bool scan_regex_escape_after_backslash(
   }
 
   if (lexer->lookahead == '{') {
-    return scan_regex_interval(lexer, state, valid_symbols, symbol);
+    return scan_regex_interval_open(lexer, state, valid_symbols, symbol);
   }
 
   if (lexer->lookahead == '|') {
@@ -1825,33 +1727,229 @@ static bool scan_empty_regex_construct(
 }
 #endif
 
+// A special character outside a bracket expression: an anchor, the period, an
+// escape, a raw operator, or the bracket that opens a bracket expression.
+static bool scan_regex_special_token(
+  TSLexer *lexer,
+  ScannerState *state,
+  const bool *valid_symbols,
+  TSSymbol *symbol
+) {
+  if (lexer->lookahead == '^') {
+    consume(lexer);
+#if !SED_REGEX_EXTENDED
+    if (!state->regex_at_branch_start || state->regex_after_anchor) {
+      return emit_symbol(valid_symbols, REGEX_LITERAL, symbol);
+    }
+    if (state->regex_group_depth > 0) {
+      return emit_symbol(valid_symbols, REGEX_BRE_SUBEXPRESSION_CARET, symbol);
+    }
+#endif
+    return emit_symbol(valid_symbols, REGEX_BEGINNING_ANCHOR, symbol);
+  }
+
+  if (lexer->lookahead == '$') {
+    consume(lexer);
+#if !SED_REGEX_EXTENDED
+    if (lexer->lookahead == '\\') {
+      // A dollar sign anchors a subexpression before "\)", unless ')'
+      // delimits the RE and "\)" is the escaped delimiter.
+      advance(lexer);
+      const bool closes_subexpression = state->regex_group_depth >
+        0 &&
+        lexer->lookahead ==
+        ')' &&
+        state->delimiter != ')';
+      return emit_symbol(
+        valid_symbols,
+        closes_subexpression ? REGEX_BRE_SUBEXPRESSION_DOLLAR : REGEX_LITERAL,
+        symbol
+      );
+    }
+    const bool at_branch_end = lexer->eof(lexer) ||
+      lexer->lookahead ==
+      '\n' ||
+      lexer->lookahead == state->delimiter;
+    if (!at_branch_end) {
+      return emit_symbol(valid_symbols, REGEX_LITERAL, symbol);
+    }
+#endif
+    return emit_symbol(valid_symbols, REGEX_END_ANCHOR, symbol);
+  }
+
+  if (lexer->lookahead == '.') {
+    return consume_as(lexer, valid_symbols, REGEX_PERIOD, symbol);
+  }
+
+  if (lexer->lookahead == '\\') {
+    consume(lexer);
+    return scan_regex_escape_after_backslash(
+      lexer,
+      state,
+      valid_symbols,
+      symbol
+    );
+  }
+
+  if (raw_regex_operator_character(lexer->lookahead)) {
+    return scan_raw_regex_operator(lexer, state, valid_symbols, symbol);
+  }
+
+  if (lexer->lookahead == '[') {
+    consume(lexer);
+    reset_bracket_tracking(state);
+    state->regex_state = REGEX_BRACKET_FIRST;
+    return emit_symbol(valid_symbols, REGEX_BRACKET_OPEN, symbol);
+  }
+
+  return false;
+}
+
+// Reads the "]" under the lookahead that closes a bracket expression, after
+// the marker of the unspecified three-element form when the list has one.
+static bool scan_regex_bracket_close(
+  TSLexer *lexer,
+  ScannerState *state,
+  const bool *valid_symbols,
+  TSSymbol *symbol
+) {
+  commit_pending_bracket_element(state);
+  if (
+    bracket_expression_is_ambiguous(state) &&
+    valid_symbols[AMBIGUOUS_BRACKET_EXPRESSION_MARKER]
+  ) {
+    lexer->mark_end(lexer);
+    *symbol = AMBIGUOUS_BRACKET_EXPRESSION_MARKER;
+    return true;
+  }
+
+  consume(lexer);
+  state->regex_state = REGEX_OUTSIDE_BRACKET;
+  reset_bracket_tracking(state);
+  return emit_symbol(valid_symbols, REGEX_BRACKET_CLOSE, symbol);
+}
+
+// Reads the "-" under the lookahead inside a bracket list: a range operator,
+// the hyphen that ends a range or the list, or the marker before a character
+// class or equivalence class used as a range start.
+static bool scan_regex_bracket_hyphen(
+  TSLexer *lexer,
+  ScannerState *state,
+  const bool *valid_symbols,
+  TSSymbol *symbol
+) {
+  lexer->mark_end(lexer);
+  advance(lexer);
+  if (
+    valid_symbols[NONPORTABLE_RANGE_START_MARKER] &&
+    !lexer->eof(lexer) &&
+    lexer->lookahead !=
+    '\n' &&
+    lexer->lookahead != ']'
+  ) {
+    *symbol = NONPORTABLE_RANGE_START_MARKER;
+    return true;
+  }
+  lexer->mark_end(lexer);
+
+  TSSymbol candidate;
+  if (valid_symbols[REGEX_BRACKET_RANGE_END_HYPHEN]) {
+    candidate = REGEX_BRACKET_RANGE_END_HYPHEN;
+  } else if (
+    lexer->eof(lexer) || lexer->lookahead == '\n' || lexer->lookahead == ']'
+  ) {
+    candidate = REGEX_BRACKET_TRAILING_HYPHEN;
+  } else {
+    candidate = REGEX_BRACKET_HYPHEN;
+  }
+  if (emit_symbol(valid_symbols, candidate, symbol)) {
+    if (candidate == REGEX_BRACKET_RANGE_END_HYPHEN) {
+      state->regex_bracket_pending_element = REGEX_BRACKET_PENDING_NONE;
+      state->regex_bracket_range_pending = false;
+      record_bracket_element(state, REGEX_BRACKET_PENDING_OTHER);
+    } else if (candidate == REGEX_BRACKET_TRAILING_HYPHEN) {
+      commit_pending_bracket_element(state);
+      record_bracket_element(state, REGEX_BRACKET_PENDING_OTHER);
+    } else {
+      state->regex_bracket_pending_element = REGEX_BRACKET_PENDING_NONE;
+      state->regex_bracket_range_pending = true;
+    }
+    return true;
+  }
+  if (emit_symbol(valid_symbols, REGEX_SHARED_RANGE_ENDPOINT, symbol)) {
+    commit_pending_bracket_element(state);
+    state->regex_bracket_range_pending = false;
+    return true;
+  }
+  return false;
+}
+
+// A special character inside a bracket expression: the negation, the closing
+// bracket, a hyphen, or the bracket that opens a compound term.
+static bool scan_regex_bracket_special_token(
+  TSLexer *lexer,
+  ScannerState *state,
+  const bool *valid_symbols,
+  TSSymbol *symbol
+) {
+  if (state->regex_state == REGEX_BRACKET_FIRST && lexer->lookahead == '^') {
+    consume(lexer);
+    state->regex_state = REGEX_BRACKET_AFTER_CARET;
+    return emit_symbol(valid_symbols, REGEX_BRACKET_NEGATION, symbol);
+  }
+
+  if (state->regex_state == REGEX_BRACKET_BODY && lexer->lookahead == ']') {
+    return scan_regex_bracket_close(lexer, state, valid_symbols, symbol);
+  }
+
+  if (state->regex_state == REGEX_BRACKET_BODY && lexer->lookahead == '-') {
+    return scan_regex_bracket_hyphen(lexer, state, valid_symbols, symbol);
+  }
+
+  if (lexer->lookahead == '[') {
+    return scan_regex_bracket_opener(lexer, state, valid_symbols, symbol);
+  }
+
+  return false;
+}
+
 static bool scan_regex_token(
   TSLexer *lexer,
   ScannerState *state,
   const bool *valid_symbols,
   TSSymbol *symbol
 ) {
-  switch (scan_regex_duplication_context_marker(
-    lexer,
-    state,
-    valid_symbols,
-    symbol
-  )) {
-  case DUPLICATION_CONTEXT_TOKEN:
-    return true;
-  case DUPLICATION_CONTEXT_CONSUMED:
-    return false;
-  case DUPLICATION_CONTEXT_SKIPPED:
-    break;
+  // The marker precedes the duplication symbol, whose interval is then
+  // scanned like any other so that malformed content keeps its structure.
+  const TSSymbol marker = regex_duplication_context_marker(lexer, state);
+  if (marker != ERROR_SENTINEL && valid_symbols[marker]) {
+    lexer->mark_end(lexer);
+#if SED_REGEX_EXTENDED
+    if (
+      raw_duplication_symbol_follows(lexer, state) || lexer->lookahead == '{'
+    ) {
+      *symbol = marker;
+      return true;
+    }
+#else
+    if (raw_duplication_symbol_follows(lexer, state)) {
+      *symbol = marker;
+      return true;
+    }
+    if (lexer->lookahead == '\\') {
+      // The escape is read past its backslash: an interval takes the marker,
+      // and any other escape is the token at that position.
+      advance(lexer);
+      if (lexer->lookahead == '{' && state->delimiter != '{') {
+        *symbol = marker;
+        return true;
+      }
+      return scan_regex_after_backslash(lexer, state, valid_symbols, symbol);
+    }
+#endif
   }
 
-#if !SED_REGEX_EXTENDED
-  if (lexer->lookahead == '\\' && valid_symbols[EMPTY_SUBEXPRESSION_MARKER]) {
-    lexer->mark_end(lexer);
-    advance(lexer);
-    return scan_regex_after_backslash(lexer, state, valid_symbols, symbol);
-  }
-#else
+#if SED_REGEX_EXTENDED
   if (scan_empty_regex_construct(lexer, state, valid_symbols, symbol)) {
     return true;
   }
@@ -1871,8 +1969,7 @@ static bool scan_regex_token(
 
 #if SED_REGEX_EXTENDED
   if (valid_symbols[REGEX_INTERVAL_CLOSE] && lexer->lookahead == '}') {
-    consume(lexer);
-    return end_interval(state, REGEX_INTERVAL_CLOSE, symbol);
+    return scan_regex_interval_close(lexer, state, valid_symbols, symbol);
   }
 #else
   if (state->regex_in_interval && lexer->lookahead == '\\') {
@@ -1884,15 +1981,16 @@ static bool scan_regex_token(
       '}' &&
       lexer->lookahead != state->delimiter
     ) {
-      consume(lexer);
-      return end_interval(state, REGEX_INTERVAL_CLOSE, symbol);
+      return scan_regex_interval_close(lexer, state, valid_symbols, symbol);
     }
     if (lexer->eof(lexer) && valid_symbols[REGEX_INCOMPLETE_INTERVAL]) {
       lexer->mark_end(lexer);
-      return end_interval(state, REGEX_INCOMPLETE_INTERVAL, symbol);
-    }
-    if (!valid_symbols[REGEX_INVALID_INTERVAL]) {
-      return false;
+      return end_interval(
+        state,
+        valid_symbols,
+        REGEX_INCOMPLETE_INTERVAL,
+        symbol
+      );
     }
     // The escape is the first unit of malformed content unless it ends the
     // content, in which case the issue is empty and the escape follows it.
@@ -1900,14 +1998,14 @@ static bool scan_regex_token(
       finish_malformed_escape(lexer);
       scan_malformed_interval_content(lexer, state);
     }
-    return end_interval(state, REGEX_INVALID_INTERVAL, symbol);
+    return end_interval(state, valid_symbols, REGEX_INVALID_INTERVAL, symbol);
   }
 #endif
 
   if (state->regex_in_interval && valid_symbols[REGEX_INVALID_INTERVAL]) {
     lexer->mark_end(lexer);
     scan_malformed_interval_content(lexer, state);
-    return end_interval(state, REGEX_INVALID_INTERVAL, symbol);
+    return end_interval(state, valid_symbols, REGEX_INVALID_INTERVAL, symbol);
   }
 
   const bool inside_bracket = regex_is_inside_bracket(state);
@@ -1968,156 +2066,9 @@ static bool scan_regex_token(
   }
 
   if (state->regex_state == REGEX_OUTSIDE_BRACKET) {
-    if (lexer->lookahead == '^') {
-      consume(lexer);
-#if !SED_REGEX_EXTENDED
-      if (!state->regex_at_branch_start || state->regex_after_anchor) {
-        return emit_symbol(valid_symbols, REGEX_LITERAL, symbol);
-      }
-      if (state->regex_group_depth > 0) {
-        return emit_symbol(
-          valid_symbols,
-          REGEX_BRE_SUBEXPRESSION_CARET,
-          symbol
-        );
-      }
-#endif
-      return emit_symbol(valid_symbols, REGEX_BEGINNING_ANCHOR, symbol);
-    }
-
-    if (lexer->lookahead == '$') {
-      consume(lexer);
-#if !SED_REGEX_EXTENDED
-      if (lexer->lookahead == '\\') {
-        // A dollar sign anchors a subexpression before "\)", unless ')'
-        // delimits the RE and "\)" is the escaped delimiter.
-        advance(lexer);
-        const bool closes_subexpression = state->regex_group_depth >
-          0 &&
-          lexer->lookahead ==
-          ')' &&
-          state->delimiter != ')';
-        return emit_symbol(
-          valid_symbols,
-          closes_subexpression ? REGEX_BRE_SUBEXPRESSION_DOLLAR : REGEX_LITERAL,
-          symbol
-        );
-      }
-      const bool at_branch_end = lexer->eof(lexer) ||
-        lexer->lookahead ==
-        '\n' ||
-        lexer->lookahead == state->delimiter;
-      if (!at_branch_end) {
-        return emit_symbol(valid_symbols, REGEX_LITERAL, symbol);
-      }
-#endif
-      return emit_symbol(valid_symbols, REGEX_END_ANCHOR, symbol);
-    }
-
-    if (lexer->lookahead == '.') {
-      return consume_as(lexer, valid_symbols, REGEX_PERIOD, symbol);
-    }
-
-    if (lexer->lookahead == '\\') {
-      advance(lexer);
-      lexer->mark_end(lexer);
-      return scan_regex_escape_after_backslash(
-        lexer,
-        state,
-        valid_symbols,
-        symbol
-      );
-    }
-
-    if (raw_regex_operator_character(lexer->lookahead)) {
-      return scan_raw_regex_operator(lexer, state, valid_symbols, symbol);
-    }
-
-    if (lexer->lookahead == '[') {
-      consume(lexer);
-      reset_bracket_tracking(state);
-      state->regex_state = REGEX_BRACKET_FIRST;
-      return emit_symbol(valid_symbols, REGEX_BRACKET_OPEN, symbol);
-    }
-
-    return false;
+    return scan_regex_special_token(lexer, state, valid_symbols, symbol);
   }
-
-  if (state->regex_state == REGEX_BRACKET_FIRST && lexer->lookahead == '^') {
-    consume(lexer);
-    state->regex_state = REGEX_BRACKET_AFTER_CARET;
-    return emit_symbol(valid_symbols, REGEX_BRACKET_NEGATION, symbol);
-  }
-
-  if (state->regex_state == REGEX_BRACKET_BODY && lexer->lookahead == ']') {
-    commit_pending_bracket_element(state);
-    if (
-      bracket_expression_is_ambiguous(state) &&
-      valid_symbols[AMBIGUOUS_BRACKET_EXPRESSION_MARKER]
-    ) {
-      lexer->mark_end(lexer);
-      *symbol = AMBIGUOUS_BRACKET_EXPRESSION_MARKER;
-      return true;
-    }
-
-    consume(lexer);
-    state->regex_state = REGEX_OUTSIDE_BRACKET;
-    reset_bracket_tracking(state);
-    return emit_symbol(valid_symbols, REGEX_BRACKET_CLOSE, symbol);
-  }
-
-  if (state->regex_state == REGEX_BRACKET_BODY && lexer->lookahead == '-') {
-    lexer->mark_end(lexer);
-    advance(lexer);
-    if (
-      valid_symbols[NONPORTABLE_RANGE_START_MARKER] &&
-      !lexer->eof(lexer) &&
-      lexer->lookahead !=
-      '\n' &&
-      lexer->lookahead != ']'
-    ) {
-      *symbol = NONPORTABLE_RANGE_START_MARKER;
-      return true;
-    }
-    lexer->mark_end(lexer);
-
-    TSSymbol candidate;
-    if (valid_symbols[REGEX_BRACKET_RANGE_END_HYPHEN]) {
-      candidate = REGEX_BRACKET_RANGE_END_HYPHEN;
-    } else if (
-      lexer->eof(lexer) || lexer->lookahead == '\n' || lexer->lookahead == ']'
-    ) {
-      candidate = REGEX_BRACKET_TRAILING_HYPHEN;
-    } else {
-      candidate = REGEX_BRACKET_HYPHEN;
-    }
-    if (emit_symbol(valid_symbols, candidate, symbol)) {
-      if (candidate == REGEX_BRACKET_RANGE_END_HYPHEN) {
-        state->regex_bracket_pending_element = REGEX_BRACKET_PENDING_NONE;
-        state->regex_bracket_range_pending = false;
-        record_bracket_element(state, REGEX_BRACKET_PENDING_OTHER);
-      } else if (candidate == REGEX_BRACKET_TRAILING_HYPHEN) {
-        commit_pending_bracket_element(state);
-        record_bracket_element(state, REGEX_BRACKET_PENDING_OTHER);
-      } else {
-        state->regex_bracket_pending_element = REGEX_BRACKET_PENDING_NONE;
-        state->regex_bracket_range_pending = true;
-      }
-      return true;
-    }
-    if (emit_symbol(valid_symbols, REGEX_SHARED_RANGE_ENDPOINT, symbol)) {
-      commit_pending_bracket_element(state);
-      state->regex_bracket_range_pending = false;
-      return true;
-    }
-    return false;
-  }
-
-  if (lexer->lookahead == '[') {
-    return scan_regex_bracket_opener(lexer, state, valid_symbols, symbol);
-  }
-
-  return false;
+  return scan_regex_bracket_special_token(lexer, state, valid_symbols, symbol);
 }
 
 static enum LiteralScanResult scan_operand_literal(
@@ -2154,8 +2105,7 @@ static bool scan_replacement_escape(
   const bool *valid_symbols,
   TSSymbol *symbol
 ) {
-  advance(lexer);
-  lexer->mark_end(lexer);
+  consume(lexer);
 
   if (lexer->eof(lexer)) {
     return emit_symbol(valid_symbols, REPLACEMENT_INCOMPLETE_ESCAPE, symbol);
@@ -2204,8 +2154,7 @@ static bool scan_translate_escape(
   const bool *valid_symbols,
   TSSymbol *symbol
 ) {
-  advance(lexer);
-  lexer->mark_end(lexer);
+  consume(lexer);
 
   if (lexer->eof(lexer)) {
     return emit_symbol(valid_symbols, TRANSLATE_INCOMPLETE_ESCAPE, symbol);
@@ -2464,7 +2413,7 @@ static bool scan_command_token(
     return emit_marker(lexer, valid_symbols, EMPTY_COMMAND_MARKER, symbol);
   }
 
-  if (valid_symbols[LINE_WORD] && scan_to_physical_line_end(lexer, false)) {
+  if (valid_symbols[LINE_WORD] && scan_line_rest(lexer, false)) {
     *symbol = LINE_WORD;
     return true;
   }
@@ -2494,28 +2443,22 @@ static bool scan_command_token(
 
   if (
     valid_symbols[SUBSTITUTION_WFILE_ARGUMENT] &&
-    scan_substitution_wfile_argument(lexer)
+    scan_file_argument(lexer, true)
   ) {
     *symbol = SUBSTITUTION_WFILE_ARGUMENT;
     return true;
   }
 
-  if (valid_symbols[FILE_ARGUMENT] && scan_file_argument(lexer)) {
+  if (valid_symbols[FILE_ARGUMENT] && scan_file_argument(lexer, false)) {
     *symbol = FILE_ARGUMENT;
     return true;
   }
 
   if (
     valid_symbols[INVALID_SUBSTITUTION_FLAG] &&
+    !at_command_boundary(lexer) &&
     !is_blank(lexer->lookahead) &&
-    !is_substitution_flag_character(lexer->lookahead) &&
-    lexer->lookahead !=
-    ';' &&
-    lexer->lookahead !=
-    '}' &&
-    lexer->lookahead !=
-    '\n' &&
-    !lexer->eof(lexer)
+    !is_substitution_flag_character(lexer->lookahead)
   ) {
     consume(lexer);
     *symbol = INVALID_SUBSTITUTION_FLAG;
@@ -2546,21 +2489,17 @@ static bool scan_command_token(
     return true;
   }
 
-  if (valid_symbols[COMMENT_TEXT] && scan_to_physical_line_end(lexer, false)) {
+  if (valid_symbols[COMMENT_TEXT] && scan_line_rest(lexer, false)) {
     *symbol = COMMENT_TEXT;
     return true;
   }
 
   // Preserve an address interpretation before reserved-function recovery.
   if (
-    valid_symbols[MISSING_ADDRESS_SEPARATOR_MARKER] && can_start_address(lexer)
+    can_start_address(lexer) &&
+    emit_marker(lexer, valid_symbols, MISSING_ADDRESS_SEPARATOR_MARKER, symbol)
   ) {
-    return emit_marker(
-      lexer,
-      valid_symbols,
-      MISSING_ADDRESS_SEPARATOR_MARKER,
-      symbol
-    );
+    return true;
   }
 
   // After '!', an address-like character is a reserved unknown function.
@@ -2608,7 +2547,6 @@ static bool scan_command_token(
   }
 
   if (
-    valid_symbols[OMITTED_FIRST_ADDRESS_MARKER] &&
     lexer->lookahead ==
     ',' &&
     emit_marker(lexer, valid_symbols, OMITTED_FIRST_ADDRESS_MARKER, symbol)
@@ -2645,7 +2583,6 @@ static bool scan_command_token(
   if (
     !at_command_boundary(lexer) &&
     !is_blank(lexer->lookahead) &&
-    valid_symbols[OMITTED_FILE_SEPARATOR_MARKER] &&
     emit_marker(lexer, valid_symbols, OMITTED_FILE_SEPARATOR_MARKER, symbol)
   ) {
     return true;
@@ -2688,13 +2625,11 @@ static bool scan_command_token(
     return true;
   }
 
-  if (valid_symbols[MISSING_CLOSING_BRACE_MARKER] && lexer->eof(lexer)) {
-    return emit_marker(
-      lexer,
-      valid_symbols,
-      MISSING_CLOSING_BRACE_MARKER,
-      symbol
-    );
+  if (
+    lexer->eof(lexer) &&
+    emit_marker(lexer, valid_symbols, MISSING_CLOSING_BRACE_MARKER, symbol)
+  ) {
+    return true;
   }
 
   if (
@@ -2710,38 +2645,10 @@ static bool scan_command_token(
     return true;
   }
 
-  if (lexer->lookahead == '}') {
-    if (
-      emit_marker(
-        lexer,
-        valid_symbols,
-        MISSING_SEPARATOR_BEFORE_UNMATCHED_BRACE_MARKER,
-        symbol
-      )
-    ) {
-      return true;
-    }
-    if (
-      emit_marker(
-        lexer,
-        valid_symbols,
-        MISSING_COMMAND_SEPARATOR_MARKER,
-        symbol
-      )
-    ) {
-      return true;
-    }
-  } else if (lexer->eof(lexer)) {
-    if (
-      emit_marker(
-        lexer,
-        valid_symbols,
-        INCOMPLETE_COMMAND_SEPARATOR_MARKER,
-        symbol
-      )
-    ) {
-      return true;
-    }
+  const TSSymbol separator_marker =
+    missing_command_separator_marker(lexer, valid_symbols);
+  if (separator_marker != ERROR_SENTINEL) {
+    return emit_marker(lexer, valid_symbols, separator_marker, symbol);
   }
 
   const TSSymbol missing_opening_delimiter = lexer->eof(lexer)

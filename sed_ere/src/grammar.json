@@ -1126,47 +1126,30 @@
           "type": "SEQ",
           "members": [
             {
-              "type": "FIELD",
-              "name": "first",
-              "content": {
-                "type": "SYMBOL",
-                "name": "address"
-              }
-            },
-            {
-              "type": "FIELD",
-              "name": "separator",
-              "content": {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_comma_address_separator"
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "FIELD",
+                  "name": "first",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "address"
+                  }
                 },
-                "named": true,
-                "value": "address_separator"
-              }
-            },
-            {
-              "type": "SYMBOL",
-              "name": "_omitted_second_address_issue"
-            }
-          ]
-        },
-        {
-          "type": "SEQ",
-          "members": [
-            {
-              "type": "FIELD",
-              "name": "issue",
-              "content": {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_omitted_first_address_issue"
-                },
-                "named": true,
-                "value": "syntax_issue"
-              }
+                {
+                  "type": "FIELD",
+                  "name": "issue",
+                  "content": {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_omitted_first_address_issue"
+                    },
+                    "named": true,
+                    "value": "syntax_issue"
+                  }
+                }
+              ]
             },
             {
               "type": "FIELD",
@@ -2410,6 +2393,69 @@
                   }
                 },
                 {
+                  "type": "SEQ",
+                  "members": [
+                    {
+                      "type": "SYMBOL",
+                      "name": "_blanks"
+                    },
+                    {
+                      "type": "CHOICE",
+                      "members": [
+                        {
+                          "type": "FIELD",
+                          "name": "wfile",
+                          "content": {
+                            "type": "ALIAS",
+                            "content": {
+                              "type": "SYMBOL",
+                              "name": "_substitution_wfile"
+                            },
+                            "named": true,
+                            "value": "wfile"
+                          }
+                        },
+                        {
+                          "type": "CHOICE",
+                          "members": [
+                            {
+                              "type": "FIELD",
+                              "name": "issue",
+                              "content": {
+                                "type": "ALIAS",
+                                "content": {
+                                  "type": "SYMBOL",
+                                  "name": "_missing_wfile_issue"
+                                },
+                                "named": true,
+                                "value": "syntax_issue"
+                              }
+                            },
+                            {
+                              "type": "FIELD",
+                              "name": "issue",
+                              "content": {
+                                "type": "ALIAS",
+                                "content": {
+                                  "type": "SYMBOL",
+                                  "name": "_nonconforming_missing_wfile_issue"
+                                },
+                                "named": true,
+                                "value": "syntax_issue"
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "SEQ",
+              "members": [
+                {
                   "type": "SYMBOL",
                   "name": "_blanks"
                 },
@@ -2459,68 +2505,6 @@
                           }
                         }
                       ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "type": "SEQ",
-              "members": [
-                {
-                  "type": "SYMBOL",
-                  "name": "_blanks"
-                },
-                {
-                  "type": "FIELD",
-                  "name": "wfile",
-                  "content": {
-                    "type": "ALIAS",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "_substitution_wfile"
-                    },
-                    "named": true,
-                    "value": "wfile"
-                  }
-                }
-              ]
-            },
-            {
-              "type": "SEQ",
-              "members": [
-                {
-                  "type": "SYMBOL",
-                  "name": "_blanks"
-                },
-                {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "FIELD",
-                      "name": "issue",
-                      "content": {
-                        "type": "ALIAS",
-                        "content": {
-                          "type": "SYMBOL",
-                          "name": "_missing_wfile_issue"
-                        },
-                        "named": true,
-                        "value": "syntax_issue"
-                      }
-                    },
-                    {
-                      "type": "FIELD",
-                      "name": "issue",
-                      "content": {
-                        "type": "ALIAS",
-                        "content": {
-                          "type": "SYMBOL",
-                          "name": "_nonconforming_missing_wfile_issue"
-                        },
-                        "named": true,
-                        "value": "syntax_issue"
-                      }
                     }
                   ]
                 }
@@ -3686,50 +3670,46 @@
                   "name": "_blanks"
                 },
                 {
-                  "type": "FIELD",
-                  "name": "rfile",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "rfile"
-                  }
-                }
-              ]
-            },
-            {
-              "type": "SEQ",
-              "members": [
-                {
-                  "type": "SYMBOL",
-                  "name": "_blanks"
-                },
-                {
                   "type": "CHOICE",
                   "members": [
                     {
                       "type": "FIELD",
-                      "name": "issue",
+                      "name": "rfile",
                       "content": {
-                        "type": "ALIAS",
-                        "content": {
-                          "type": "SYMBOL",
-                          "name": "_missing_rfile_issue"
-                        },
-                        "named": true,
-                        "value": "syntax_issue"
+                        "type": "SYMBOL",
+                        "name": "rfile"
                       }
                     },
                     {
-                      "type": "FIELD",
-                      "name": "issue",
-                      "content": {
-                        "type": "ALIAS",
-                        "content": {
-                          "type": "SYMBOL",
-                          "name": "_nonconforming_missing_rfile_issue"
+                      "type": "CHOICE",
+                      "members": [
+                        {
+                          "type": "FIELD",
+                          "name": "issue",
+                          "content": {
+                            "type": "ALIAS",
+                            "content": {
+                              "type": "SYMBOL",
+                              "name": "_missing_rfile_issue"
+                            },
+                            "named": true,
+                            "value": "syntax_issue"
+                          }
                         },
-                        "named": true,
-                        "value": "syntax_issue"
-                      }
+                        {
+                          "type": "FIELD",
+                          "name": "issue",
+                          "content": {
+                            "type": "ALIAS",
+                            "content": {
+                              "type": "SYMBOL",
+                              "name": "_nonconforming_missing_rfile_issue"
+                            },
+                            "named": true,
+                            "value": "syntax_issue"
+                          }
+                        }
+                      ]
                     }
                   ]
                 }
@@ -3887,50 +3867,46 @@
                   "name": "_blanks"
                 },
                 {
-                  "type": "FIELD",
-                  "name": "wfile",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "wfile"
-                  }
-                }
-              ]
-            },
-            {
-              "type": "SEQ",
-              "members": [
-                {
-                  "type": "SYMBOL",
-                  "name": "_blanks"
-                },
-                {
                   "type": "CHOICE",
                   "members": [
                     {
                       "type": "FIELD",
-                      "name": "issue",
+                      "name": "wfile",
                       "content": {
-                        "type": "ALIAS",
-                        "content": {
-                          "type": "SYMBOL",
-                          "name": "_missing_wfile_issue"
-                        },
-                        "named": true,
-                        "value": "syntax_issue"
+                        "type": "SYMBOL",
+                        "name": "wfile"
                       }
                     },
                     {
-                      "type": "FIELD",
-                      "name": "issue",
-                      "content": {
-                        "type": "ALIAS",
-                        "content": {
-                          "type": "SYMBOL",
-                          "name": "_nonconforming_missing_wfile_issue"
+                      "type": "CHOICE",
+                      "members": [
+                        {
+                          "type": "FIELD",
+                          "name": "issue",
+                          "content": {
+                            "type": "ALIAS",
+                            "content": {
+                              "type": "SYMBOL",
+                              "name": "_missing_wfile_issue"
+                            },
+                            "named": true,
+                            "value": "syntax_issue"
+                          }
                         },
-                        "named": true,
-                        "value": "syntax_issue"
-                      }
+                        {
+                          "type": "FIELD",
+                          "name": "issue",
+                          "content": {
+                            "type": "ALIAS",
+                            "content": {
+                              "type": "SYMBOL",
+                              "name": "_nonconforming_missing_wfile_issue"
+                            },
+                            "named": true,
+                            "value": "syntax_issue"
+                          }
+                        }
+                      ]
                     }
                   ]
                 }

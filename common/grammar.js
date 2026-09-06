@@ -14,14 +14,21 @@ function missingAtEndOrBoundary($, reason) {
 }
 
 // An rfile, wfile, or write flag operand follows one or more blanks, or is
-// missing at the end of the command; zero separation is an extension.
+// missing at the end of the command.
+function blankSeparatedFileOperand($, name, operand) {
+  return seq(
+    $._blanks,
+    choice(operand, missingAtEndOrBoundary($, `missing_${name}`)),
+  );
+}
+
+// The operand forms of an r or w function or a write flag; zero separation
+// is an extension.
 function fileOperandForms($, name, operand) {
-  const missing = missingAtEndOrBoundary($, `missing_${name}`);
   return [
-    seq($._blanks, operand),
-    seq($._blanks, missing),
+    blankSeparatedFileOperand($, name, operand),
     seq(issueField($, "omitted_file_separator"), operand),
-    missing,
+    missingAtEndOrBoundary($, `missing_${name}`),
   ];
 }
 
@@ -436,12 +443,10 @@ function addressRules(mode) {
           field("second", $.address),
         ),
         seq(
-          field("first", $.address),
-          commaSeparator($),
-          $._omitted_second_address_issue,
-        ),
-        seq(
-          issueField($, "omitted_first_address"),
+          choice(
+            field("first", $.address),
+            issueField($, "omitted_first_address"),
+          ),
           commaSeparator($),
           $._omitted_second_address_issue,
         ),
@@ -676,8 +681,7 @@ function operandRules(mode) {
           seq(
             $._flag_after_write_marker,
             repeat1(postWriteSubstitutionFlagChoice($)),
-            $._blanks,
-            choice(wfile, missingAtEndOrBoundary($, "missing_wfile")),
+            blankSeparatedFileOperand($, "wfile", wfile),
           ),
           ...fileOperandForms($, "wfile", wfile),
         ),
@@ -850,35 +854,35 @@ function functionRules() {
 }
 
 function editingCommandRules() {
-  const chainable = functionDefinitions.filter(
-    ({ lineTerminated }) => !lineTerminated,
-  );
-  const lineTerminated = functionDefinitions.filter(
-    ({ lineTerminated: isLineTerminated }) => isLineTerminated,
-  );
+  const addressClauses = {
+    0: ($) => alias($._max0_address_clause, $.address_clause),
+    1: ($) => alias($._max1_address_clause, $.address_clause),
+    2: ($) => $.address_clause,
+  };
 
-  function functionsByMaximum(definitions, maximum) {
-    return definitions
-      .filter(({ maxAddresses = 2 }) => maxAddresses === maximum)
-      .map(({ rule }) => rule);
-  }
-
-  function wrapperName(kind, maximum) {
-    return `_${kind}_${maximum}_address_function`;
-  }
-
-  function functionWrapper($, name) {
-    return alias($[name], $.function);
-  }
-
-  function addressClauseForMaximum($, maximum) {
-    if (maximum === 0) {
-      return alias($._max0_address_clause, $.address_clause);
+  // One wrapper rule per (chainable or line-terminated) kind and address
+  // maximum keeps the maximum-specific GLR paths distinct until the verb.
+  const wrappers = [];
+  for (const [kind, isLineTerminated] of [
+    ["chainable", false],
+    ["line_terminated", true],
+  ]) {
+    for (const maximum of [0, 1, 2]) {
+      const names = functionDefinitions
+        .filter(
+          ({ lineTerminated = false, maxAddresses = 2 }) =>
+            lineTerminated === isLineTerminated && maxAddresses === maximum,
+        )
+        .map(({ rule }) => rule);
+      if (names.length > 0) {
+        wrappers.push({
+          kind,
+          maximum,
+          name: `_${kind}_${maximum}_address_function`,
+          names,
+        });
+      }
     }
-    if (maximum === 1) {
-      return alias($._max1_address_clause, $.address_clause);
-    }
-    return $.address_clause;
   }
 
   function addressesPrefix($, addresses) {
@@ -894,35 +898,30 @@ function editingCommandRules() {
     );
   }
 
-  function addressedForms($, definitions, kind) {
-    const forms = [];
-    for (const maximum of [0, 1, 2]) {
-      const names = functionsByMaximum(definitions, maximum);
-      if (names.length === 0) {
-        continue;
-      }
-      forms.push(
-        addressedCommand(
-          $,
-          addressClauseForMaximum($, maximum),
-          functionWrapper($, wrapperName(kind, maximum)),
+  function addressedForms($, kind) {
+    return choice(
+      ...wrappers
+        .filter((wrapper) => wrapper.kind === kind)
+        .map(({ maximum, name }) =>
+          addressedCommand(
+            $,
+            addressClauses[maximum]($),
+            alias($[name], $.function),
+          ),
         ),
-      );
-    }
-
-    return choice(...forms);
+    );
   }
 
   const rules = {
     _chainable_editing_command: ($) =>
       seq(
-        addressedForms($, chainable, "chainable"),
+        addressedForms($, "chainable"),
         optional(issueField($, "unexpected_command_text")),
       ),
 
     _line_terminated_editing_command: ($) =>
       seq(
-        addressedForms($, lineTerminated, "line_terminated"),
+        addressedForms($, "line_terminated"),
         optional(issueField($, "unexpected_command_text")),
       ),
 
@@ -985,16 +984,8 @@ function editingCommandRules() {
       ),
   };
 
-  for (const [kind, definitions] of [
-    ["chainable", chainable],
-    ["line_terminated", lineTerminated],
-  ]) {
-    for (const maximum of [0, 1, 2]) {
-      const names = functionsByMaximum(definitions, maximum);
-      if (names.length > 0) {
-        rules[wrapperName(kind, maximum)] = ($) => choiceForRules($, names);
-      }
-    }
+  for (const { name, names } of wrappers) {
+    rules[name] = ($) => choiceForRules($, names);
   }
 
   return rules;
