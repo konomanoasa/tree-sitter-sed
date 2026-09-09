@@ -241,33 +241,33 @@ Exposes the POSIX ambiguous outer-bracket form
                   (simple_bre
                     (nondupl_bre
                       (one_char_or_coll_elem_bre
-                        (bracket_expression
-                          (open_bracket)
-                          (matching_list
-                            (bracket_list
-                              (follow_list
-                                (follow_list
-                                  (follow_list
-                                    (expression_term
-                                      (single_expression
-                                        (end_range
-                                          (collating_element
-                                            (collating_element_token))))))
-                                  (expression_term
-                                    (single_expression
-                                      (end_range
-                                        (collating_element
-                                          (collating_element_token))))))
-                                (expression_term
-                                  (single_expression
-                                    (end_range
-                                      (collating_element
-                                        (collating_element_token))))))))
-                          (syntax_issue
-                            (unspecified_syntax
-                              (ambiguous_bracket_expression)))
-                          (close_bracket
-                            (close_bracket_token)))))))))
+                        (syntax_issue
+                          (unspecified_syntax
+                            (ambiguous_bracket_expression
+                              (bracket_expression
+                                (open_bracket)
+                                (matching_list
+                                  (bracket_list
+                                    (follow_list
+                                      (follow_list
+                                        (follow_list
+                                          (expression_term
+                                            (single_expression
+                                              (end_range
+                                                (collating_element
+                                                  (collating_element_token))))))
+                                        (expression_term
+                                          (single_expression
+                                            (end_range
+                                              (collating_element
+                                                (collating_element_token))))))
+                                      (expression_term
+                                        (single_expression
+                                          (end_range
+                                            (collating_element
+                                              (collating_element_token))))))))
+                                (close_bracket
+                                  (close_bracket_token))))))))))))
             (delimiter
               (delimiter_token)))))
       (function
@@ -344,9 +344,9 @@ Recovers malformed terms and non-portable ranges
                                       (end_range
                                         (syntax_issue
                                           (undefined_syntax
-                                            (character_class_range_end)))
-                                        (character_class
-                                          (class_name))))))))
+                                            (character_class_range_end
+                                              (character_class
+                                                (class_name)))))))))))
                             (close_bracket
                               (close_bracket_token))))))
                     (ere_expression
@@ -359,11 +359,11 @@ Recovers malformed terms and non-portable ranges
                                 (expression_term
                                   (range_expression
                                     (start_range
-                                      (equivalence_class
-                                        (coll_elem_single))
                                       (syntax_issue
                                         (unspecified_syntax
-                                          (equivalence_class_range_start)))
+                                          (equivalence_class_range_start
+                                            (equivalence_class
+                                              (coll_elem_single)))))
                                       (range_operator))
                                     (end_range
                                       (collating_element
@@ -387,9 +387,9 @@ Recovers malformed terms and non-portable ranges
                                   (end_range
                                     (syntax_issue
                                       (unspecified_syntax
-                                        (equivalence_class_range_end)))
-                                    (equivalence_class
-                                      (coll_elem_single))))))))
+                                        (equivalence_class_range_end
+                                          (equivalence_class
+                                            (coll_elem_single)))))))))))
                         (close_bracket
                           (close_bracket_token))))))
                 (ere_expression
@@ -524,4 +524,92 @@ Rejects meta characters inside equivalence classes
       (function
         (print_function
           (function_verb))))
+    (command_separator)))
+
+==================
+Owns an invalid character class name inside its syntax issue in BRE
+:language(sed)
+==================
+s/[[:1:]]/x/
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (bracket_expression
+                        (open_bracket)
+                        (matching_list
+                          (bracket_list
+                            (follow_list
+                              (expression_term
+                                (single_expression
+                                  (character_class
+                                    (syntax_issue
+                                      (undefined_syntax
+                                        (malformed_bracket_term
+                                          (class_name))))))))))
+                        (close_bracket
+                          (close_bracket_token)))))))))
+          (delimiter
+            (delimiter_token))
+          (replacement
+            (replacement_literal
+              (replacement_literal_token)))
+          (delimiter
+            (delimiter_token)))))
+    (command_separator)))
+
+==================
+Owns an invalid character class name inside its syntax issue in ERE
+:language(sed_ere)
+==================
+s/[[:1:]]/x/
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter
+            (delimiter_token))
+          (extended_reg_exp
+            (ere_branch
+              (ere_expression
+                (one_char_or_coll_elem_ere
+                  (bracket_expression
+                    (open_bracket)
+                    (matching_list
+                      (bracket_list
+                        (follow_list
+                          (expression_term
+                            (single_expression
+                              (character_class
+                                (syntax_issue
+                                  (undefined_syntax
+                                    (malformed_bracket_term
+                                      (class_name))))))))))
+                    (close_bracket
+                      (close_bracket_token)))))))
+          (delimiter
+            (delimiter_token))
+          (replacement
+            (replacement_literal
+              (replacement_literal_token)))
+          (delimiter
+            (delimiter_token)))))
     (command_separator)))

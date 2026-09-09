@@ -82,15 +82,14 @@ Preserves BRE interval recovery structure
                   (bre_branch
                     (bre_expression
                       (simple_bre
-                        (leading_bre_dupl_symbol
-                          (syntax_issue
-                            (undefined_syntax
-                              (leading_duplication_symbol)))
-                          (bre_dupl_symbol
-                            (back_open_brace)
-                            (dup_count
-                              (dup_count_token))
-                            (back_close_brace))))))
+                        (syntax_issue
+                          (undefined_syntax
+                            (leading_duplication_symbol
+                              (bre_dupl_symbol
+                                (back_open_brace)
+                                (dup_count
+                                  (dup_count_token))
+                                (back_close_brace))))))))
                   (bre_expression
                     (simple_bre
                       (simple_bre
@@ -100,15 +99,14 @@ Preserves BRE interval recovery structure
                               (ordinary_character_token))))
                         (bre_dupl_symbol
                           (zero_or_more_operator)))
-                      (adjacent_bre_dupl_symbol
-                        (syntax_issue
-                          (undefined_syntax
-                            (adjacent_duplication_symbol)))
-                        (bre_dupl_symbol
-                          (back_open_brace)
-                          (dup_count
-                            (dup_count_token))
-                          (back_close_brace))))))
+                      (syntax_issue
+                        (undefined_syntax
+                          (adjacent_duplication_symbol
+                            (bre_dupl_symbol
+                              (back_open_brace)
+                              (dup_count
+                                (dup_count_token))
+                              (back_close_brace))))))))
                 (bre_expression
                   (simple_bre
                     (nondupl_bre
@@ -184,10 +182,10 @@ Rejects optional BRE anchors while preserving implementation-defined escapes
                               (nondupl_bre
                                 (one_char_or_coll_elem_bre
                                   (bre_extension_escape
-                                    (back_plus)
                                     (syntax_issue
                                       (implementation_defined_syntax
-                                        (bre_plus_escape)))))))))
+                                        (bre_plus_escape
+                                          (back_plus))))))))))
                         (bre_expression
                           (simple_bre
                             (nondupl_bre
@@ -199,10 +197,10 @@ Rejects optional BRE anchors while preserving implementation-defined escapes
                           (nondupl_bre
                             (one_char_or_coll_elem_bre
                               (bre_extension_escape
-                                (back_qm)
                                 (syntax_issue
                                   (implementation_defined_syntax
-                                    (bre_question_mark_escape)))))))))
+                                    (bre_question_mark_escape
+                                      (back_qm))))))))))
                     (bre_expression
                       (simple_bre
                         (nondupl_bre
@@ -214,10 +212,10 @@ Rejects optional BRE anchors while preserving implementation-defined escapes
                       (nondupl_bre
                         (one_char_or_coll_elem_bre
                           (bre_extension_escape
-                            (back_bar)
                             (syntax_issue
                               (implementation_defined_syntax
-                                (bre_vertical_line_escape)))))))))
+                                (bre_vertical_line_escape
+                                  (back_bar))))))))))
                 (bre_expression
                   (simple_bre
                     (nondupl_bre
@@ -607,15 +605,14 @@ Keeps invalid BRE subexpression anchors structured for duplication recovery
                                           (bre_subexpression_left_anchor)))))))))
                           (bre_expression
                             (simple_bre
-                              (leading_bre_dupl_symbol
-                                (syntax_issue
-                                  (undefined_syntax
-                                    (leading_duplication_symbol)))
-                                (bre_dupl_symbol
-                                  (back_open_brace)
-                                  (dup_count
-                                    (dup_count_token))
-                                  (back_close_brace)))))))
+                              (syntax_issue
+                                (undefined_syntax
+                                  (leading_duplication_symbol
+                                    (bre_dupl_symbol
+                                      (back_open_brace)
+                                      (dup_count
+                                        (dup_count_token))
+                                      (back_close_brace)))))))))
                       (back_close_parenthesis
                         (back_close_parenthesis_token)))))))
             (delimiter
@@ -681,16 +678,15 @@ s/x*\{\}y\{2\}/z/
                 (bre_branch
                   (bre_expression
                     (simple_bre
-                      (leading_bre_dupl_symbol
-                        (syntax_issue
-                          (undefined_syntax
-                            (leading_duplication_symbol)))
-                        (bre_dupl_symbol
-                          (back_open_brace)
-                          (syntax_issue
-                            (undefined_syntax
-                              (malformed_interval)))
-                          (back_close_brace))))))
+                      (syntax_issue
+                        (undefined_syntax
+                          (leading_duplication_symbol
+                            (bre_dupl_symbol
+                              (back_open_brace)
+                              (syntax_issue
+                                (undefined_syntax
+                                  (malformed_interval)))
+                              (back_close_brace))))))))
                 (bre_expression
                   (simple_bre
                     (nondupl_bre
@@ -726,16 +722,15 @@ s/x*\{\}y\{2\}/z/
                             (ordinary_character_token))))
                       (bre_dupl_symbol
                         (zero_or_more_operator)))
-                    (adjacent_bre_dupl_symbol
-                      (syntax_issue
-                        (undefined_syntax
-                          (adjacent_duplication_symbol)))
-                      (bre_dupl_symbol
-                        (back_open_brace)
-                        (syntax_issue
-                          (undefined_syntax
-                            (malformed_interval)))
-                        (back_close_brace))))))
+                    (syntax_issue
+                      (undefined_syntax
+                        (adjacent_duplication_symbol
+                          (bre_dupl_symbol
+                            (back_open_brace)
+                            (syntax_issue
+                              (undefined_syntax
+                                (malformed_interval)))
+                            (back_close_brace))))))))
               (bre_expression
                 (simple_bre
                   (nondupl_bre

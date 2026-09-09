@@ -100,28 +100,27 @@ Preserves adjacent and leading ERE duplication structures
                             (ordinary_character_token))))
                       (ere_dupl_symbol
                         (zero_or_more_operator)))
-                    (ere_dupl_symbol
-                      (syntax_issue
-                        (undefined_syntax
-                          (adjacent_duplication_symbol)))
-                      (open_brace)
-                      (dup_count
-                        (dup_count_token))
-                      (close_brace)
-                      (repetition_modifier)))))
+                    (syntax_issue
+                      (undefined_syntax
+                        (adjacent_duplication_symbol
+                          (ere_dupl_symbol
+                            (open_brace)
+                            (dup_count
+                              (dup_count_token))
+                            (close_brace)
+                            (repetition_modifier))))))))
               (ere_alternation_operator
                 (ere_alternation_operator_token))
               (ere_branch
                 (ere_expression
-                  (leading_ere_dupl_symbol
-                    (syntax_issue
-                      (undefined_syntax
-                        (leading_duplication_symbol)))
-                    (ere_dupl_symbol
-                      (open_brace)
-                      (dup_count
-                        (dup_count_token))
-                      (close_brace))))))
+                  (syntax_issue
+                    (undefined_syntax
+                      (leading_duplication_symbol
+                        (ere_dupl_symbol
+                          (open_brace)
+                          (dup_count
+                            (dup_count_token))
+                          (close_brace))))))))
             (delimiter
               (delimiter_token)))))
       (function
@@ -509,16 +508,15 @@ Structures a leading malformed ERE interval
             (extended_reg_exp
               (ere_branch
                 (ere_expression
-                  (leading_ere_dupl_symbol
-                    (syntax_issue
-                      (undefined_syntax
-                        (leading_duplication_symbol)))
-                    (ere_dupl_symbol
-                      (open_brace)
-                      (syntax_issue
-                        (undefined_syntax
-                          (malformed_interval)))
-                      (close_brace))))))
+                  (syntax_issue
+                    (undefined_syntax
+                      (leading_duplication_symbol
+                        (ere_dupl_symbol
+                          (open_brace)
+                          (syntax_issue
+                            (undefined_syntax
+                              (malformed_interval)))
+                          (close_brace))))))))
             (delimiter
               (delimiter_token)))))
       (function

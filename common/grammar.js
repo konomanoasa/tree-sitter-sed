@@ -1050,14 +1050,26 @@ function issueDefinitions(mode) {
       rule: ($) => $._regex_malformed_bracket_term,
     },
     {
+      id: "invalid_character_class_name",
+      reason: "malformed_bracket_term",
+      outcome: "undefined_syntax",
+      rule: ($) => namedExternal($, $._regex_invalid_class_name, "class_name"),
+    },
+    {
+      reason: "invalid_regular_expression_character",
+      outcome: "invalid_syntax",
+      rule: ($) =>
+        namedExternal($, $._regex_invalid_character, "invalid_character_token"),
+    },
+    {
       reason: "character_class_range_start",
       outcome: "undefined_syntax",
-      rule: ($) => $._nonportable_range_start_marker,
+      rule: ($) => seq($.character_class, $._nonportable_range_start_marker),
     },
     {
       reason: "character_class_range_end",
       outcome: "undefined_syntax",
-      rule: ($) => $._nonportable_range_end_marker,
+      rule: ($) => seq($._nonportable_range_end_marker, $.character_class),
     },
     {
       reason: "shared_range_endpoint",
@@ -1135,12 +1147,26 @@ function issueDefinitions(mode) {
     {
       reason: "leading_duplication_symbol",
       outcome: "undefined_syntax",
-      rule: ($) => $._regex_leading_duplication_marker,
+      rule: ($) =>
+        seq(
+          $._regex_leading_duplication_marker,
+          field(
+            "operator",
+            mode === "bre" ? $.bre_dupl_symbol : $.ere_dupl_symbol,
+          ),
+        ),
     },
     {
       reason: "adjacent_duplication_symbol",
       outcome: "undefined_syntax",
-      rule: ($) => $._regex_adjacent_duplication_marker,
+      rule: ($) =>
+        seq(
+          $._regex_adjacent_duplication_marker,
+          field(
+            "operator",
+            mode === "bre" ? $.bre_dupl_symbol : $.ere_dupl_symbol,
+          ),
+        ),
     },
     ...(mode === "ere"
       ? [
@@ -1169,17 +1195,17 @@ function issueDefinitions(mode) {
     {
       reason: "equivalence_class_range_start",
       outcome: "unspecified_syntax",
-      rule: ($) => $._nonportable_range_start_marker,
+      rule: ($) => seq($.equivalence_class, $._nonportable_range_start_marker),
     },
     {
       reason: "equivalence_class_range_end",
       outcome: "unspecified_syntax",
-      rule: ($) => $._nonportable_range_end_marker,
+      rule: ($) => seq($._nonportable_range_end_marker, $.equivalence_class),
     },
     {
       reason: "ambiguous_bracket_expression",
       outcome: "unspecified_syntax",
-      rule: ($) => $._ambiguous_bracket_expression_marker,
+      rule: ($) => alias($._ambiguous_bracket_expression, $.bracket_expression),
     },
     {
       reason: "blanks_after_negation",
@@ -1211,17 +1237,29 @@ function issueDefinitions(mode) {
           {
             reason: "bre_vertical_line_escape",
             outcome: "implementation_defined_syntax",
-            rule: ($) => $._bre_vertical_line_escape_marker,
+            rule: ($) =>
+              field(
+                "token",
+                namedExternal($, $._regex_bre_vertical_line_escape, "back_bar"),
+              ),
           },
           {
             reason: "bre_question_mark_escape",
             outcome: "implementation_defined_syntax",
-            rule: ($) => $._bre_question_mark_escape_marker,
+            rule: ($) =>
+              field(
+                "token",
+                namedExternal($, $._regex_bre_question_mark_escape, "back_qm"),
+              ),
           },
           {
             reason: "bre_plus_escape",
             outcome: "implementation_defined_syntax",
-            rule: ($) => $._bre_plus_escape_marker,
+            rule: ($) =>
+              field(
+                "token",
+                namedExternal($, $._regex_bre_plus_escape, "back_plus"),
+              ),
           },
           {
             reason: "bre_subexpression_left_anchor",
@@ -1516,6 +1554,7 @@ function externalTokens($, mode) {
     $._translate_middle,
     $._translate_end,
     $._regex_literal,
+    $._regex_invalid_character,
     $._regex_beginning_anchor,
     $._regex_end_anchor,
     $._regex_period,
@@ -1534,9 +1573,6 @@ function externalTokens($, mode) {
           $._regex_bre_plus_escape,
           $._regex_bre_subexpression_caret,
           $._regex_bre_subexpression_dollar,
-          $._bre_vertical_line_escape_marker,
-          $._bre_question_mark_escape_marker,
-          $._bre_plus_escape_marker,
           $._regex_unmatched_interval_close,
         ]
       : []),
@@ -1568,6 +1604,7 @@ function externalTokens($, mode) {
     $._regex_bracket_trailing_hyphen,
     $._regex_open_colon,
     $._regex_class_name,
+    $._regex_invalid_class_name,
     $._regex_colon_close,
     $._regex_open_dot,
     $._regex_coll_elem_single,

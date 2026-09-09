@@ -64,7 +64,7 @@ static ScannerState make_regex_state(void) {
 #else
     .regex_after_anchor = true,
 #endif
-    .regex_group_depth = UINT16_C(37),
+    .regex_group_depth = UINT32_C(37),
   };
 }
 
@@ -100,15 +100,30 @@ static void check_lifecycle(void) {
 }
 
 static void check_serialization_round_trip(void) {
-  ScannerState source = make_regex_state();
-  ScannerState destination = {0};
-  destination.mode = MODE_TEXT;
-  destination.text_state = TEXT_HAS_CONTENT;
-  char buffer[TREE_SITTER_SERIALIZATION_BUFFER_SIZE] = {0};
-  serialize_state(&source, buffer);
+  static const uint32_t depths[] = {
+    UINT32_C(37),
+    UINT32_C(65535),
+    UINT32_C(65536),
+    UINT32_C(0x12345678),
+    UINT32_MAX,
+  };
+  for (size_t index = 0; index < sizeof(depths) / sizeof(depths[0]); index++) {
+    ScannerState source = make_regex_state();
+    source.regex_group_depth = depths[index];
+    ScannerState destination = {0};
+    destination.mode = MODE_TEXT;
+    destination.text_state = TEXT_HAS_CONTENT;
+    char buffer[TREE_SITTER_SERIALIZATION_BUFFER_SIZE] = {0};
+    serialize_state(&source, buffer);
 
-  sed_scanner_deserialize(&destination, buffer, SCANNER_SERIALIZED_STATE_SIZE);
-  assert_same_state(&source, &destination);
+    sed_scanner_deserialize(
+      &destination,
+      buffer,
+      SCANNER_SERIALIZED_STATE_SIZE
+    );
+    assert(destination.regex_group_depth == depths[index]);
+    assert_same_state(&source, &destination);
+  }
 }
 
 static void check_invalid_serialization_resets_state(void) {
@@ -132,6 +147,26 @@ static void check_invalid_serialization_resets_state(void) {
   destination = make_regex_state();
   serialize_state(&source, buffer);
   buffer[2] = (char)REGEX_BRACKET_BODY;
+  sed_scanner_deserialize(&destination, buffer, SCANNER_SERIALIZED_STATE_SIZE);
+  assert_reset_state(&destination);
+}
+
+static void check_bracket_content_serialization_requires_an_active_term(void) {
+  ScannerState source = make_regex_state();
+  source.regex_state = REGEX_BRACKET_BODY;
+  set_regex_position(&source, false, REGEX_DUPLICATION_NONE, false, false);
+  source.regex_bracket_term_state = REGEX_BRACKET_TERM_COLON;
+  source.regex_bracket_term_has_content = true;
+  ScannerState destination = {0};
+  char buffer[TREE_SITTER_SERIALIZATION_BUFFER_SIZE] = {0};
+  serialize_state(&source, buffer);
+
+  sed_scanner_deserialize(&destination, buffer, SCANNER_SERIALIZED_STATE_SIZE);
+  assert(destination.regex_bracket_term_has_content);
+  assert_same_state(&source, &destination);
+
+  source.regex_bracket_term_state = REGEX_BRACKET_TERM_NONE;
+  serialize_state(&source, buffer);
   sed_scanner_deserialize(&destination, buffer, SCANNER_SERIALIZED_STATE_SIZE);
   assert_reset_state(&destination);
 }
@@ -285,6 +320,7 @@ int main(void) {
   check_lifecycle();
   check_serialization_round_trip();
   check_invalid_serialization_resets_state();
+  check_bracket_content_serialization_requires_an_active_term();
   check_variant_serialization();
   check_failed_scan_preserves_state();
   check_bracket_term_delimiter_leaf_ranges();

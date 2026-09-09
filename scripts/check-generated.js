@@ -41,7 +41,7 @@ const parserBudgets = {
     STATE_COUNT: 2_000,
     LARGE_STATE_COUNT: 50,
     SYMBOL_COUNT: 625,
-    EXTERNAL_TOKEN_COUNT: 138,
+    EXTERNAL_TOKEN_COUNT: 139,
     parser_bytes: 2_000_000,
     maximum_ACTIONS_index: 3_250,
     parse_table_storage_bytes: 150_000,
