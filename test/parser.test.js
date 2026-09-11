@@ -169,7 +169,7 @@ function syntaxSignatures(tree, types) {
       ancestors.pop();
     }
     if (selected.has(node.type)) {
-      const field = /^ *([a-z_]+: )?\(/.exec(line)?.[1] ?? "";
+      const field = /^ *([a-z_][a-z_0-9]*: )?\(/.exec(line)?.[1] ?? "";
       const depth = ancestors.filter(({ type }) => selected.has(type)).length;
       signatures.push(
         `${"  ".repeat(depth)}${field}${node.type} ${node.range}`,
@@ -566,6 +566,11 @@ const invalidCharacterCases = [
     name: "trailing command text",
     source: "pX\0q\0\n",
     issues: [["unexpected_command_text", "[0, 1] - [0, 5]"]],
+    nulIssues: [
+      ["unexpected_command_text", "[0, 1] - [0, 5]"],
+      ["nul_character", "[0, 2] - [0, 3]"],
+      ["nul_character", "[0, 4] - [0, 5]"],
+    ],
   },
   ...["s", "y"].map((verb) => ({
     name: `${verb} opening delimiter`,
@@ -598,7 +603,10 @@ for (const grammar of grammars) {
         });
         assert.deepEqual(
           issueSignatures(fresh.stdout),
-          testCase.issues.map(([reason, range]) => ({
+          (character === "\0"
+            ? (testCase.nulIssues ?? testCase.issues)
+            : testCase.issues
+          ).map(([reason, range]) => ({
             outcome: "nonconforming_syntax",
             reason,
             range,
@@ -620,6 +628,64 @@ for (const grammar of grammars) {
       });
     }
   }
+}
+
+for (const grammar of grammars) {
+  test(`unexpected command text owns nested NUL issues in ${grammar.name}`, () => {
+    const source = "{\npX\0Y\0\nq\n}\n";
+    const fresh = parseSuccessfully(grammar.scope, source, [], {
+      ranges: true,
+    });
+    const incremental = parseSuccessfully(
+      grammar.scope,
+      `p\n${source}`,
+      ["0 2 "],
+      { ranges: true },
+    );
+    assertIncrementalContract(
+      fresh,
+      incremental,
+      "nested unexpected command text",
+    );
+    for (const result of [fresh, incremental]) {
+      assertNoNodes(result.stdout, "ERROR", "MISSING");
+      assert.deepEqual(
+        syntaxSignatures(result.stdout, [
+          "block_function",
+          "print_function",
+          "quit_function",
+          "unexpected_command_text",
+          "nul_character",
+        ]),
+        [
+          "block_function [0, 0] - [3, 1]",
+          "  print_function [1, 0] - [1, 1]",
+          "  unexpected_command_text [1, 1] - [1, 5]",
+          "    nul_character [1, 2] - [1, 3]",
+          "    nul_character [1, 4] - [1, 5]",
+          "  quit_function [2, 0] - [2, 1]",
+        ],
+      );
+    }
+    const edits = ["6 1 ", "4 1 "];
+    const repaired = "{\npXY\nq\n}\n";
+    assert.deepEqual(applyEdits(source, edits), Buffer.from(repaired));
+    const repairedFresh = parseSuccessfully(grammar.scope, repaired, [], {
+      ranges: true,
+    });
+    assert.deepEqual(issueSignatures(repairedFresh.stdout), [
+      {
+        outcome: "nonconforming_syntax",
+        reason: "unexpected_command_text",
+        range: "[1, 1] - [1, 3]",
+      },
+    ]);
+    assertIncrementalContract(
+      repairedFresh,
+      parseSuccessfully(grammar.scope, source, edits, { ranges: true }),
+      "remove only the nested NUL issues",
+    );
+  });
 }
 
 for (const testCase of boundaryCases) {
@@ -2722,6 +2788,320 @@ for (const grammar of grammars) {
           `${label}: repair`,
         );
       }
+    }
+  });
+}
+
+const nulPayloadCases = [
+  {
+    name: "leading replacement NUL",
+    source: "s/a/\0bc/\nq\n",
+    nulRanges: ["[0, 4] - [0, 5]"],
+    types: ["replacement", "replacement_literal", "nul_character"],
+    structure: [
+      "replacement: replacement [0, 4] - [0, 7]",
+      "  nul_character [0, 4] - [0, 5]",
+      "  replacement_literal [0, 5] - [0, 7]",
+    ],
+  },
+  {
+    name: "consecutive replacement NULs between literals",
+    source: "s/a/a\0\0b/\nq\n",
+    nulRanges: ["[0, 5] - [0, 6]", "[0, 6] - [0, 7]"],
+    types: ["replacement", "replacement_literal", "nul_character"],
+    structure: [
+      "replacement: replacement [0, 4] - [0, 8]",
+      "  replacement_literal [0, 4] - [0, 5]",
+      "  nul_character [0, 5] - [0, 6]",
+      "  nul_character [0, 6] - [0, 7]",
+      "  replacement_literal [0, 7] - [0, 8]",
+    ],
+  },
+  {
+    name: "trailing replacement NUL",
+    source: "s/a/ab\0/\nq\n",
+    nulRanges: ["[0, 6] - [0, 7]"],
+    types: ["replacement", "replacement_literal", "nul_character"],
+    structure: [
+      "replacement: replacement [0, 4] - [0, 7]",
+      "  replacement_literal [0, 4] - [0, 6]",
+      "  nul_character [0, 6] - [0, 7]",
+    ],
+  },
+  {
+    name: "leading translation source NUL",
+    source: "y/\0ab/xy/\nq\n",
+    nulRanges: ["[0, 2] - [0, 3]"],
+    types: ["translation_string", "translation_literal", "nul_character"],
+    structure: [
+      "string1: translation_string [0, 2] - [0, 5]",
+      "  nul_character [0, 2] - [0, 3]",
+      "  translation_literal [0, 3] - [0, 5]",
+      "string2: translation_string [0, 6] - [0, 8]",
+      "  translation_literal [0, 6] - [0, 8]",
+    ],
+  },
+  {
+    name: "trailing translation destination NUL",
+    source: "y/ab/xy\0/\nq\n",
+    nulRanges: ["[0, 7] - [0, 8]"],
+    types: ["translation_string", "translation_literal", "nul_character"],
+    structure: [
+      "string1: translation_string [0, 2] - [0, 4]",
+      "  translation_literal [0, 2] - [0, 4]",
+      "string2: translation_string [0, 5] - [0, 8]",
+      "  translation_literal [0, 5] - [0, 7]",
+      "  nul_character [0, 7] - [0, 8]",
+    ],
+  },
+  {
+    name: "NUL as the only text character",
+    source: "a\\\n\0\nq\n",
+    nulRanges: ["[1, 0] - [1, 1]"],
+    types: ["text", "text_literal", "nul_character"],
+    structure: [
+      "text: text [1, 0] - [1, 1]",
+      "  nul_character [1, 0] - [1, 1]",
+    ],
+  },
+  {
+    name: "NULs on both sides of a continued text line",
+    source: "a\\\n\0a\\\nb\0\nq\n",
+    nulRanges: ["[1, 0] - [1, 1]", "[2, 1] - [2, 2]"],
+    types: ["text", "text_literal", "text_escaped_newline", "nul_character"],
+    structure: [
+      "text: text [1, 0] - [2, 2]",
+      "  nul_character [1, 0] - [1, 1]",
+      "  text_literal [1, 1] - [1, 2]",
+      "  text_escaped_newline [1, 2] - [2, 0]",
+      "  text_literal [2, 0] - [2, 1]",
+      "  nul_character [2, 1] - [2, 2]",
+    ],
+  },
+  {
+    name: "label definition keeps one owner around NUL",
+    source: ":a\0b\nq\n",
+    nulRanges: ["[0, 2] - [0, 3]"],
+    types: ["label", "nul_character"],
+    structure: [
+      "label: label [0, 1] - [0, 4]",
+      "  nul_character [0, 2] - [0, 3]",
+    ],
+  },
+  {
+    name: "branch label begins with NUL",
+    source: "b \0ab\nq\n",
+    nulRanges: ["[0, 2] - [0, 3]"],
+    types: ["label", "nul_character"],
+    structure: [
+      "label: label [0, 2] - [0, 5]",
+      "  nul_character [0, 2] - [0, 3]",
+    ],
+  },
+  {
+    name: "test label ends with NUL",
+    source: "t ab\0\nq\n",
+    nulRanges: ["[0, 4] - [0, 5]"],
+    types: ["label", "nul_character"],
+    structure: [
+      "label: label [0, 2] - [0, 5]",
+      "  nul_character [0, 4] - [0, 5]",
+    ],
+  },
+  {
+    name: "read file keeps whitespace and semicolon after NUL",
+    source: "r \0 a;\0\nq\n",
+    nulRanges: ["[0, 2] - [0, 3]", "[0, 6] - [0, 7]"],
+    types: ["rfile", "nul_character"],
+    structure: [
+      "rfile: rfile [0, 2] - [0, 7]",
+      "  nul_character [0, 2] - [0, 3]",
+      "  nul_character [0, 6] - [0, 7]",
+    ],
+  },
+  {
+    name: "write file keeps its semicolon after NUL",
+    source: "w a\0;b\nq\n",
+    nulRanges: ["[0, 3] - [0, 4]"],
+    types: ["wfile", "nul_character"],
+    structure: [
+      "wfile: wfile [0, 2] - [0, 6]",
+      "  nul_character [0, 3] - [0, 4]",
+    ],
+  },
+  {
+    name: "substitution write file ends before its semicolon",
+    source: "s/a/b/w \0 a;q\n",
+    nulRanges: ["[0, 8] - [0, 9]"],
+    types: ["wfile", "nul_character"],
+    structure: [
+      "wfile: wfile [0, 8] - [0, 11]",
+      "  nul_character [0, 8] - [0, 9]",
+    ],
+  },
+  {
+    name: "ordinary comment text splits around NUL",
+    source: "#a\0b\nq\n",
+    nulRanges: ["[0, 2] - [0, 3]"],
+    types: ["comment", "comment_text", "nul_character"],
+    structure: [
+      "comment: comment [0, 1] - [0, 4]",
+      "  comment_text [0, 1] - [0, 2]",
+      "  nul_character [0, 2] - [0, 3]",
+      "  comment_text [0, 3] - [0, 4]",
+    ],
+  },
+  {
+    name: "default-output directive keeps its NUL-containing tail",
+    source: "#n\0a\0\nq\n",
+    nulRanges: ["[0, 2] - [0, 3]", "[0, 4] - [0, 5]"],
+    types: [
+      "default_output_suppression",
+      "comment",
+      "comment_text",
+      "nul_character",
+    ],
+    structure: [
+      "comment: comment [0, 1] - [0, 5]",
+      "  suppression: default_output_suppression [0, 1] - [0, 2]",
+      "  nul_character [0, 2] - [0, 3]",
+      "  comment_text [0, 3] - [0, 4]",
+      "  nul_character [0, 4] - [0, 5]",
+    ],
+  },
+  {
+    name: "replacement escape retains its nested NUL issue",
+    source: "s/a/\\\0/\nq\n",
+    nulRanges: ["[0, 5] - [0, 6]"],
+    outerIssue: {
+      outcome: "unspecified_syntax",
+      reason: "unspecified_replacement_escape",
+      range: "[0, 4] - [0, 6]",
+    },
+    repair: "\\",
+    types: ["replacement", "unspecified_replacement_escape", "nul_character"],
+    structure: [
+      "replacement: replacement [0, 4] - [0, 6]",
+      "  unspecified_replacement_escape [0, 4] - [0, 6]",
+      "    nul_character [0, 5] - [0, 6]",
+    ],
+  },
+  {
+    name: "translation escape retains its nested NUL issue",
+    source: "y/\\\0/x/\nq\n",
+    nulRanges: ["[0, 3] - [0, 4]"],
+    outerIssue: {
+      outcome: "undefined_syntax",
+      reason: "undefined_translation_escape",
+      range: "[0, 2] - [0, 4]",
+    },
+    repair: "\\",
+    types: [
+      "translation_string",
+      "undefined_translation_escape",
+      "nul_character",
+    ],
+    structure: [
+      "string1: translation_string [0, 2] - [0, 4]",
+      "  undefined_translation_escape [0, 2] - [0, 4]",
+      "    nul_character [0, 3] - [0, 4]",
+      "string2: translation_string [0, 5] - [0, 6]",
+    ],
+  },
+  {
+    name: "text escape retains its nested NUL issue",
+    source: "a\\\n\\\0\nq\n",
+    nulRanges: ["[1, 1] - [1, 2]"],
+    outerIssue: {
+      outcome: "unspecified_syntax",
+      reason: "unspecified_text_escape",
+      range: "[1, 0] - [1, 2]",
+    },
+    repair: "\\",
+    types: ["text", "unspecified_text_escape", "nul_character"],
+    structure: [
+      "text: text [1, 0] - [1, 2]",
+      "  unspecified_text_escape [1, 0] - [1, 2]",
+      "    nul_character [1, 1] - [1, 2]",
+    ],
+  },
+];
+
+for (const grammar of grammars) {
+  test(`NUL payloads preserve issues, owners, and following commands in ${grammar.name}`, () => {
+    const isolatedQuit = topLevelEditingCommands(
+      parseSuccessfully(grammar.scope, "q\n", [], { cst: true, ranges: true })
+        .stdout,
+    )[0].nodes;
+    for (const testCase of nulPayloadCases) {
+      const expectedIssues = [
+        ...(testCase.outerIssue === undefined ? [] : [testCase.outerIssue]),
+        ...testCase.nulRanges.map((range) => ({
+          outcome: "nonconforming_syntax",
+          reason: "nul_character",
+          range,
+        })),
+      ];
+      const firstNul = testCase.source.indexOf("\0");
+      const history = `${testCase.source.slice(0, firstNul)}x${testCase.source.slice(firstNul)}`;
+      const edits = [`${firstNul} 1 `];
+      assert.deepEqual(
+        applyEdits(history, edits),
+        Buffer.from(testCase.source),
+      );
+      const fresh = parseSuccessfully(grammar.scope, testCase.source, [], {
+        ranges: true,
+      });
+      const incremental = parseSuccessfully(grammar.scope, history, edits, {
+        ranges: true,
+      });
+      assertIncrementalContract(fresh, incremental, testCase.name);
+      for (const result of [fresh, incremental]) {
+        assert.deepEqual(
+          issueSignatures(result.stdout),
+          expectedIssues,
+          testCase.name,
+        );
+        assert.deepEqual(
+          syntaxSignatures(result.stdout, testCase.types),
+          testCase.structure,
+          testCase.name,
+        );
+        assertNoNodes(result.stdout, "ERROR", "MISSING");
+      }
+      for (const [source, historyEdits] of [
+        [testCase.source, []],
+        [history, edits],
+      ]) {
+        const commands = topLevelEditingCommands(
+          parseSuccessfully(grammar.scope, source, historyEdits, {
+            cst: true,
+            ranges: true,
+          }).stdout,
+        );
+        assert.deepEqual(commands.at(-1).nodes, isolatedQuit, testCase.name);
+      }
+      const repair = testCase.repair ?? "a";
+      const repaired = testCase.source.replaceAll("\0", repair);
+      const repairs = [];
+      for (let index = testCase.source.length - 1; index >= 0; index--) {
+        if (testCase.source[index] === "\0") {
+          repairs.push(`${index} 1 ${repair}`);
+        }
+      }
+      assert.deepEqual(
+        applyEdits(testCase.source, repairs),
+        Buffer.from(repaired),
+      );
+      const repairedFresh = parseSuccessfully(grammar.scope, repaired, [], {
+        ranges: true,
+      });
+      assertNoNodes(repairedFresh.stdout, "syntax_issue", "ERROR", "MISSING");
+      assertIncrementalContract(
+        repairedFresh,
+        parse(grammar.scope, testCase.source, repairs, { ranges: true }),
+        `${testCase.name}: repair`,
+      );
     }
   });
 }

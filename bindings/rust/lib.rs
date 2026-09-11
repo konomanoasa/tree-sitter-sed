@@ -181,20 +181,27 @@ mod tests {
                         let incremental =
                             parser.parse(next, Some(&tree)).expect("incremental tree");
                         let fresh = parser.parse(next, None).expect("fresh tree");
-                        let expected = if damage {
-                            vec![(
+                        let mut expected = Vec::new();
+                        if damage {
+                            let range = Range {
+                                start_byte: start,
+                                end_byte: start + 1,
+                                start_point: Point::new(row, column),
+                                end_point: Point::new(row, column + 1),
+                            };
+                            expected.push((
                                 "nonconforming_syntax".to_owned(),
                                 reason.to_owned(),
-                                Range {
-                                    start_byte: start,
-                                    end_byte: start + 1,
-                                    start_point: Point::new(row, column),
-                                    end_point: Point::new(row, column + 1),
-                                },
-                            )]
-                        } else {
-                            Vec::new()
-                        };
+                                range,
+                            ));
+                            if invalid_byte == 0 && reason == "unexpected_command_text" {
+                                expected.push((
+                                    "nonconforming_syntax".to_owned(),
+                                    "nul_character".to_owned(),
+                                    range,
+                                ));
+                            }
+                        }
                         let context =
                             format!("{mode}, {name}, byte {invalid_byte:#x}, damage {damage}");
                         assert_eq!(issue_signatures(&fresh), expected, "fresh: {context}");
@@ -331,6 +338,175 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+
+    #[test]
+    fn literal_ranges_remain_stable_when_edits_split_multibyte_delimiters() {
+        use tree_sitter::{InputEdit, Point};
+
+        for (language, mode) in [(super::LANGUAGE, "BRE"), (super::LANGUAGE_ERE, "ERE")] {
+            let mut parser = tree_sitter::Parser::new();
+            parser
+                .set_language(&language.into())
+                .expect("generated grammar must load");
+            for (source, edited, positions, literal, expected) in [
+                (
+                    "séaébé",
+                    "séaébèé",
+                    [8, 9, 11],
+                    "replacement_literal",
+                    &[(6, 9)][..],
+                ),
+                (
+                    "yéaébé",
+                    "yéaébèé",
+                    [8, 9, 11],
+                    "translation_literal",
+                    &[(3, 4), (6, 9)][..],
+                ),
+                (
+                    "s🙂a🙂b🙂",
+                    "s🙂a🙂b🙁🙂",
+                    [14, 15, 19],
+                    "replacement_literal",
+                    &[(10, 15)][..],
+                ),
+                (
+                    "y🙂a🙂b🙂",
+                    "y🙂a🙂b🙁🙂",
+                    [14, 15, 19],
+                    "translation_literal",
+                    &[(5, 6), (10, 15)][..],
+                ),
+            ] {
+                let [start, old_end, new_end] = positions;
+                assert_eq!(&source.as_bytes()[..start], &edited.as_bytes()[..start]);
+                assert_eq!(&source.as_bytes()[old_end..], &edited.as_bytes()[new_end..]);
+                let mut tree = parser.parse(source, None).expect("initial tree");
+                assert!(!tree.root_node().has_error());
+                assert!(issue_signatures(&tree).is_empty());
+                tree.edit(&InputEdit {
+                    start_byte: start,
+                    old_end_byte: old_end,
+                    new_end_byte: new_end,
+                    start_position: Point::new(0, start),
+                    old_end_position: Point::new(0, old_end),
+                    new_end_position: Point::new(0, new_end),
+                });
+                let incremental = parser.parse(edited, Some(&tree)).expect("edited tree");
+                let fresh = parser.parse(edited, None).expect("fresh tree");
+                for (parse_kind, parsed) in [("fresh", &fresh), ("incremental", &incremental)] {
+                    let context = format!("{mode}, {parse_kind}, {source:?} -> {edited:?}");
+                    assert!(!parsed.root_node().has_error(), "{context}");
+                    assert!(issue_signatures(parsed).is_empty(), "{context}");
+                    let mut ranges = Vec::new();
+                    let mut nodes = vec![parsed.root_node()];
+                    while let Some(node) = nodes.pop() {
+                        if node.kind() == literal {
+                            ranges.push((node.start_byte(), node.end_byte()));
+                            assert_eq!(node.start_position(), Point::new(0, node.start_byte()));
+                            assert_eq!(node.end_position(), Point::new(0, node.end_byte()));
+                        }
+                        for index in (0..node.named_child_count()).rev() {
+                            nodes.push(node.named_child(index as u32).unwrap());
+                        }
+                    }
+                    assert_eq!(ranges, expected, "{context}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn completed_groups_replace_recovery_after_multibyte_delimiter_edits() {
+        use tree_sitter::{InputEdit, Point};
+
+        for (language, source, edited, edit_start, group_kind, boundaries) in [
+            (
+                super::LANGUAGE,
+                r"sé\(é",
+                r"sé\(è\)éé",
+                6,
+                "nondupl_bre",
+                [3, 5, 7, 9],
+            ),
+            (
+                super::LANGUAGE_ERE,
+                "sé(é",
+                "sé(è)éé",
+                5,
+                "ere_expression",
+                [3, 4, 6, 7],
+            ),
+            (
+                super::LANGUAGE,
+                r"s🙂\(🙂",
+                r"s🙂\(🙁\)🙂🙂",
+                10,
+                "nondupl_bre",
+                [5, 7, 11, 13],
+            ),
+            (
+                super::LANGUAGE_ERE,
+                "s🙂(🙂",
+                "s🙂(🙁)🙂🙂",
+                9,
+                "ere_expression",
+                [5, 6, 10, 11],
+            ),
+        ] {
+            let mut parser = tree_sitter::Parser::new();
+            parser.set_language(&language.into()).unwrap();
+            let mut tree = parser.parse(source, None).unwrap();
+            assert!(!issue_signatures(&tree).is_empty());
+            assert_eq!(
+                &source.as_bytes()[..edit_start],
+                &edited.as_bytes()[..edit_start]
+            );
+            tree.edit(&InputEdit {
+                start_byte: edit_start,
+                old_end_byte: source.len(),
+                new_end_byte: edited.len(),
+                start_position: Point::new(0, edit_start),
+                old_end_position: Point::new(0, source.len()),
+                new_end_position: Point::new(0, edited.len()),
+            });
+            let incremental = parser.parse(edited, Some(&tree)).unwrap();
+            let fresh = parser.parse(edited, None).unwrap();
+            for (kind, parsed) in [("fresh", &fresh), ("incremental", &incremental)] {
+                let context = format!("{kind}: {source:?} -> {edited:?}");
+                assert!(!parsed.root_node().has_error(), "{context}");
+                assert!(issue_signatures(parsed).is_empty(), "{context}");
+                let mut nodes = vec![parsed.root_node()];
+                let mut groups = Vec::new();
+                while let Some(node) = nodes.pop() {
+                    if node.kind() == group_kind && node.child_by_field_name("opening").is_some() {
+                        groups.push(node);
+                    }
+                    for index in (0..node.named_child_count()).rev() {
+                        nodes.push(node.named_child(index as u32).unwrap());
+                    }
+                }
+                assert_eq!(groups.len(), 1, "{context}");
+                let [start, content, closing, end] = boundaries;
+                let group = groups[0];
+                assert_eq!(group.byte_range(), start..end, "{context}");
+                for (field, range) in [
+                    ("opening", start..content),
+                    ("expression", content..closing),
+                    ("closing", closing..end),
+                ] {
+                    let child = group.child_by_field_name(field).unwrap();
+                    assert_eq!(child.byte_range(), range, "{field}: {context}");
+                    assert_eq!(child.start_position(), Point::new(0, range.start));
+                    assert_eq!(child.end_position(), Point::new(0, range.end));
+                }
+            }
+            assert_eq!(
+                incremental.root_node().to_sexp(),
+                fresh.root_node().to_sexp()
+            );
         }
     }
 

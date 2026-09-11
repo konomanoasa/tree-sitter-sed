@@ -22,11 +22,12 @@ enum TokenType {
   TRANSLATE_END,
   REGEX_LITERAL,
   INVALID_CHARACTER,
+  NUL_CHARACTER,
   REGEX_BEGINNING_ANCHOR,
   REGEX_END_ANCHOR,
   REGEX_PERIOD,
   REGEX_QUOTED_ESCAPE,
-  REGEX_ESCAPE_PREFIX,
+  ESCAPE_PREFIX,
   REGEX_NEWLINE_ESCAPE,
   REGEX_ESCAPED_DELIMITER,
   REGEX_SPECIAL_ESCAPED_DELIMITER,
@@ -121,6 +122,7 @@ enum TokenType {
   COMMENT_TEXT,
   FILE_ARGUMENT,
   SUBSTITUTION_WFILE_ARGUMENT,
+  SUBSTITUTION_WFILE_CONTINUATION,
   LINE_WORD,
   ARGUMENT_SEPARATOR,
   RIGHT_BRACE,
@@ -348,8 +350,8 @@ static bool delimiter_character_is_valid(int32_t character) {
 static void
 sed_scanner_deserialize(void *payload, const char *buffer, unsigned length) {
   ScannerState *state = payload;
-  reset_state(state);
   if (length == 0) {
+    reset_state(state);
     return;
   }
 
@@ -528,6 +530,8 @@ static bool scan_line_rest(TSLexer *lexer, bool ends_at_semicolon) {
   while (
     !lexer->eof(lexer) &&
     lexer->lookahead !=
+    0 &&
+    lexer->lookahead !=
     '\n' &&
     !(ends_at_semicolon && lexer->lookahead == ';')
   ) {
@@ -596,6 +600,10 @@ static bool emit_marker(
   }
 
   lexer->mark_end(lexer);
+  // Keep the marker empty while recording its full lookahead character.
+  if (!lexer->eof(lexer)) {
+    advance(lexer);
+  }
   *symbol = candidate;
   return true;
 }
@@ -717,12 +725,21 @@ static bool scan_text_token(
     return end_mode(state, valid_symbols, TEXT_LINE_END, symbol);
   }
 
+  if (lexer->lookahead == 0) {
+    state->text_line_has_content = true;
+    return consume_as(lexer, valid_symbols, NUL_CHARACTER, symbol);
+  }
+
   if (lexer->lookahead == '\\') {
     consume(lexer);
 
     if (lexer->eof(lexer)) {
       state->text_line_has_content = true;
       return emit_symbol(valid_symbols, TEXT_UNSPECIFIED_ESCAPE, symbol);
+    }
+    if (lexer->lookahead == 0) {
+      state->text_line_has_content = true;
+      return emit_symbol(valid_symbols, ESCAPE_PREFIX, symbol);
     }
     if (lexer->lookahead == '\\') {
       consume(lexer);
@@ -743,7 +760,12 @@ static bool scan_text_token(
   do {
     consume(lexer);
   } while (
-    !lexer->eof(lexer) && lexer->lookahead != '\\' && lexer->lookahead != '\n'
+    !lexer->eof(lexer) &&
+    lexer->lookahead !=
+    0 &&
+    lexer->lookahead !=
+    '\\' &&
+    lexer->lookahead != '\n'
   );
   state->text_line_has_content = true;
   return emit_symbol(valid_symbols, TEXT_LITERAL, symbol);
@@ -1155,9 +1177,6 @@ static bool scan_regex_interval_close(
 }
 
 #if !SED_REGEX_EXTENDED
-// A BRE escape that ends malformed interval content: the interval close and
-// the subexpression delimiters own source of their own, unless the escaped
-// character is the RE delimiter and the escape is that literal character.
 static bool
 interval_escape_ends_content(const ScannerState *state, int32_t escaped) {
   return (escaped == '}' || escaped == '(' || escaped == ')') &&
@@ -1177,8 +1196,6 @@ static void finish_malformed_escape(TSLexer *lexer) {
   lexer->mark_end(lexer);
 }
 
-// Leave independently parsed constructs outside the malformed interval token
-// so recovery preserves their source ownership.
 static void
 scan_malformed_interval_content(TSLexer *lexer, const ScannerState *state) {
   for (;;) {
@@ -1436,7 +1453,7 @@ static bool scan_regex_escape_after_backslash(
   }
 
   if (!source_character_is_valid(lexer->lookahead)) {
-    return emit_symbol(valid_symbols, REGEX_ESCAPE_PREFIX, symbol);
+    return emit_symbol(valid_symbols, ESCAPE_PREFIX, symbol);
   }
 
   if (lexer->lookahead == state->delimiter) {
@@ -1610,8 +1627,6 @@ static bool scan_regex_special_token(
     consume(lexer);
 #if !SED_REGEX_EXTENDED
     if (lexer->lookahead == '\\') {
-      // A dollar sign anchors a subexpression before "\)", unless ')'
-      // delimits the RE and "\)" is the escaped delimiter.
       advance(lexer);
       const bool closes_subexpression = state->regex_group_depth >
         0 &&
@@ -1945,6 +1960,10 @@ static enum LiteralScanResult scan_operand_literal(
       return consumed ? LITERAL_SCAN_TOKEN : LITERAL_SCAN_LINE_END;
     }
 
+    if (lexer->lookahead == 0) {
+      return consumed ? LITERAL_SCAN_TOKEN : LITERAL_SCAN_INVALID_CHARACTER;
+    }
+
     if (
       lexer->lookahead ==
       state->delimiter ||
@@ -1952,6 +1971,10 @@ static enum LiteralScanResult scan_operand_literal(
       '\\' ||
       (ampersand_is_special && lexer->lookahead == '&')
     ) {
+      if (consumed && lexer->lookahead == state->delimiter) {
+        // Track every byte of the delimiter as lookahead, outside the literal.
+        advance(lexer);
+      }
       return consumed ? LITERAL_SCAN_TOKEN : LITERAL_SCAN_NONE;
     }
 
@@ -1970,6 +1993,10 @@ static bool scan_replacement_escape(
 
   if (lexer->eof(lexer)) {
     return emit_symbol(valid_symbols, REPLACEMENT_INCOMPLETE_ESCAPE, symbol);
+  }
+
+  if (lexer->lookahead == 0) {
+    return emit_symbol(valid_symbols, ESCAPE_PREFIX, symbol);
   }
 
   if (lexer->lookahead == '\n') {
@@ -2021,6 +2048,10 @@ static bool scan_translate_escape(
     return emit_symbol(valid_symbols, TRANSLATE_INCOMPLETE_ESCAPE, symbol);
   }
 
+  if (lexer->lookahead == 0) {
+    return emit_symbol(valid_symbols, ESCAPE_PREFIX, symbol);
+  }
+
   if (lexer->lookahead == '\n') {
     return emit_symbol(valid_symbols, TRANSLATE_NONPORTABLE_ESCAPE, symbol);
   }
@@ -2052,6 +2083,9 @@ static bool scan_operand_token(
       is_replacement ? REPLACEMENT_LITERAL : TRANSLATE_LITERAL,
       symbol
     );
+  }
+  if (literal_result == LITERAL_SCAN_INVALID_CHARACTER) {
+    return consume_as(lexer, valid_symbols, NUL_CHARACTER, symbol);
   }
   if (literal_result == LITERAL_SCAN_LINE_END) {
     return end_mode(
@@ -2219,9 +2253,6 @@ static TSSymbol missing_text_introducer_symbol(const TSLexer *lexer) {
                            : NONCONFORMING_MISSING_TEXT_INTRODUCER_MARKER;
 }
 
-// Blanks before a closing brace are padding of the brace token, or of the
-// missing-brace marker when the source ends after them. Any other
-// continuation leaves the blank run to the internal lexer.
 static bool
 scan_right_brace(TSLexer *lexer, const bool *valid_symbols, TSSymbol *symbol) {
   skip_blanks(lexer);
@@ -2253,6 +2284,20 @@ static bool scan_command_token(
     (lexer->lookahead == ';' || lexer->lookahead == '\n')
   ) {
     return emit_marker(lexer, valid_symbols, EMPTY_COMMAND_MARKER, symbol);
+  }
+
+  if (
+    valid_symbols[NUL_CHARACTER] && !lexer->eof(lexer) && lexer->lookahead == 0
+  ) {
+    return consume_as(lexer, valid_symbols, NUL_CHARACTER, symbol);
+  }
+
+  if (
+    valid_symbols[SUBSTITUTION_WFILE_CONTINUATION] &&
+    scan_line_rest(lexer, true)
+  ) {
+    *symbol = SUBSTITUTION_WFILE_CONTINUATION;
+    return true;
   }
 
   if (valid_symbols[LINE_WORD] && scan_line_rest(lexer, false)) {
@@ -2535,9 +2580,12 @@ static bool sed_scanner_scan_impl(
     (!is_regex_mode(state->mode) ||
       state->regex_state == REGEX_OUTSIDE_BRACKET);
   if (delimiter_is_active) {
-    if (state->regex_group_depth > 0 && valid_symbols[REGEX_UNCLOSED_GROUP]) {
+    if (
+      state->regex_group_depth >
+      0 &&
+      emit_marker(lexer, valid_symbols, REGEX_UNCLOSED_GROUP, symbol)
+    ) {
       state->regex_group_depth--;
-      *symbol = REGEX_UNCLOSED_GROUP;
       return true;
     }
     return scan_active_mode_delimiter(lexer, state, valid_symbols, symbol);
@@ -2587,9 +2635,7 @@ update_regex_position_after_symbol(ScannerState *state, TSSymbol symbol) {
   }
 
   if (symbol == REGEX_GROUP_CLOSE) {
-    if (state->regex_group_depth > 0) {
-      state->regex_group_depth--;
-    }
+    state->regex_group_depth--;
     state->regex_position = REGEX_AFTER_ATOM;
     return;
   }

@@ -28,6 +28,22 @@ function fileOperandForms($, name, operand) {
   ];
 }
 
+function lineOperand($, first, rest) {
+  return prec.right(
+    seq(
+      choice(first, issueField($, "nul_character")),
+      repeat(choice(rest, issueField($, "nul_character"))),
+    ),
+  );
+}
+
+function commentText($) {
+  return choice(
+    namedExternal($, $._comment_text, "comment_text"),
+    issueField($, "nul_character"),
+  );
+}
+
 function missingCommandSeparator($) {
   return choice(
     issueNode($, "missing_command_separator"),
@@ -213,11 +229,6 @@ function delimiterRules() {
   return rules;
 }
 
-function choiceForRules($, names) {
-  const rules = names.map((name) => $[name]);
-  return rules.length === 1 ? rules[0] : choice(...rules);
-}
-
 function commandListRules() {
   return {
     script: ($) => optional(alias($._script_command_list, $.command_list)),
@@ -256,7 +267,7 @@ function commandListRules() {
             "default_output_suppression",
           ),
         ),
-        optional(namedExternal($, $._comment_text, "comment_text")),
+        repeat(commentText($)),
       ),
 
     _command_list: ($) =>
@@ -518,7 +529,6 @@ function addressRules(mode) {
 
     address: addressChoice,
 
-    // Keep maximum-specific GLR paths distinct until the function verb.
     _max0_address: addressChoice,
 
     _max1_address: addressChoice,
@@ -599,6 +609,7 @@ function operandRules(mode) {
       repeat1(
         choice(
           $.replacement_literal,
+          issueField($, "nul_character"),
           $.matched_text_reference,
           $.replacement_backreference,
           $.replacement_escaped_delimiter,
@@ -676,6 +687,7 @@ function operandRules(mode) {
       repeat1(
         choice(
           $.translation_literal,
+          issueField($, "nul_character"),
           $.translation_escape,
           $.translation_escaped_delimiter,
           issueField($, "undefined_translation_escape"),
@@ -702,6 +714,7 @@ function functionRules() {
         repeat1(
           choice(
             $.text_literal,
+            issueField($, "nul_character"),
             $.text_backslash_escape,
             $.text_escaped_newline,
             issueField($, "unspecified_text_escape"),
@@ -727,15 +740,26 @@ function functionRules() {
     _incomplete_text_introducer: ($) =>
       issueField($, "incomplete_text_introducer"),
 
-    rfile: ($) => $._file_argument,
+    rfile: ($) => lineOperand($, $._file_argument, $._line_word),
 
-    wfile: ($) => $._file_argument,
+    wfile: ($) => lineOperand($, $._file_argument, $._line_word),
 
-    _substitution_wfile: ($) => $._substitution_wfile_argument,
+    _substitution_wfile: ($) =>
+      lineOperand(
+        $,
+        $._substitution_wfile_argument,
+        $._substitution_wfile_continuation,
+      ),
 
-    label: ($) => $._line_word,
+    label: ($) =>
+      prec.right(repeat1(choice($._line_word, issueField($, "nul_character")))),
 
-    comment: ($) => namedExternal($, $._comment_text, "comment_text"),
+    comment: ($) => prec.right(repeat1(commentText($))),
+
+    comment_function: ($) =>
+      prec.right(
+        seq(functionVerb($, "#"), optional(field("comment", $.comment))),
+      ),
 
     closing_brace: ($) =>
       choice($._present_closing_brace, issueField($, "missing_closing_brace")),
@@ -788,7 +812,6 @@ function functionRules() {
     ],
     rfile: fileForm("rfile"),
     wfile: fileForm("wfile"),
-    comment: ($) => [optional(field("comment", $.comment))],
   };
 
   for (const { rule, spelling } of noArgumentDefinitions) {
@@ -813,8 +836,8 @@ function editingCommandRules() {
     2: ($) => $.address_clause,
   };
 
-  // One wrapper rule per (chainable or line-terminated) kind and address
-  // maximum keeps the maximum-specific GLR paths distinct until the verb.
+  // Keep address, issue, and function rules separate by address maximum so
+  // GLR paths cannot merge before the function verb.
   const wrappers = [];
   for (const [kind, isLineTerminated] of [
     ["chainable", false],
@@ -938,7 +961,7 @@ function editingCommandRules() {
   };
 
   for (const { name, names } of wrappers) {
-    rules[name] = ($) => choiceForRules($, names);
+    rules[name] = ($) => choice(...names.map((name) => $[name]));
   }
 
   return rules;
@@ -1017,6 +1040,11 @@ function issueDefinitions(mode) {
       rule: ($) => namedExternal($, $._regex_invalid_class_name, "class_name"),
     },
     {
+      reason: "nul_character",
+      outcome: "nonconforming_syntax",
+      rule: ($) => $._nul_character,
+    },
+    {
       reason: "invalid_regular_expression_character",
       outcome: "invalid_syntax",
       rule: ($) => $._invalid_character,
@@ -1053,7 +1081,6 @@ function issueDefinitions(mode) {
       outcome: "undefined_syntax",
       rule: missing("omitted_first_address"),
     },
-    // The marker is shared, but maximum-specific reductions must not merge.
     ...[0, 1].map((maximum) => ({
       id: `omitted_first_address_unit${maximum}`,
       reason: "omitted_address",
@@ -1158,7 +1185,11 @@ function issueDefinitions(mode) {
     {
       reason: "undefined_translation_escape",
       outcome: "undefined_syntax",
-      rule: ($) => $._translate_nonportable_escape,
+      rule: ($) =>
+        choice(
+          $._translate_nonportable_escape,
+          seq($._escape_prefix, issueField($, "nul_character")),
+        ),
     },
     {
       reason: "equivalence_class_range_start",
@@ -1183,7 +1214,11 @@ function issueDefinitions(mode) {
     {
       reason: "unspecified_replacement_escape",
       outcome: "unspecified_syntax",
-      rule: ($) => $._replacement_nonportable_escape,
+      rule: ($) =>
+        choice(
+          $._replacement_nonportable_escape,
+          seq($._escape_prefix, issueField($, "nul_character")),
+        ),
     },
     {
       reason: "special_delimiter_escape",
@@ -1198,7 +1233,11 @@ function issueDefinitions(mode) {
     {
       reason: "unspecified_text_escape",
       outcome: "unspecified_syntax",
-      rule: ($) => $._text_unspecified_escape,
+      rule: ($) =>
+        choice(
+          $._text_unspecified_escape,
+          seq($._escape_prefix, issueField($, "nul_character")),
+        ),
     },
     ...(mode === "bre"
       ? [
@@ -1292,7 +1331,11 @@ function issueDefinitions(mode) {
         repeat1(
           choice(
             token.immediate(prec(-10, /[[:blank:]]+/)),
-            token.immediate(prec(-10, /[[:blank:]]*[^[:blank:];}\n][^;}\n]*/)),
+            token.immediate(
+              // biome-ignore lint/suspicious/noControlCharactersInRegex: NUL must remain a separate syntax issue.
+              prec(-10, /[[:blank:]]*[^[:blank:];}\n\x00][^;}\n\x00]*/),
+            ),
+            issueField($, "nul_character"),
             $._invalid_character,
           ),
         ),
@@ -1531,11 +1574,12 @@ function externalTokens($, mode) {
     $._translate_end,
     $._regex_literal,
     $._invalid_character,
+    $._nul_character,
     $._regex_beginning_anchor,
     $._regex_end_anchor,
     $._regex_period,
     $._regex_quoted_escape,
-    $._regex_escape_prefix,
+    $._escape_prefix,
     $._regex_newline_escape,
     $._regex_escaped_delimiter,
     $._regex_special_escaped_delimiter,
@@ -1630,6 +1674,7 @@ function externalTokens($, mode) {
     $._comment_text,
     $._file_argument,
     $._substitution_wfile_argument,
+    $._substitution_wfile_continuation,
     $._line_word,
     $._argument_separator,
     $._right_brace,

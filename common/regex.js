@@ -303,7 +303,7 @@ function commonRegularExpressionRules() {
       choice(
         namedExternal($, $._regex_quoted_escape, "quoted_character_token"),
         seq(
-          $._regex_escape_prefix,
+          $._escape_prefix,
           issueField($, "invalid_regular_expression_character"),
         ),
         $.escaped_delimiter,
