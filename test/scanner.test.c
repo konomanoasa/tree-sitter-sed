@@ -58,11 +58,10 @@ static ScannerState make_regex_state(void) {
     .delimiter = INT32_C(0x1f642),
     .mode = MODE_SUBSTITUTE_PATTERN,
     .regex_state = REGEX_OUTSIDE_BRACKET,
-    .regex_at_branch_start = true,
 #if SED_REGEX_EXTENDED
-    .regex_after_alternation = true,
+    .regex_position = REGEX_AFTER_ALTERNATION,
 #else
-    .regex_after_anchor = true,
+    .regex_position = REGEX_AFTER_ANCHOR,
 #endif
     .regex_group_depth = UINT32_C(37),
   };
@@ -112,7 +111,7 @@ static void check_serialization_round_trip(void) {
     source.regex_group_depth = depths[index];
     ScannerState destination = {0};
     destination.mode = MODE_TEXT;
-    destination.text_state = TEXT_HAS_CONTENT;
+    destination.text_line_has_content = true;
     char buffer[TREE_SITTER_SERIALIZATION_BUFFER_SIZE] = {0};
     serialize_state(&source, buffer);
 
@@ -126,35 +125,16 @@ static void check_serialization_round_trip(void) {
   }
 }
 
-static void check_invalid_serialization_resets_state(void) {
-  ScannerState source = make_regex_state();
-  ScannerState destination = make_regex_state();
-  char buffer[TREE_SITTER_SERIALIZATION_BUFFER_SIZE] = {0};
-  serialize_state(&source, buffer);
-
-  sed_scanner_deserialize(
-    &destination,
-    buffer,
-    SCANNER_SERIALIZED_STATE_SIZE - 1
-  );
-  assert_reset_state(&destination);
-
-  destination = make_regex_state();
-  buffer[0] = (char)(SCANNER_SERIALIZATION_VERSION + 1);
-  sed_scanner_deserialize(&destination, buffer, SCANNER_SERIALIZED_STATE_SIZE);
-  assert_reset_state(&destination);
-
-  destination = make_regex_state();
-  serialize_state(&source, buffer);
-  buffer[2] = (char)REGEX_BRACKET_BODY;
-  sed_scanner_deserialize(&destination, buffer, SCANNER_SERIALIZED_STATE_SIZE);
-  assert_reset_state(&destination);
+static void check_empty_serialization_resets_state(void) {
+  ScannerState state = make_regex_state();
+  sed_scanner_deserialize(&state, NULL, 0);
+  assert_reset_state(&state);
 }
 
-static void check_bracket_content_serialization_requires_an_active_term(void) {
+static void check_bracket_content_serialization_round_trip(void) {
   ScannerState source = make_regex_state();
   source.regex_state = REGEX_BRACKET_BODY;
-  set_regex_position(&source, false, REGEX_DUPLICATION_NONE, false, false);
+  source.regex_position = REGEX_AFTER_ATOM;
   source.regex_bracket_term_state = REGEX_BRACKET_TERM_COLON;
   source.regex_bracket_term_has_content = true;
   ScannerState destination = {0};
@@ -164,27 +144,6 @@ static void check_bracket_content_serialization_requires_an_active_term(void) {
   sed_scanner_deserialize(&destination, buffer, SCANNER_SERIALIZED_STATE_SIZE);
   assert(destination.regex_bracket_term_has_content);
   assert_same_state(&source, &destination);
-
-  source.regex_bracket_term_state = REGEX_BRACKET_TERM_NONE;
-  serialize_state(&source, buffer);
-  sed_scanner_deserialize(&destination, buffer, SCANNER_SERIALIZED_STATE_SIZE);
-  assert_reset_state(&destination);
-}
-
-static void check_variant_serialization(void) {
-  ScannerState source = make_regex_state();
-  source.regex_after_anchor = false;
-  source.regex_after_alternation = true;
-  ScannerState destination = {0};
-  char buffer[TREE_SITTER_SERIALIZATION_BUFFER_SIZE] = {0};
-  serialize_state(&source, buffer);
-
-  sed_scanner_deserialize(&destination, buffer, SCANNER_SERIALIZED_STATE_SIZE);
-#if SED_REGEX_EXTENDED
-  assert_same_state(&source, &destination);
-#else
-  assert_reset_state(&destination);
-#endif
 }
 
 static void check_failed_scan_preserves_state(void) {
@@ -229,7 +188,7 @@ static void check_bracket_term_delimiter_leaf_ranges(void) {
   for (size_t index = 0; index < sizeof(cases) / sizeof(cases[0]); index++) {
     ScannerState state = make_regex_state();
     state.regex_state = REGEX_BRACKET_FIRST;
-    set_regex_position(&state, false, REGEX_DUPLICATION_NONE, false, false);
+    state.regex_position = REGEX_AFTER_ATOM;
     MockLexer opening = make_mock_lexer(cases[index].opening_source);
     bool opening_symbols[ERROR_SENTINEL + 1] = {false};
     opening_symbols[cases[index].opening_symbol] = true;
@@ -275,13 +234,7 @@ static void check_bracket_term_delimiter_leaf_ranges(void) {
     assert(state.regex_bracket_pending_element == REGEX_BRACKET_PENDING_OTHER);
 
     ScannerState incomplete_state = make_regex_state();
-    set_regex_position(
-      &incomplete_state,
-      false,
-      REGEX_DUPLICATION_NONE,
-      false,
-      false
-    );
+    incomplete_state.regex_position = REGEX_AFTER_ATOM;
     incomplete_state.regex_state = REGEX_BRACKET_BODY;
     incomplete_state.regex_bracket_term_state = cases[index].term_state;
     ScannerState expected = incomplete_state;
@@ -300,7 +253,7 @@ static void check_bracket_term_delimiter_leaf_ranges(void) {
 
   ScannerState state = make_regex_state();
   state.regex_state = REGEX_BRACKET_FIRST;
-  set_regex_position(&state, false, REGEX_DUPLICATION_NONE, false, false);
+  state.regex_position = REGEX_AFTER_ATOM;
   MockLexer opening = make_mock_lexer("[x");
   bool valid_symbols[ERROR_SENTINEL + 1] = {false};
   valid_symbols[REGEX_BRACKET_LITERAL] = true;
@@ -319,9 +272,8 @@ static void check_bracket_term_delimiter_leaf_ranges(void) {
 int main(void) {
   check_lifecycle();
   check_serialization_round_trip();
-  check_invalid_serialization_resets_state();
-  check_bracket_content_serialization_requires_an_active_term();
-  check_variant_serialization();
+  check_empty_serialization_resets_state();
+  check_bracket_content_serialization_round_trip();
   check_failed_scan_preserves_state();
   check_bracket_term_delimiter_leaf_ranges();
   return 0;

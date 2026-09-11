@@ -295,39 +295,32 @@ function bracketRules() {
 
 function commonRegularExpressionRules() {
   return {
-    dup_count: ($) => namedExternal($, $._regex_dup_count, "dup_count_token"),
+    dup_count: ($) => $._regex_dup_count,
 
-    ordinary_character: ($) =>
-      namedExternal($, $._regex_literal, "ordinary_character_token"),
+    ordinary_character: ($) => $._regex_literal,
 
     quoted_character: ($) =>
       choice(
         namedExternal($, $._regex_quoted_escape, "quoted_character_token"),
+        seq(
+          $._regex_escape_prefix,
+          issueField($, "invalid_regular_expression_character"),
+        ),
         $.escaped_delimiter,
         issueField($, "ordinary_character_escape"),
         issueField($, "incomplete_regular_expression_escape"),
         issueField($, "forbidden_regular_expression_newline"),
       ),
 
-    escaped_delimiter: ($) =>
-      field(
-        "token",
-        namedExternal($, $._regex_escaped_delimiter, "escaped_delimiter_token"),
-      ),
+    escaped_delimiter: ($) => $._regex_escaped_delimiter,
 
-    ambiguous_delimiter_escape: ($) =>
-      issueField($, "special_delimiter_escape"),
+    sed_newline_escape: ($) => $._regex_newline_escape,
 
-    sed_newline_escape: ($) =>
-      namedExternal($, $._regex_newline_escape, "sed_newline_escape_token"),
+    period: ($) => $._regex_period,
 
-    period: ($) => namedExternal($, $._regex_period, "period_token"),
+    left_anchor: ($) => $._regex_beginning_anchor,
 
-    left_anchor: ($) =>
-      namedExternal($, $._regex_beginning_anchor, "left_anchor_token"),
-
-    right_anchor: ($) =>
-      namedExternal($, $._regex_end_anchor, "right_anchor_token"),
+    right_anchor: ($) => $._regex_end_anchor,
 
     ...bracketRules(),
   };
@@ -342,19 +335,6 @@ function breDuplicationSymbol($) {
 
 function breRules() {
   return {
-    bre_extension_escape: ($) =>
-      choice(
-        issueField($, "bre_vertical_line_escape"),
-        issueField($, "bre_question_mark_escape"),
-        issueField($, "bre_plus_escape"),
-      ),
-
-    bre_subexpression_anchor: ($) =>
-      choice(
-        issueField($, "bre_subexpression_right_anchor"),
-        issueField($, "bre_subexpression_left_anchor"),
-      ),
-
     basic_reg_exp: ($) => $.bre_branch,
 
     bre_branch: ($) =>
@@ -440,8 +420,7 @@ function breRules() {
     back_close_parenthesis: ($) =>
       subexpressionClose($, "back_close_parenthesis_token"),
 
-    backreference: ($) =>
-      namedExternal($, $._regex_backreference, "backreference_token"),
+    backreference: ($) => $._regex_backreference,
 
     one_char_or_coll_elem_bre: ($) =>
       choice(
@@ -451,9 +430,12 @@ function breRules() {
         $.sed_newline_escape,
         $.period,
         $._bracket_expression,
-        $.ambiguous_delimiter_escape,
-        $.bre_extension_escape,
-        $.bre_subexpression_anchor,
+        issueField($, "special_delimiter_escape"),
+        issueField($, "bre_vertical_line_escape"),
+        issueField($, "bre_question_mark_escape"),
+        issueField($, "bre_plus_escape"),
+        issueField($, "bre_subexpression_right_anchor"),
+        issueField($, "bre_subexpression_left_anchor"),
       ),
 
     bre_dupl_symbol: ($) => breDuplicationSymbol($),
@@ -495,12 +477,7 @@ function ereRules() {
         issueField($, "incomplete_alternative"),
       ),
 
-    ere_alternation_operator: ($) =>
-      namedExternal(
-        $,
-        $._regex_alternation_operator,
-        "ere_alternation_operator_token",
-      ),
+    ere_alternation_operator: ($) => $._regex_alternation_operator,
 
     ere_branch: ($) =>
       choice(
@@ -549,7 +526,7 @@ function ereRules() {
         $.sed_newline_escape,
         $.period,
         $._bracket_expression,
-        $.ambiguous_delimiter_escape,
+        issueField($, "special_delimiter_escape"),
       ),
 
     ere_dupl_symbol: ($) =>

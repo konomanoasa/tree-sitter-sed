@@ -20,8 +20,7 @@ s#^(ab|c)+d{2,3}$#x#
                 (ere_branch
                   (ere_branch
                     (ere_expression
-                      (left_anchor
-                        (left_anchor_token))))
+                      (left_anchor)))
                   (ere_expression
                     (ere_expression
                       (open_parenthesis)
@@ -31,19 +30,15 @@ s#^(ab|c)+d{2,3}$#x#
                             (ere_branch
                               (ere_expression
                                 (one_char_or_coll_elem_ere
-                                  (ordinary_character
-                                    (ordinary_character_token)))))
+                                  (ordinary_character))))
                             (ere_expression
                               (one_char_or_coll_elem_ere
-                                (ordinary_character
-                                  (ordinary_character_token))))))
-                        (ere_alternation_operator
-                          (ere_alternation_operator_token))
+                                (ordinary_character)))))
+                        (ere_alternation_operator)
                         (ere_branch
                           (ere_expression
                             (one_char_or_coll_elem_ere
-                              (ordinary_character
-                                (ordinary_character_token))))))
+                              (ordinary_character)))))
                       (close_parenthesis
                         (close_parenthesis_token)))
                     (ere_dupl_symbol
@@ -51,24 +46,19 @@ s#^(ab|c)+d{2,3}$#x#
                 (ere_expression
                   (ere_expression
                     (one_char_or_coll_elem_ere
-                      (ordinary_character
-                        (ordinary_character_token))))
+                      (ordinary_character)))
                   (ere_dupl_symbol
                     (open_brace)
-                    (dup_count
-                      (dup_count_token))
+                    (dup_count)
                     (interval_separator)
-                    (dup_count
-                      (dup_count_token))
+                    (dup_count)
                     (close_brace))))
               (ere_expression
-                (right_anchor
-                  (right_anchor_token)))))
+                (right_anchor))))
           (delimiter
             (delimiter_token))
           (replacement
-            (replacement_literal
-              (replacement_literal_token)))
+            (replacement_literal))
           (delimiter
             (delimiter_token)))))
     (command_separator)))
@@ -96,8 +86,7 @@ Preserves adjacent and leading ERE duplication structures
                     (ere_expression
                       (ere_expression
                         (one_char_or_coll_elem_ere
-                          (ordinary_character
-                            (ordinary_character_token))))
+                          (ordinary_character)))
                       (ere_dupl_symbol
                         (zero_or_more_operator)))
                     (syntax_issue
@@ -105,12 +94,10 @@ Preserves adjacent and leading ERE duplication structures
                         (adjacent_duplication_symbol
                           (ere_dupl_symbol
                             (open_brace)
-                            (dup_count
-                              (dup_count_token))
+                            (dup_count)
                             (close_brace)
                             (repetition_modifier))))))))
-              (ere_alternation_operator
-                (ere_alternation_operator_token))
+              (ere_alternation_operator)
               (ere_branch
                 (ere_expression
                   (syntax_issue
@@ -118,8 +105,7 @@ Preserves adjacent and leading ERE duplication structures
                       (leading_duplication_symbol
                         (ere_dupl_symbol
                           (open_brace)
-                          (dup_count
-                            (dup_count_token))
+                          (dup_count)
                           (close_brace))))))))
             (delimiter
               (delimiter_token)))))
@@ -157,8 +143,7 @@ s///w pig file
               (global_flag)
               (substitution_flag)
               (occurrence_flag)
-              (wfile
-                (wfile_token)))))))
+              (wfile))))))
     (command_separator)
     (editing_command
       (function
@@ -173,8 +158,7 @@ s///w pig file
           (substitution_flags
             (write_flag
               (substitution_flag)
-              (wfile
-                (wfile_token)))))))
+              (wfile))))))
     (command_separator)))
 
 ==================
@@ -201,39 +185,33 @@ Exposes POSIX repetition modifiers
                       (ere_expression
                         (ere_expression
                           (one_char_or_coll_elem_ere
-                            (ordinary_character
-                              (ordinary_character_token))))
+                            (ordinary_character)))
                         (ere_dupl_symbol
                           (zero_or_more_operator)
                           (repetition_modifier))))
                     (ere_expression
                       (ere_expression
                         (one_char_or_coll_elem_ere
-                          (ordinary_character
-                            (ordinary_character_token))))
+                          (ordinary_character)))
                       (ere_dupl_symbol
                         (one_or_more_operator)
                         (repetition_modifier))))
                   (ere_expression
                     (ere_expression
                       (one_char_or_coll_elem_ere
-                        (ordinary_character
-                          (ordinary_character_token))))
+                        (ordinary_character)))
                     (ere_dupl_symbol
                       (zero_or_one_operator)
                       (repetition_modifier))))
                 (ere_expression
                   (ere_expression
                     (one_char_or_coll_elem_ere
-                      (ordinary_character
-                        (ordinary_character_token))))
+                      (ordinary_character)))
                   (ere_dupl_symbol
                     (open_brace)
-                    (dup_count
-                      (dup_count_token))
+                    (dup_count)
                     (interval_separator)
-                    (dup_count
-                      (dup_count_token))
+                    (dup_count)
                     (close_brace)
                     (repetition_modifier)))))
             (delimiter
@@ -273,21 +251,17 @@ Classifies empty ERE subexpressions and alternatives inside the POSIX hierarchy
                           (close_parenthesis_token))))
                     (ere_expression
                       (one_char_or_coll_elem_ere
-                        (ordinary_character
-                          (ordinary_character_token))))))
-                (ere_alternation_operator
-                  (ere_alternation_operator_token))
+                        (ordinary_character)))))
+                (ere_alternation_operator)
                 (ere_branch
                   (syntax_issue
                     (undefined_syntax
                       (empty_alternative)))))
-              (ere_alternation_operator
-                (ere_alternation_operator_token))
+              (ere_alternation_operator)
               (ere_branch
                 (ere_expression
                   (one_char_or_coll_elem_ere
-                    (ordinary_character
-                      (ordinary_character_token))))))
+                    (ordinary_character)))))
             (delimiter
               (delimiter_token)))))
       (function
@@ -354,8 +328,7 @@ Classifies excess address units in ERE mode
       (function
         (label_function
           (function_verb)
-          (label
-            (label_token)))))
+          (label))))
     (command_separator)))
 
 ==================
@@ -383,12 +356,10 @@ Leaves following constructs outside a malformed ERE interval
                     (ere_expression
                       (ere_expression
                         (one_char_or_coll_elem_ere
-                          (ordinary_character
-                            (ordinary_character_token))))
+                          (ordinary_character)))
                       (ere_dupl_symbol
                         (open_brace)
-                        (dup_count
-                          (dup_count_token))
+                        (dup_count)
                         (syntax_issue
                           (undefined_syntax
                             (malformed_interval))))))
@@ -414,8 +385,7 @@ Leaves following constructs outside a malformed ERE interval
                           (close_bracket_token))))))
                 (ere_expression
                   (one_char_or_coll_elem_ere
-                    (ordinary_character
-                      (ordinary_character_token))))))
+                    (ordinary_character)))))
             (delimiter
               (delimiter_token)))))
       (function
@@ -437,12 +407,10 @@ Leaves following constructs outside a malformed ERE interval
                       (ere_expression
                         (ere_expression
                           (one_char_or_coll_elem_ere
-                            (ordinary_character
-                              (ordinary_character_token))))
+                            (ordinary_character)))
                         (ere_dupl_symbol
                           (open_brace)
-                          (dup_count
-                            (dup_count_token))
+                          (dup_count)
                           (syntax_issue
                             (undefined_syntax
                               (malformed_interval)))))))
@@ -466,22 +434,18 @@ Leaves following constructs outside a malformed ERE interval
                   (ere_expression
                     (ere_expression
                       (one_char_or_coll_elem_ere
-                        (ordinary_character
-                          (ordinary_character_token))))
+                        (ordinary_character)))
                     (ere_dupl_symbol
                       (open_brace)
-                      (dup_count
-                        (dup_count_token))
+                      (dup_count)
                       (syntax_issue
                         (undefined_syntax
                           (malformed_interval)))))))
-              (ere_alternation_operator
-                (ere_alternation_operator_token))
+              (ere_alternation_operator)
               (ere_branch
                 (ere_expression
                   (one_char_or_coll_elem_ere
-                    (ordinary_character
-                      (ordinary_character_token))))))
+                    (ordinary_character)))))
             (delimiter
               (delimiter_token)))))
       (function

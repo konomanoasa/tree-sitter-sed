@@ -159,13 +159,11 @@ p
                 (simple_bre
                   (nondupl_bre
                     (one_char_or_coll_elem_bre
-                      (ordinary_character
-                        (ordinary_character_token))))))))
+                      (ordinary_character)))))))
           (delimiter
             (delimiter_token))
           (replacement
-            (replacement_literal
-              (replacement_literal_token)))
+            (replacement_literal))
           (delimiter
             (syntax_issue
               (nonconforming_syntax
@@ -191,7 +189,9 @@ p};p
   (command_list
     (syntax_issue
       (nonconforming_syntax
-        (unmatched_closing_brace)))
+        (unmatched_closing_brace
+          (closing_brace
+            (closing_brace_token)))))
     (syntax_issue
       (nonconforming_syntax
         (missing_command_separator)))
@@ -212,7 +212,9 @@ p};p
         (missing_command_separator)))
     (syntax_issue
       (nonconforming_syntax
-        (unmatched_closing_brace)))
+        (unmatched_closing_brace
+          (closing_brace
+            (closing_brace_token)))))
     (command_separator)
     (editing_command
       (function
@@ -223,7 +225,9 @@ p};p
         (missing_command_separator)))
     (syntax_issue
       (nonconforming_syntax
-        (unmatched_closing_brace)))
+        (unmatched_closing_brace
+          (closing_brace
+            (closing_brace_token)))))
     (command_separator)
     (editing_command
       (function

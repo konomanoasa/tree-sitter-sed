@@ -1,22 +1,24 @@
 [
   (address_escape)
-  (escaped_delimiter_token)
+  (escaped_delimiter)
+  (replacement_escaped_delimiter)
+  (translation_escaped_delimiter)
   (quoted_character_token)
-  (replacement_escape_token)
-  (sed_newline_escape_token)
-  (text_backslash_escape_token)
-  (translation_escape_token)
+  (replacement_escape)
+  (sed_newline_escape)
+  (text_backslash_escape)
+  (translation_escape)
 ] @string.escape
 
 [
   (back_bar)
   (back_plus)
   (back_qm)
-  (left_anchor_token)
+  (left_anchor)
   (negation_operator)
   (nonmatching_list_operator)
   (range_operator)
-  (right_anchor_token)
+  (right_anchor)
   (zero_or_more_operator)
 ] @operator
 
@@ -34,30 +36,30 @@
 (default_output_suppression) @keyword.directive
 
 [
-  (escaped_newline_token)
+  (escaped_newline)
   (text_introducer_token)
-  (text_escaped_newline_token)
+  (text_escaped_newline)
 ] @punctuation.special
 
-(label_token) @label
+(label) @label
 
 (last_line_address) @constant.builtin
 
 [
-  (dup_count_token)
+  (dup_count)
   (line_number_address)
   (occurrence_flag)
 ] @number
 
 [
-  (backreference_token)
-  (matched_text_reference_token)
-  (replacement_backreference_token)
+  (backreference)
+  (matched_text_reference)
+  (replacement_backreference)
 ] @string.special.symbol
 
 [
-  (rfile_token)
-  (wfile_token)
+  (rfile)
+  (wfile)
 ] @string.special.path
 
 [
@@ -111,7 +113,7 @@
   (coll_elem_single)
   (collating_element_token)
   (meta_char)
-  (period_token)
+  (period)
 ] @character.special
 
 [
@@ -123,12 +125,12 @@
 ((command_separator) @punctuation.delimiter
   (#eq? @punctuation.delimiter ";"))
 
-(ordinary_character_token) @string.regexp
+(ordinary_character) @string.regexp
 
 [
-  (replacement_literal_token)
-  (text_literal_token)
-  (translation_literal_token)
+  (replacement_literal)
+  (text_literal)
+  (translation_literal)
 ] @string
 
 (block_function

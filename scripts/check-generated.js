@@ -41,7 +41,7 @@ const parserBudgets = {
     STATE_COUNT: 2_000,
     LARGE_STATE_COUNT: 50,
     SYMBOL_COUNT: 625,
-    EXTERNAL_TOKEN_COUNT: 139,
+    EXTERNAL_TOKEN_COUNT: 140,
     parser_bytes: 2_000_000,
     maximum_ACTIONS_index: 3_250,
     parse_table_storage_bytes: 150_000,
@@ -207,19 +207,6 @@ function requiredSingleChildren(node, path) {
   return children.types;
 }
 
-function requiredIssueField(node, path) {
-  const issue = node.fields?.issue;
-  if (
-    !issue?.required ||
-    issue.multiple ||
-    issue.types.length !== 1 ||
-    issue.types[0].type !== "syntax_issue" ||
-    !issue.types[0].named
-  ) {
-    throw new Error(`${path}: expected one required syntax_issue field`);
-  }
-}
-
 function checkPublicCst(grammar, generatedRoot) {
   const path = join(generatedRoot, grammar.path, "src", "node-types.json");
   const displayPath = relative(generatedRoot, path);
@@ -248,20 +235,6 @@ function checkPublicCst(grammar, generatedRoot) {
     if (present !== actualOutcomes.has(outcome)) {
       throw new Error(`${displayPath}: ${outcome} bypasses syntax_issue`);
     }
-  }
-
-  const neutralNodes = [
-    "ambiguous_delimiter_escape",
-    "ambiguous_replacement_delimiter_escape",
-  ];
-  if (grammar.name === "sed") {
-    neutralNodes.push("bre_extension_escape", "bre_subexpression_anchor");
-  }
-  for (const type of neutralNodes) {
-    requiredIssueField(
-      namedNode(nodeTypes, type, displayPath),
-      `${displayPath}:${type}`,
-    );
   }
 }
 

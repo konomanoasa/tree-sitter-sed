@@ -152,6 +152,34 @@ function issuePaths(tree) {
   );
 }
 
+function syntaxSignatures(tree, types) {
+  const selected = new Set(types);
+  const ancestors = [];
+  const signatures = [];
+  for (const line of tree.split("\n")) {
+    const node = nodeHeader(line);
+    if (node === null) {
+      continue;
+    }
+    const indentation = line.length - line.trimStart().length;
+    while (
+      ancestors.length > 0 &&
+      ancestors.at(-1).indentation >= indentation
+    ) {
+      ancestors.pop();
+    }
+    if (selected.has(node.type)) {
+      const field = /^ *([a-z_]+: )?\(/.exec(line)?.[1] ?? "";
+      const depth = ancestors.filter(({ type }) => selected.has(type)).length;
+      signatures.push(
+        `${"  ".repeat(depth)}${field}${node.type} ${node.range}`,
+      );
+    }
+    ancestors.push({ type: node.type, indentation });
+  }
+  return signatures;
+}
+
 function assertNoNodes(tree, ...types) {
   assert.doesNotMatch(
     tree,
@@ -173,31 +201,62 @@ function parenthesisBalance(line) {
 }
 
 function topLevelEditingCommands(tree) {
-  const lines = tree.split("\n");
+  const rows = tree.split("\n").flatMap((line) => {
+    const match =
+      /^([0-9]+):([0-9]+) +- +([0-9]+):([0-9]+)( +)([a-z_"].*)$/.exec(line);
+    return match === null
+      ? []
+      : [
+          {
+            start: [Number(match[1]), Number(match[2])],
+            end: [Number(match[3]), Number(match[4])],
+            column: line.length - match[6].length,
+            content: match[6],
+          },
+        ];
+  });
+  const commandList = rows.find(({ content }) => content === "command_list");
+  assert.ok(commandList !== undefined, `missing command_list\n${tree}`);
   const commands = [];
-  for (let index = 0; index < lines.length; index++) {
-    if (!lines[index].startsWith("    (editing_command")) {
+  for (let index = 0; index < rows.length; index++) {
+    const command = rows[index];
+    if (
+      command.column !== commandList.column + 2 ||
+      command.content !== "editing_command"
+    ) {
       continue;
     }
-    const command = [lines[index]];
-    let balance = parenthesisBalance(lines[index]);
-    while (balance > 0) {
-      index += 1;
-      assert.ok(index < lines.length, `unterminated editing_command\n${tree}`);
-      command.push(lines[index]);
-      balance += parenthesisBalance(lines[index]);
+    function relativePoint([row, column]) {
+      return [
+        row - command.start[0],
+        row === command.start[0] ? column - command.start[1] : column,
+      ];
     }
-    commands.push(command.join("\n"));
+    const nodes = [];
+    do {
+      const row = rows[index];
+      nodes.push({
+        depth: row.column - command.column,
+        content: row.content,
+        start: relativePoint(row.start),
+        end: relativePoint(row.end),
+      });
+      index += 1;
+    } while (index < rows.length && rows[index].column > command.column);
+    index -= 1;
+    commands.push({ start: command.start, nodes });
   }
   return commands;
 }
 
 function assertIncrementalContract(fresh, incremental, context) {
-  assert.equal(
-    incremental.status,
-    fresh.status,
-    `${context}: fresh and incremental statuses differ`,
-  );
+  for (const result of [fresh, incremental]) {
+    assert.ok(
+      result.status === 0 || result.status === 1,
+      `${context}: parser failed\n${result.stdout}${result.stderr}`,
+    );
+    assert.equal(nodeHeader(result.stdout.split("\n")[0])?.type, "script");
+  }
   const freshIssues = issueSignatures(fresh.stdout);
   assert.deepEqual(
     issueSignatures(incremental.stdout),
@@ -205,6 +264,7 @@ function assertIncrementalContract(fresh, incremental, context) {
     `${context}: fresh and incremental issue signatures differ`,
   );
   if (fresh.status === 0 && freshIssues.length === 0) {
+    assert.equal(incremental.status, 0, `${context}: normal source has errors`);
     assert.equal(
       incremental.stdout,
       fresh.stdout,
@@ -420,7 +480,7 @@ const boundaryCases = [
     scope: "source.sed",
     source: "/a*\\+/p\n",
     issues: ["implementation_defined_syntax/bre_plus_escape"],
-    nodes: ["zero_or_more_operator", "bre_extension_escape", "print_function"],
+    nodes: ["zero_or_more_operator", "bre_plus_escape", "print_function"],
   },
   {
     name: "unfinished replacement at source end",
@@ -489,43 +549,85 @@ const boundaryCases = [
     ],
     nodes: ["line_number_address", "address_separator_token"],
   },
+];
+
+const invalidCharacterCases = [
   {
-    name: "NUL remains native parser recovery",
-    scope: "source.sed",
-    source: "s\0p\n",
-    issues: [],
-    nodes: ["ERROR", "print_function"],
-    nativeRecovery: true,
+    name: "function at source end",
+    source: "\0",
+    issues: [["unknown_function", "[0, 0] - [0, 1]"]],
+  },
+  {
+    name: "function between complete commands",
+    source: "p\n\0\nq\n",
+    issues: [["unknown_function", "[1, 0] - [1, 1]"]],
+  },
+  {
+    name: "trailing command text",
+    source: "pX\0q\0\n",
+    issues: [["unexpected_command_text", "[0, 1] - [0, 5]"]],
+  },
+  ...["s", "y"].map((verb) => ({
+    name: `${verb} opening delimiter`,
+    source: `${verb}\0p\n`,
+    issues: [
+      ["invalid_delimiter", "[0, 1] - [0, 2]"],
+      ["unexpected_command_text", "[0, 2] - [0, 3]"],
+    ],
+  })),
+  {
+    name: "context address opening delimiter",
+    source: "\\\0p\n",
+    issues: [["invalid_delimiter", "[0, 1] - [0, 2]"]],
   },
 ];
 
-const decodeErrorDelimiterCases = [
-  { name: "substitute", source: "s\xffa\xffb\xff\n" },
-  { name: "translate", source: "y\xffa\xffb\xff\n" },
-  { name: "context address", source: "\\\xffa\xffp\n" },
-];
-
 for (const grammar of grammars) {
-  for (const testCase of decodeErrorDelimiterCases) {
-    test(`decode error delimiter: ${testCase.name} in ${grammar.name}`, () => {
-      const result = parse(
-        grammar.scope,
-        Buffer.from(testCase.source, "latin1"),
-      );
-      assert.equal(result.status, 1, result.stdout + result.stderr);
-      assert.ok(result.stdout.includes("(ERROR"), result.stdout);
-      assertNoNodes(result.stdout, "delimiter", "delimiter_token");
-    });
+  for (const [name, character] of [
+    ["NUL", "\0"],
+    ["decode error", "\xff"],
+  ]) {
+    for (const testCase of invalidCharacterCases) {
+      test(`${name}: ${testCase.name} in ${grammar.name}`, () => {
+        const source = Buffer.from(
+          testCase.source.replaceAll("\0", character),
+          "latin1",
+        );
+        const fresh = parseSuccessfully(grammar.scope, source, [], {
+          ranges: true,
+        });
+        assert.deepEqual(
+          issueSignatures(fresh.stdout),
+          testCase.issues.map(([reason, range]) => ({
+            outcome: "nonconforming_syntax",
+            reason,
+            range,
+          })),
+          fresh.stdout,
+        );
+        assertNoNodes(fresh.stdout, "ERROR", "MISSING");
+        const incremental = parse(
+          grammar.scope,
+          Buffer.concat([Buffer.from("p\n"), source]),
+          ["0,0 2 "],
+          { ranges: true },
+        );
+        assertIncrementalContract(
+          fresh,
+          incremental,
+          `${name}: ${testCase.name}`,
+        );
+      });
+    }
   }
 }
 
 for (const testCase of boundaryCases) {
   test(`boundary: ${testCase.name}`, () => {
     const result = parse(testCase.scope, testCase.source);
-    const expectedStatus = testCase.nativeRecovery ? 1 : 0;
     assert.equal(
       result.status,
-      expectedStatus,
+      0,
       `unexpected parse status\n${result.stdout}${result.stderr}`,
     );
     assert.deepEqual(issuePaths(result.stdout), testCase.issues, result.stdout);
@@ -535,9 +637,7 @@ for (const testCase of boundaryCases) {
         `missing ${node}\n${result.stdout}`,
       );
     }
-    if (!testCase.nativeRecovery) {
-      assertNoNodes(result.stdout, "ERROR", "MISSING");
-    }
+    assertNoNodes(result.stdout, "ERROR", "MISSING");
   });
 }
 
@@ -950,6 +1050,19 @@ for (const testCase of regexIssueOwnershipCases) {
       );
     }
 
+    const retainedTypes = [
+      testCase.child,
+      ...testCase.issues.map(({ reason }) => reason),
+      "dup_count",
+      "interval_separator",
+      "class_name",
+      "coll_elem_single",
+      "coll_elem_multi",
+      "meta_char",
+      "repetition_modifier",
+    ];
+    const retained = syntaxSignatures(fresh.stdout, retainedTypes);
+
     const replacementEdit = `${testCase.source.length - 3} 1 y`;
     const changedReplacement = applyEdits(testCase.source, [replacementEdit]);
     const incremental = parseSuccessfully(
@@ -959,7 +1072,10 @@ for (const testCase of regexIssueOwnershipCases) {
       { ranges: true },
     );
     assertIncrementalContract(fresh, incremental, testCase.name);
-    assert.equal(incremental.stdout, fresh.stdout);
+    assert.deepEqual(
+      syntaxSignatures(incremental.stdout, retainedTypes),
+      retained,
+    );
 
     const patternEnd = testCase.source.lastIndexOf("/x/");
     const inserted = parseSuccessfully(
@@ -969,7 +1085,10 @@ for (const testCase of regexIssueOwnershipCases) {
       { ranges: true },
     );
     assertIncrementalContract(fresh, inserted, testCase.name);
-    assert.equal(inserted.stdout, fresh.stdout);
+    assert.deepEqual(
+      syntaxSignatures(inserted.stdout, retainedTypes),
+      retained,
+    );
   });
 }
 
@@ -1621,25 +1740,123 @@ test("schema: unmatched BRE closer reasons require their source child", () => {
   }
 });
 
-test("recovery localizes a broken top-level editing command", () => {
-  const result = parseSuccessfully("source.sed", "p\n/[a\nd\n");
-  assert.deepEqual(issuePaths(result.stdout), [
-    "undefined_syntax/unclosed_bracket_expression",
-    "nonconforming_syntax/unterminated_regular_expression",
-    "nonconforming_syntax/missing_function",
-  ]);
+const commandRecoveryCases = [
+  {
+    name: "raw newline after an unclosed bracket expression",
+    before: "  1,2!p\n",
+    broken: "/[a\n",
+    after: "\t/[[.a.]][[=b=]][[:alpha:]]/d\n",
+    initial: "/[a]/p\n",
+    edit: "3 3 ",
+    boundary: 3,
+    issues: [
+      "undefined_syntax/unclosed_bracket_expression",
+      "nonconforming_syntax/unterminated_regular_expression",
+      "nonconforming_syntax/missing_function",
+    ],
+  },
+  {
+    name: "semicolon after an unknown function",
+    before: "  1,2!p;",
+    broken: "Z;",
+    after: "\t/[[.a.]][[=b=]][[:alpha:]]/d\n",
+    initial: "p;",
+    edit: "0 1 Z",
+    boundary: 1,
+    issues: ["nonconforming_syntax/unknown_function"],
+  },
+  {
+    name: "closed block containing an unknown function",
+    before: "  1{\np\n};",
+    broken: "{Z\n};",
+    after: "\t2s/a/b/\n",
+    initial: "{p\n};",
+    edit: "1 1 Z",
+    boundary: 3,
+    issues: ["nonconforming_syntax/unknown_function"],
+  },
+];
 
-  const commands = topLevelEditingCommands(result.stdout);
-  assert.equal(commands.length, 3, result.stdout);
-  assert.equal(
-    commands[0],
-    topLevelEditingCommands(parse("source.sed", "p\n").stdout)[0],
-  );
-  assert.equal(
-    commands[2],
-    topLevelEditingCommands(parse("source.sed", "d\n").stdout)[0],
-  );
-});
+for (const grammar of grammars) {
+  for (const testCase of commandRecoveryCases) {
+    test(`recovery preserves surrounding commands across ${testCase.name} in ${grammar.name}`, () => {
+      const { before, broken, after } = testCase;
+      const source = before + broken + after;
+      assert.deepEqual(
+        issuePaths(parseSuccessfully(grammar.scope, source).stdout),
+        testCase.issues,
+      );
+      const options = { cst: true, ranges: true };
+      const followingLines = (before + broken).split("\n");
+      const expected = [
+        { source: before, start: [0, 0] },
+        {
+          source: after,
+          start: [
+            followingLines.length - 1,
+            Buffer.byteLength(followingLines.at(-1)),
+          ],
+        },
+      ].map(({ source: commandSource, start }) => {
+        const result = parseSuccessfully(
+          grammar.scope,
+          commandSource,
+          [],
+          options,
+        );
+        return {
+          start,
+          nodes: topLevelEditingCommands(result.stdout)[0].nodes,
+        };
+      });
+      const offset = Buffer.byteLength(before);
+      const editPosition = Number(testCase.edit.split(" ")[0]);
+      const boundaryPosition = offset + testCase.boundary;
+      const histories = [
+        { name: "fresh", source, edits: [] },
+        {
+          name: "damage a normal command",
+          source: before + testCase.initial + after,
+          edits: [
+            `${offset + editPosition}${testCase.edit.slice(testCase.edit.indexOf(" "))}`,
+          ],
+        },
+        {
+          name: "remove and restore the recovery boundary",
+          source,
+          edits: [
+            `${boundaryPosition} 1 `,
+            `${boundaryPosition} 0 ${broken[testCase.boundary]}`,
+          ],
+        },
+      ];
+      for (const history of histories) {
+        assert.deepEqual(
+          applyEdits(history.source, history.edits),
+          Buffer.from(source),
+          history.name,
+        );
+        const result = parseSuccessfully(
+          grammar.scope,
+          history.source,
+          history.edits,
+          options,
+        );
+        const commands = topLevelEditingCommands(result.stdout);
+        for (const command of expected) {
+          assert.deepEqual(
+            commands.find(
+              ({ start }) =>
+                start[0] === command.start[0] && start[1] === command.start[1],
+            ),
+            command,
+            `${history.name}: intact command at ${command.start}\n${result.stdout}`,
+          );
+        }
+      }
+    });
+  }
+}
 
 const bracketDelimiterConvergenceCases = grammars.flatMap((grammar) => [
   {
@@ -1742,9 +1959,50 @@ const explicitConvergenceCases = [
     name: "missing separator after an unmatched closing brace",
     scope: "source.sed",
     source: "}p\n",
+    issues: [
+      {
+        outcome: "nonconforming_syntax",
+        reason: "unmatched_closing_brace",
+        range: "[0, 0] - [0, 1]",
+      },
+      {
+        outcome: "nonconforming_syntax",
+        reason: "missing_command_separator",
+        range: "[0, 1] - [0, 1]",
+      },
+    ],
+    syntax: [
+      "unmatched_closing_brace [0, 0] - [0, 1]",
+      "  closing_brace [0, 0] - [0, 1]",
+      "    closing_brace_token [0, 0] - [0, 1]",
+      "function: function [0, 1] - [0, 2]",
+      "  print_function [0, 1] - [0, 2]",
+      "    verb: function_verb [0, 1] - [0, 2]",
+    ],
     histories: [
       { source: "}\n", edits: ["1 0 p"] },
       { source: "};p\n", edits: ["1 1 "] },
+    ],
+  },
+  {
+    name: "BRE subexpression anchor application requirements",
+    scope: "source.sed",
+    source: "/\\(^a$\\)/p\n",
+    issues: [
+      {
+        outcome: "nonconforming_syntax",
+        reason: "bre_subexpression_left_anchor",
+        range: "[0, 3] - [0, 4]",
+      },
+      {
+        outcome: "nonconforming_syntax",
+        reason: "bre_subexpression_right_anchor",
+        range: "[0, 5] - [0, 6]",
+      },
+    ],
+    histories: [
+      { source: "/\\(a\\)/p\n", edits: ["3 0 ^", "5 0 $"] },
+      { source: "/^a$/p\n", edits: ["1 0 \\(", "6 0 \\)"] },
     ],
   },
   {
@@ -1840,6 +2098,19 @@ const explicitConvergenceCases = [
         name: `excess address unit on a one-address function in ${grammar.name}`,
         source: "1,2q\n",
         issues: [excess("[0, 1] - [0, 3]")],
+        syntax: [
+          "addresses: address_clause [0, 0] - [0, 3]",
+          "  first: address [0, 0] - [0, 1]",
+          "    line_number_address [0, 0] - [0, 1]",
+          "  excess_address [0, 1] - [0, 3]",
+          "    separator: address_separator [0, 1] - [0, 2]",
+          "      token: address_separator_token [0, 1] - [0, 2]",
+          "    address: address [0, 2] - [0, 3]",
+          "      line_number_address [0, 2] - [0, 3]",
+          "function: function [0, 3] - [0, 4]",
+          "  quit_function [0, 3] - [0, 4]",
+          "    verb: function_verb [0, 3] - [0, 4]",
+        ],
         histories: [
           { source: "1,2p\n", edits: ["3 1 q"] },
           { source: "1q\n", edits: ["1 0 ,2"] },
@@ -1882,6 +2153,18 @@ const explicitConvergenceCases = [
         name: `omission nested inside an excess address unit in ${grammar.name}`,
         source: "1,q\n",
         issues: [excess("[0, 1] - [0, 2]"), omitted("[0, 2] - [0, 2]")],
+        syntax: [
+          "addresses: address_clause [0, 0] - [0, 2]",
+          "  first: address [0, 0] - [0, 1]",
+          "    line_number_address [0, 0] - [0, 1]",
+          "  excess_address [0, 1] - [0, 2]",
+          "    separator: address_separator [0, 1] - [0, 2]",
+          "      token: address_separator_token [0, 1] - [0, 2]",
+          "    omitted_address [0, 2] - [0, 2]",
+          "function: function [0, 2] - [0, 3]",
+          "  quit_function [0, 2] - [0, 3]",
+          "    verb: function_verb [0, 2] - [0, 3]",
+        ],
         histories: [
           { source: "1,2q\n", edits: ["2 1 "] },
           { source: "1q\n", edits: ["1 0 ,"] },
@@ -1930,6 +2213,18 @@ const explicitConvergenceCases = [
             range: "[0, 2] - [0, 3]",
           },
         ],
+        syntax: [
+          "addresses: address_clause [0, 0] - [0, 1]",
+          "  first: address [0, 0] - [0, 1]",
+          "    line_number_address [0, 0] - [0, 1]",
+          "negation: negation [0, 1] - [0, 3]",
+          "  operator: negation_operator [0, 1] - [0, 2]",
+          "  duplicate_negation [0, 2] - [0, 3]",
+          "    operator: negation_operator [0, 2] - [0, 3]",
+          "function: function [0, 3] - [0, 4]",
+          "  print_function [0, 3] - [0, 4]",
+          "    verb: function_verb [0, 3] - [0, 4]",
+        ],
         histories: [
           { source: "1!p\n", edits: ["2 0 !"] },
           { source: "!!p\n", edits: ["0 0 1"] },
@@ -1946,6 +2241,15 @@ for (const testCase of explicitConvergenceCases) {
     });
     if (testCase.issues !== undefined) {
       assert.deepEqual(issueSignatures(fresh.stdout), testCase.issues);
+    }
+    const retainedTypes = testCase.syntax?.map(
+      (line) => /^ *([a-z_]+: )?([a-z_]+) \[/.exec(line)[2],
+    );
+    if (retainedTypes !== undefined) {
+      assert.deepEqual(
+        syntaxSignatures(fresh.stdout, retainedTypes),
+        testCase.syntax,
+      );
     }
     const freshCst = testCase.compareCst
       ? parse(testCase.scope, testCase.source, [], {
@@ -1969,6 +2273,12 @@ for (const testCase of explicitConvergenceCases) {
         incremental,
         `${testCase.scope}: ${testCase.name}`,
       );
+      if (retainedTypes !== undefined) {
+        assert.deepEqual(
+          syntaxSignatures(incremental.stdout, retainedTypes),
+          testCase.syntax,
+        );
+      }
       if (freshCst !== null) {
         const incrementalCst = parse(
           testCase.scope,
@@ -2137,6 +2447,128 @@ test("incremental: fixed-seed generated histories converge", () => {
 });
 
 for (const grammar of grammars) {
+  test(`invalid interval characters preserve boundaries in ${grammar.name}`, () => {
+    const opening = grammar.name === "sed" ? "\\{" : "{";
+    const closing = grammar.name === "sed" ? "\\}" : "}";
+    const prefix = Buffer.from(`/a${opening}1,x`);
+    const start = prefix.length - 1;
+    for (const testCase of [
+      {
+        name: "surrounding invalid text",
+        count: 1,
+        suffix: `y${closing}/p\n`,
+        length: 3,
+      },
+      {
+        name: "consecutive invalid bytes",
+        count: 2,
+        suffix: `${closing}/p\n`,
+        length: 3,
+      },
+      {
+        name: "end of source",
+        count: 1,
+        suffix: "",
+        length: 2,
+        boundary: "incomplete_syntax",
+      },
+      {
+        name: "physical newline",
+        count: 1,
+        suffix: "\np\n",
+        length: 2,
+        boundary: "nonconforming_syntax",
+      },
+      {
+        name: "following bracket expression",
+        count: 1,
+        suffix: `[bc]${closing}/p\n`,
+        length: 2,
+        unmatchedCloser: grammar.name === "sed",
+      },
+    ]) {
+      for (const byte of [0, 0xff]) {
+        const source = Buffer.concat([
+          prefix,
+          Buffer.alloc(testCase.count, byte),
+          Buffer.from(testCase.suffix),
+        ]);
+        const range = (first, last) => `[0, ${first}] - [0, ${last}]`;
+        const expected = [
+          {
+            outcome: "undefined_syntax",
+            reason: "malformed_interval",
+            range: range(start, start + testCase.length),
+          },
+          ...Array.from({ length: testCase.count }, (_, index) => ({
+            outcome: "invalid_syntax",
+            reason: "invalid_regular_expression_character",
+            range: range(start + index + 1, start + index + 2),
+          })),
+        ];
+        if (testCase.boundary !== undefined) {
+          expected.push(
+            {
+              outcome: testCase.boundary,
+              reason:
+                testCase.boundary === "incomplete_syntax"
+                  ? "incomplete_regular_expression"
+                  : "unterminated_regular_expression",
+              range: range(start + 2, start + 2),
+            },
+            {
+              outcome: testCase.boundary,
+              reason: "missing_function",
+              range: range(start + 2, start + 2),
+            },
+          );
+        }
+        if (testCase.unmatchedCloser) {
+          expected.push({
+            outcome: "undefined_syntax",
+            reason: "unmatched_interval_close",
+            range: range(start + 6, start + 8),
+          });
+        }
+        const position = prefix.length + testCase.count;
+        const edits =
+          testCase.suffix === ""
+            ? [`${position} 0 ${closing}`, `${position} ${closing.length} `]
+            : [`${position} 1 `, `${position} 0 ${testCase.suffix[0]}`];
+        assert.deepEqual(applyEdits(source, edits), source);
+        const fresh = parse(grammar.scope, source, [], { ranges: true });
+        const incremental = parse(grammar.scope, source, edits, {
+          ranges: true,
+        });
+        const label = `${testCase.name}, byte ${byte}`;
+        assertIncrementalContract(fresh, incremental, label);
+        const retained = [
+          `minimum: dup_count ${range(start - 2, start - 1)}`,
+          `malformed_interval ${range(start, start + testCase.length)}`,
+          ...expected
+            .filter(
+              ({ reason }) => reason === "invalid_regular_expression_character",
+            )
+            .map(
+              ({ range }) => `  invalid_regular_expression_character ${range}`,
+            ),
+        ];
+        for (const result of [fresh, incremental]) {
+          assert.deepEqual(issueSignatures(result.stdout), expected, label);
+          assert.deepEqual(
+            syntaxSignatures(result.stdout, [
+              "dup_count",
+              "malformed_interval",
+              "invalid_regular_expression_character",
+            ]),
+            retained,
+            label,
+          );
+        }
+      }
+    }
+  });
+
   test(`character class names: invalid spellings own their source in ${grammar.name}`, () => {
     for (const name of ["1", "1alpha", "a-b", "a_b", " a ", "é", "a:b"]) {
       const source = `s/[[:${name}:]]/x/\n`;
@@ -2228,6 +2660,18 @@ for (const grammar of grammars) {
       { name: "equivalence class", prefix: "/[[=", suffix: "=]]/p\n" },
       { name: "class name middle", prefix: "/[[:a", suffix: "1:]]/p\n" },
       { name: "class name start", prefix: "/[[:", suffix: "1:]]/p\n" },
+      {
+        name: "escaped repetition operand",
+        prefix: "/\\",
+        suffix: "*/p\n",
+        repair: "*",
+      },
+      {
+        name: "escaped grouped character",
+        prefix: grammar.name === "sed" ? "/\\(\\" : "/(\\",
+        suffix: grammar.name === "sed" ? "\\)/p\n" : ")/p\n",
+        repair: "*",
+      },
     ];
     for (const invalid of invalidValues) {
       for (const context of contexts) {
@@ -2247,17 +2691,7 @@ for (const grammar of grammars) {
           })),
           label,
         );
-        const lines = result.stdout.split("\n");
-        for (let index = 0; index < lines.length; index++) {
-          const reason = nodeHeader(lines[index]);
-          if (reason?.type === "invalid_regular_expression_character") {
-            assert.deepEqual(
-              nodeHeader(lines[index + 1]),
-              { type: "invalid_character_token", range: reason.range },
-              label,
-            );
-          }
-        }
+        assertNoNodes(result.stdout, "invalid_character_token");
         assertNoNodes(result.stdout, "ERROR", "MISSING");
         const history = Buffer.concat([
           prefix,
@@ -2271,7 +2705,8 @@ for (const grammar of grammars) {
           parse(grammar.scope, history, edits, { ranges: true }),
           label,
         );
-        const repaired = Buffer.concat([prefix, Buffer.from("a"), suffix]);
+        const repair = context.repair ?? "a";
+        const repaired = Buffer.concat([prefix, Buffer.from(repair), suffix]);
         const fresh = parseSuccessfully(grammar.scope, repaired, [], {
           ranges: true,
         });
@@ -2281,7 +2716,7 @@ for (const grammar of grammars) {
           parse(
             grammar.scope,
             source,
-            [`${prefix.length} ${invalid.bytes.length} a`],
+            [`${prefix.length} ${invalid.bytes.length} ${repair}`],
             { ranges: true },
           ),
           `${label}: repair`,

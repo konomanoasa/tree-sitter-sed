@@ -602,7 +602,7 @@ function operandRules(mode) {
           $.matched_text_reference,
           $.replacement_backreference,
           $.replacement_escaped_delimiter,
-          $.ambiguous_replacement_delimiter_escape,
+          issueField($, "replacement_ampersand_delimiter_escape"),
           $.replacement_escape,
           $.escaped_newline,
           issueField($, "unspecified_replacement_escape"),
@@ -610,45 +610,17 @@ function operandRules(mode) {
         ),
       ),
 
-    replacement_literal: ($) =>
-      namedExternal($, $._replacement_literal, "replacement_literal_token"),
+    replacement_literal: ($) => $._replacement_literal,
 
-    matched_text_reference: ($) =>
-      namedExternal(
-        $,
-        $._replacement_match_reference,
-        "matched_text_reference_token",
-      ),
+    matched_text_reference: ($) => $._replacement_match_reference,
 
-    replacement_backreference: ($) =>
-      namedExternal(
-        $,
-        $._replacement_backreference,
-        "replacement_backreference_token",
-      ),
+    replacement_backreference: ($) => $._replacement_backreference,
 
-    replacement_escaped_delimiter: ($) =>
-      field(
-        "token",
-        namedExternal(
-          $,
-          $._replacement_escaped_delimiter,
-          "escaped_delimiter_token",
-        ),
-      ),
+    replacement_escaped_delimiter: ($) => $._replacement_escaped_delimiter,
 
-    ambiguous_replacement_delimiter_escape: ($) =>
-      issueField($, "replacement_ampersand_delimiter_escape"),
+    replacement_escape: ($) => $._replacement_escape_sequence,
 
-    replacement_escape: ($) =>
-      namedExternal(
-        $,
-        $._replacement_escape_sequence,
-        "replacement_escape_token",
-      ),
-
-    escaped_newline: ($) =>
-      namedExternal($, $._replacement_escaped_newline, "escaped_newline_token"),
+    escaped_newline: ($) => $._replacement_escaped_newline,
 
     _substitution_flags: ($) =>
       choice(
@@ -711,18 +683,11 @@ function operandRules(mode) {
         ),
       ),
 
-    translation_literal: ($) =>
-      namedExternal($, $._translate_literal, "translation_literal_token"),
+    translation_literal: ($) => $._translate_literal,
 
-    translation_escape: ($) =>
-      namedExternal($, $._translate_escape, "translation_escape_token"),
+    translation_escape: ($) => $._translate_escape,
 
-    translation_escaped_delimiter: ($) =>
-      namedExternal(
-        $,
-        $._translate_escaped_delimiter,
-        "escaped_delimiter_token",
-      ),
+    translation_escaped_delimiter: ($) => $._translate_escaped_delimiter,
   };
 }
 
@@ -750,14 +715,11 @@ function functionRules() {
 
     _text_end: ($) => choice($._text_line_end, $._text_eof),
 
-    text_literal: ($) =>
-      namedExternal($, $._text_literal, "text_literal_token"),
+    text_literal: ($) => $._text_literal,
 
-    text_backslash_escape: ($) =>
-      namedExternal($, $._text_backslash_escape, "text_backslash_escape_token"),
+    text_backslash_escape: ($) => $._text_backslash_escape,
 
-    text_escaped_newline: ($) =>
-      namedExternal($, $._text_escaped_newline, "text_escaped_newline_token"),
+    text_escaped_newline: ($) => $._text_escaped_newline,
 
     text_introducer: ($) =>
       namedExternal($, $._text_command_start, "text_introducer_token"),
@@ -765,22 +727,21 @@ function functionRules() {
     _incomplete_text_introducer: ($) =>
       issueField($, "incomplete_text_introducer"),
 
-    rfile: ($) => namedExternal($, $._file_argument, "rfile_token"),
+    rfile: ($) => $._file_argument,
 
-    wfile: ($) => namedExternal($, $._file_argument, "wfile_token"),
+    wfile: ($) => $._file_argument,
 
-    _substitution_wfile: ($) =>
-      namedExternal($, $._substitution_wfile_argument, "wfile_token"),
+    _substitution_wfile: ($) => $._substitution_wfile_argument,
 
-    label: ($) => namedExternal($, $._line_word, "label_token"),
+    label: ($) => $._line_word,
 
     comment: ($) => namedExternal($, $._comment_text, "comment_text"),
 
     closing_brace: ($) =>
-      choice(
-        namedExternal($, $._right_brace, "closing_brace_token"),
-        issueField($, "missing_closing_brace"),
-      ),
+      choice($._present_closing_brace, issueField($, "missing_closing_brace")),
+
+    _present_closing_brace: ($) =>
+      namedExternal($, $._right_brace, "closing_brace_token"),
   };
 
   function fileForm(form) {
@@ -1058,8 +1019,7 @@ function issueDefinitions(mode) {
     {
       reason: "invalid_regular_expression_character",
       outcome: "invalid_syntax",
-      rule: ($) =>
-        namedExternal($, $._regex_invalid_character, "invalid_character_token"),
+      rule: ($) => $._invalid_character,
     },
     {
       reason: "character_class_range_start",
@@ -1142,7 +1102,15 @@ function issueDefinitions(mode) {
     {
       reason: "malformed_interval",
       outcome: "undefined_syntax",
-      rule: ($) => $._regex_invalid_interval,
+      rule: ($) =>
+        prec.right(
+          repeat1(
+            choice(
+              $._regex_invalid_interval,
+              issueField($, "invalid_regular_expression_character"),
+            ),
+          ),
+        ),
     },
     {
       reason: "leading_duplication_symbol",
@@ -1263,12 +1231,12 @@ function issueDefinitions(mode) {
           },
           {
             reason: "bre_subexpression_left_anchor",
-            outcome: "invalid_syntax",
+            outcome: "nonconforming_syntax",
             rule: ($) => $._regex_bre_subexpression_caret,
           },
           {
             reason: "bre_subexpression_right_anchor",
-            outcome: "invalid_syntax",
+            outcome: "nonconforming_syntax",
             rule: ($) => $._regex_bre_subexpression_dollar,
           },
         ]
@@ -1308,7 +1276,8 @@ function issueDefinitions(mode) {
     {
       reason: "unknown_function",
       outcome: "nonconforming_syntax",
-      rule: () => token(prec(-2, unknownFunctionCharacter)),
+      rule: ($) =>
+        choice(token(prec(-2, unknownFunctionCharacter)), $._invalid_character),
     },
     {
       id: "reserved_unknown_function",
@@ -1319,10 +1288,13 @@ function issueDefinitions(mode) {
     {
       reason: "unexpected_command_text",
       outcome: "nonconforming_syntax",
-      rule: () =>
-        choice(
-          token.immediate(prec(-10, /[[:blank:]]+/)),
-          token.immediate(prec(-10, /[[:blank:]]*[^[:blank:];}\n][^;}\n]*/)),
+      rule: ($) =>
+        repeat1(
+          choice(
+            token.immediate(prec(-10, /[[:blank:]]+/)),
+            token.immediate(prec(-10, /[[:blank:]]*[^[:blank:];}\n][^;}\n]*/)),
+            $._invalid_character,
+          ),
         ),
     },
     {
@@ -1348,7 +1320,7 @@ function issueDefinitions(mode) {
     {
       reason: "unmatched_closing_brace",
       outcome: "nonconforming_syntax",
-      rule: ($) => $._right_brace,
+      rule: ($) => alias($._present_closing_brace, $.closing_brace),
     },
     {
       reason: "missing_command_separator",
@@ -1375,7 +1347,11 @@ function issueDefinitions(mode) {
     {
       reason: "invalid_delimiter",
       outcome: "nonconforming_syntax",
-      rule: ($) => field("token", alias("\\", $.delimiter_token)),
+      rule: ($) =>
+        field(
+          "token",
+          alias(choice("\\", $._invalid_character), $.delimiter_token),
+        ),
     },
     {
       reason: "unterminated_regular_expression",
@@ -1554,11 +1530,12 @@ function externalTokens($, mode) {
     $._translate_middle,
     $._translate_end,
     $._regex_literal,
-    $._regex_invalid_character,
+    $._invalid_character,
     $._regex_beginning_anchor,
     $._regex_end_anchor,
     $._regex_period,
     $._regex_quoted_escape,
+    $._regex_escape_prefix,
     $._regex_newline_escape,
     $._regex_escaped_delimiter,
     $._regex_special_escaped_delimiter,

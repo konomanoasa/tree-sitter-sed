@@ -565,8 +565,7 @@ s/[[:1:]]/x/
           (delimiter
             (delimiter_token))
           (replacement
-            (replacement_literal
-              (replacement_literal_token)))
+            (replacement_literal))
           (delimiter
             (delimiter_token)))))
     (command_separator)))
@@ -608,8 +607,7 @@ s/[[:1:]]/x/
           (delimiter
             (delimiter_token))
           (replacement
-            (replacement_literal
-              (replacement_literal_token)))
+            (replacement_literal))
           (delimiter
             (delimiter_token)))))
     (command_separator)))

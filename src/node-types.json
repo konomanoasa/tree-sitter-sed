@@ -126,38 +126,6 @@
     }
   },
   {
-    "type": "ambiguous_delimiter_escape",
-    "named": true,
-    "fields": {
-      "issue": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "syntax_issue",
-            "named": true
-          }
-        ]
-      }
-    }
-  },
-  {
-    "type": "ambiguous_replacement_delimiter_escape",
-    "named": true,
-    "fields": {
-      "issue": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "syntax_issue",
-            "named": true
-          }
-        ]
-      }
-    }
-  },
-  {
     "type": "append_function",
     "named": true,
     "fields": {
@@ -232,17 +200,7 @@
   {
     "type": "backreference",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "backreference_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "basic_reg_exp",
@@ -586,22 +544,6 @@
     }
   },
   {
-    "type": "bre_extension_escape",
-    "named": true,
-    "fields": {
-      "issue": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "syntax_issue",
-            "named": true
-          }
-        ]
-      }
-    }
-  },
-  {
     "type": "bre_plus_escape",
     "named": true,
     "fields": {
@@ -627,22 +569,6 @@
         "types": [
           {
             "type": "back_qm",
-            "named": true
-          }
-        ]
-      }
-    }
-  },
-  {
-    "type": "bre_subexpression_anchor",
-    "named": true,
-    "fields": {
-      "issue": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "syntax_issue",
             "named": true
           }
         ]
@@ -1075,17 +1001,7 @@
   {
     "type": "dup_count",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "dup_count_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "duplicate_negation",
@@ -1252,33 +1168,12 @@
   {
     "type": "escaped_delimiter",
     "named": true,
-    "fields": {
-      "token": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "escaped_delimiter_token",
-            "named": true
-          }
-        ]
-      }
-    }
+    "fields": {}
   },
   {
     "type": "escaped_newline",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "escaped_newline_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "excess_address",
@@ -1844,17 +1739,7 @@
   {
     "type": "invalid_regular_expression_character",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "invalid_character_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "invalid_substitution_flag",
@@ -1870,14 +1755,6 @@
       "required": true,
       "types": [
         {
-          "type": "bre_subexpression_left_anchor",
-          "named": true
-        },
-        {
-          "type": "bre_subexpression_right_anchor",
-          "named": true
-        },
-        {
           "type": "invalid_regular_expression_character",
           "named": true
         },
@@ -1891,17 +1768,7 @@
   {
     "type": "label",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "label_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "label_function",
@@ -1958,17 +1825,7 @@
   {
     "type": "left_anchor",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "left_anchor_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "line_number_address",
@@ -2025,22 +1882,23 @@
   {
     "type": "malformed_interval",
     "named": true,
-    "fields": {}
+    "fields": {
+      "issue": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "syntax_issue",
+            "named": true
+          }
+        ]
+      }
+    }
   },
   {
     "type": "matched_text_reference",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "matched_text_reference_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "matching_list",
@@ -2196,6 +2054,14 @@
       "types": [
         {
           "type": "blanks_around_address_separator",
+          "named": true
+        },
+        {
+          "type": "bre_subexpression_left_anchor",
+          "named": true
+        },
+        {
+          "type": "bre_subexpression_right_anchor",
           "named": true
         },
         {
@@ -2412,19 +2278,7 @@
       "required": false,
       "types": [
         {
-          "type": "ambiguous_delimiter_escape",
-          "named": true
-        },
-        {
           "type": "bracket_expression",
-          "named": true
-        },
-        {
-          "type": "bre_extension_escape",
-          "named": true
-        },
-        {
-          "type": "bre_subexpression_anchor",
           "named": true
         },
         {
@@ -2449,17 +2303,7 @@
   {
     "type": "ordinary_character",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "ordinary_character_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "ordinary_character_escape",
@@ -2469,17 +2313,7 @@
   {
     "type": "period",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "period_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "print_first_line_function",
@@ -2651,10 +2485,6 @@
       "required": false,
       "types": [
         {
-          "type": "ambiguous_replacement_delimiter_escape",
-          "named": true
-        },
-        {
           "type": "escaped_newline",
           "named": true
         },
@@ -2689,93 +2519,32 @@
   {
     "type": "replacement_backreference",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "replacement_backreference_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "replacement_escape",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "replacement_escape_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "replacement_escaped_delimiter",
     "named": true,
-    "fields": {
-      "token": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "escaped_delimiter_token",
-            "named": true
-          }
-        ]
-      }
-    }
+    "fields": {}
   },
   {
     "type": "replacement_literal",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "replacement_literal_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "rfile",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "rfile_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "right_anchor",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "right_anchor_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "script",
@@ -2796,17 +2565,7 @@
   {
     "type": "sed_newline_escape",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "sed_newline_escape_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "shared_range_endpoint",
@@ -3131,32 +2890,12 @@
   {
     "type": "text_backslash_escape",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "text_backslash_escape_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "text_escaped_newline",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "text_escaped_newline_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "text_introducer",
@@ -3187,17 +2926,7 @@
   {
     "type": "text_literal",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "text_literal_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "translate_function",
@@ -3268,47 +2997,17 @@
   {
     "type": "translation_escape",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "translation_escape_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "translation_escaped_delimiter",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "escaped_delimiter_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "translation_literal",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "translation_literal_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "translation_string",
@@ -3447,7 +3146,17 @@
   {
     "type": "unmatched_closing_brace",
     "named": true,
-    "fields": {}
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "closing_brace",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "unmatched_interval_close",
@@ -3550,17 +3259,7 @@
   {
     "type": "wfile",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "wfile_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "write_flag",
@@ -3721,10 +3420,6 @@
     "named": true
   },
   {
-    "type": "backreference_token",
-    "named": true
-  },
-  {
     "type": "blank",
     "named": true
   },
@@ -3773,18 +3468,6 @@
     "named": true
   },
   {
-    "type": "dup_count_token",
-    "named": true
-  },
-  {
-    "type": "escaped_delimiter_token",
-    "named": true
-  },
-  {
-    "type": "escaped_newline_token",
-    "named": true
-  },
-  {
     "type": "function_verb",
     "named": true
   },
@@ -3797,23 +3480,7 @@
     "named": true
   },
   {
-    "type": "invalid_character_token",
-    "named": true
-  },
-  {
-    "type": "label_token",
-    "named": true
-  },
-  {
     "type": "last_line_address",
-    "named": true
-  },
-  {
-    "type": "left_anchor_token",
-    "named": true
-  },
-  {
-    "type": "matched_text_reference_token",
     "named": true
   },
   {
@@ -3833,14 +3500,6 @@
     "named": true
   },
   {
-    "type": "ordinary_character_token",
-    "named": true
-  },
-  {
-    "type": "period_token",
-    "named": true
-  },
-  {
     "type": "print_flag",
     "named": true
   },
@@ -3857,39 +3516,7 @@
     "named": true
   },
   {
-    "type": "replacement_backreference_token",
-    "named": true
-  },
-  {
-    "type": "replacement_escape_token",
-    "named": true
-  },
-  {
-    "type": "replacement_literal_token",
-    "named": true
-  },
-  {
-    "type": "rfile_token",
-    "named": true
-  },
-  {
-    "type": "right_anchor_token",
-    "named": true
-  },
-  {
-    "type": "sed_newline_escape_token",
-    "named": true
-  },
-  {
     "type": "substitution_flag",
-    "named": true
-  },
-  {
-    "type": "text_backslash_escape_token",
-    "named": true
-  },
-  {
-    "type": "text_escaped_newline_token",
     "named": true
   },
   {
@@ -3897,23 +3524,7 @@
     "named": true
   },
   {
-    "type": "text_literal_token",
-    "named": true
-  },
-  {
     "type": "trailing_hyphen",
-    "named": true
-  },
-  {
-    "type": "translation_escape_token",
-    "named": true
-  },
-  {
-    "type": "translation_literal_token",
-    "named": true
-  },
-  {
-    "type": "wfile_token",
     "named": true
   },
   {
