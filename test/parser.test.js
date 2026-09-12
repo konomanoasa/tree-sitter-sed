@@ -1,12 +1,15 @@
-const assert = require("node:assert/strict");
-const { mkdtempSync, rmSync, writeFileSync } = require("node:fs");
-const { tmpdir } = require("node:os");
-const { join } = require("node:path");
-const { after, before, test } = require("node:test");
-const { createTreeSitter, grammars } = require("../scripts/tree-sitter");
+import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { after, before, test } from "node:test";
+import { createTreeSitter, grammars } from "../scripts/tree-sitter.js";
+import ereNodeTypes from "../sed_ere/src/node-types.json" with { type: "json" };
+import breNodeTypes from "../src/node-types.json" with { type: "json" };
+
 const nodeTypesByName = new Map([
-  ["sed", require("../src/node-types.json")],
-  ["sed_ere", require("../sed_ere/src/node-types.json")],
+  ["sed", breNodeTypes],
+  ["sed_ere", ereNodeTypes],
 ]);
 
 let temporaryDirectory;
@@ -48,7 +51,7 @@ function parse(
       "--scope",
       scope,
       ...(cst ? ["--cst"] : []),
-      ...(ranges ? [] : ["--no-ranges"]),
+      ...(ranges || cst ? [] : ["--no-ranges"]),
       sourcePath,
       ...(edits.length === 0 ? [] : ["--edits", ...edits]),
     ],
@@ -61,6 +64,7 @@ function parse(
   if (result.error) {
     throw result.error;
   }
+  result.input = { scope, source, edits };
   return result;
 }
 
@@ -137,6 +141,16 @@ function issueSignatures(tree) {
     const reason = nodeHeader(lines[index + 2] ?? "");
     assert.ok(outcome !== null, `missing issue outcome\n${tree}`);
     assert.ok(reason !== null, `missing issue reason\n${tree}`);
+    assert.equal(
+      outcome.range,
+      issue.range,
+      "outcome range must match its issue",
+    );
+    assert.equal(
+      reason.range,
+      issue.range,
+      "reason range must match its issue",
+    );
     signatures.push({
       outcome: outcome.type,
       reason: reason.type,
@@ -200,53 +214,35 @@ function parenthesisBalance(line) {
   return balance;
 }
 
-function topLevelEditingCommands(tree) {
-  const rows = tree.split("\n").flatMap((line) => {
-    const match =
-      /^([0-9]+):([0-9]+) +- +([0-9]+):([0-9]+)( +)([a-z_"].*)$/.exec(line);
-    return match === null
-      ? []
-      : [
-          {
-            start: [Number(match[1]), Number(match[2])],
-            end: [Number(match[3]), Number(match[4])],
-            column: line.length - match[6].length,
-            content: match[6],
-          },
-        ];
+function topLevelEditingCommands(tree, source) {
+  const publicTree = publicNodes(tree, source);
+  const list = publicTree.findIndex(({ kind }) => kind === "command_list");
+  assert.notEqual(list, -1, `missing command_list\n${tree}`);
+  return publicTree.flatMap((command, index) => {
+    if (command.parent !== list || command.kind !== "editing_command")
+      return [];
+    const relativePoint = ([row, column]) => [
+      row - command.start[0],
+      row === command.start[0] ? column - command.start[1] : column,
+    ];
+    let end = index + 1;
+    while (
+      end < publicTree.length &&
+      publicTree[end].parent >= index &&
+      publicTree[end].parent !== null
+    )
+      end++;
+    const nodes = publicTree.slice(index, end).map((node, offset) => ({
+      kind: node.kind,
+      parent: offset === 0 ? null : node.parent - index,
+      field: offset === 0 ? null : node.field,
+      start: relativePoint(node.start),
+      end: relativePoint(node.end),
+      startByte: node.startByte - command.startByte,
+      endByte: node.endByte - command.startByte,
+    }));
+    return [{ start: command.start, nodes }];
   });
-  const commandList = rows.find(({ content }) => content === "command_list");
-  assert.ok(commandList !== undefined, `missing command_list\n${tree}`);
-  const commands = [];
-  for (let index = 0; index < rows.length; index++) {
-    const command = rows[index];
-    if (
-      command.column !== commandList.column + 2 ||
-      command.content !== "editing_command"
-    ) {
-      continue;
-    }
-    function relativePoint([row, column]) {
-      return [
-        row - command.start[0],
-        row === command.start[0] ? column - command.start[1] : column,
-      ];
-    }
-    const nodes = [];
-    do {
-      const row = rows[index];
-      nodes.push({
-        depth: row.column - command.column,
-        content: row.content,
-        start: relativePoint(row.start),
-        end: relativePoint(row.end),
-      });
-      index += 1;
-    } while (index < rows.length && rows[index].column > command.column);
-    index -= 1;
-    commands.push({ start: command.start, nodes });
-  }
-  return commands;
 }
 
 function assertIncrementalContract(fresh, incremental, context) {
@@ -263,6 +259,11 @@ function assertIncrementalContract(fresh, incremental, context) {
     freshIssues,
     `${context}: fresh and incremental issue signatures differ`,
   );
+  assert.deepEqual(
+    publicNodesFor(incremental),
+    publicNodesFor(fresh),
+    `${context}: fresh and incremental public CSTs differ`,
+  );
   if (fresh.status === 0 && freshIssues.length === 0) {
     assert.equal(incremental.status, 0, `${context}: normal source has errors`);
     assert.equal(
@@ -271,6 +272,71 @@ function assertIncrementalContract(fresh, incremental, context) {
       `${context}: fresh and incremental public CSTs differ`,
     );
   }
+}
+
+function publicNodesFor(result) {
+  const { scope, source, edits } = result.input;
+  const cst = parse(scope, source, edits, { cst: true, ranges: true });
+  assert.ok(cst.status === 0 || cst.status === 1, cst.stderr);
+  return publicNodes(cst.stdout, applyEdits(source, edits));
+}
+
+function publicNodes(tree, source) {
+  const bytes = Buffer.from(source);
+  const lineStarts = [0];
+  for (let index = 0; index < bytes.length; index++) {
+    if (bytes[index] === 10) lineStarts.push(index + 1);
+  }
+  const nodes = [];
+  const ancestors = [];
+  for (const line of tree.split("\n")) {
+    const row = /^([0-9]+):([0-9]+) +- +([0-9]+):([0-9]+)( +)(.*)$/.exec(line);
+    if (row === null) continue;
+    const indentation = line.length - row[6].length;
+    while (ancestors.length && ancestors.at(-1).indentation >= indentation) {
+      ancestors.pop();
+    }
+    const ancestor = ancestors.at(-1);
+    if (ancestor?.missing) continue;
+    const match =
+      /^(([a-z_][a-z_0-9]*): )?([a-z_][a-z_0-9]*|ERROR|MISSING|"[^"]+")/.exec(
+        row[6],
+      );
+    if (match === null) continue;
+    const [, , rawField, kind] = match;
+    const parent = ancestor?.index ?? null;
+    if (kind === "MISSING" || kind === "ERROR") {
+      ancestors.push({
+        indentation,
+        index: parent,
+        missing: kind === "MISSING",
+        error: true,
+      });
+      continue;
+    }
+    if (
+      kind.startsWith('"') &&
+      !["character_class", "collating_symbol", "equivalence_class"].includes(
+        nodes[parent]?.kind,
+      )
+    )
+      continue;
+    const start = [Number(row[1]), Number(row[2])];
+    const end = [Number(row[3]), Number(row[4])];
+    const index = nodes.length;
+    nodes.push({
+      parent,
+      kind,
+      field: ancestor?.error ? null : (rawField ?? null),
+      start,
+      end,
+      startByte: lineStarts[start[0]] + start[1],
+      endByte: lineStarts[end[0]] + end[1],
+    });
+    ancestors.push({ indentation, index });
+  }
+  assert.equal(nodes[0]?.kind, "script", tree);
+  return nodes;
 }
 
 function applyEdits(source, edits) {
@@ -455,7 +521,7 @@ const boundaryCases = [
       "incomplete_syntax/incomplete_regular_expression",
       "incomplete_syntax/missing_function",
     ],
-    nodes: ["quoted_character"],
+    nodes: ["incomplete_regular_expression_escape"],
   },
   {
     name: "unfinished escape inside a BRE interval at source end",
@@ -473,7 +539,7 @@ const boundaryCases = [
     scope: "source.sed",
     source: "a\\",
     issues: ["incomplete_syntax/incomplete_text_introducer"],
-    nodes: ["append_function", "text_introducer"],
+    nodes: ["append_function", "incomplete_text_introducer"],
   },
   {
     name: "BRE extension escape remains neutral after duplication",
@@ -504,7 +570,7 @@ const boundaryCases = [
       "incomplete_syntax/omitted_address",
       "incomplete_syntax/missing_function",
     ],
-    nodes: ["line_number_address", "address_separator_token"],
+    nodes: ["line_number_address", "address_separator"],
   },
   {
     name: "omitted second address at a command boundary",
@@ -514,7 +580,7 @@ const boundaryCases = [
       "undefined_syntax/omitted_address",
       "nonconforming_syntax/missing_function",
     ],
-    nodes: ["address_separator_token", "print_function"],
+    nodes: ["address_separator", "print_function"],
   },
   {
     name: "omitted first and second addresses at source end",
@@ -525,7 +591,7 @@ const boundaryCases = [
       "incomplete_syntax/omitted_address",
       "incomplete_syntax/missing_function",
     ],
-    nodes: ["address_separator_token"],
+    nodes: ["address_separator"],
   },
   {
     name: "excess address unit with an omission at source end",
@@ -547,7 +613,7 @@ const boundaryCases = [
       "incomplete_syntax/omitted_address",
       "incomplete_syntax/missing_function",
     ],
-    nodes: ["line_number_address", "address_separator_token"],
+    nodes: ["line_number_address", "address_separator"],
   },
 ];
 
@@ -617,7 +683,7 @@ for (const grammar of grammars) {
         const incremental = parse(
           grammar.scope,
           Buffer.concat([Buffer.from("p\n"), source]),
-          ["0,0 2 "],
+          ["0 2 "],
           { ranges: true },
         );
         assertIncrementalContract(
@@ -775,20 +841,27 @@ test("marker ranges: missing text introducer stays zero-width before a stray bac
   );
 });
 
-test("ownership: an incomplete text introducer owns its backslash", () => {
+test("ownership: incomplete text introducer is a direct issue on append", () => {
   const result = parseSuccessfully("source.sed", "a\\", [], { ranges: true });
-  assert.ok(
-    result.stdout.includes(
-      [
-        "          introducer: (text_introducer [0, 1] - [0, 2]",
-        "            issue: (syntax_issue [0, 1] - [0, 2]",
-        "              (incomplete_syntax [0, 1] - [0, 2]",
-        "                (incomplete_text_introducer [0, 1] - [0, 2]))))))",
-      ].join("\n"),
-    ),
-    `the introducer must own the backslash\n${result.stdout}`,
+  assert.deepEqual(
+    syntaxSignatures(result.stdout, [
+      "append_function",
+      "syntax_issue",
+      "incomplete_text_introducer",
+    ]),
+    [
+      "append_function [0, 0] - [0, 2]",
+      "  issue: syntax_issue [0, 1] - [0, 2]",
+      "    incomplete_text_introducer [0, 1] - [0, 2]",
+    ],
   );
-  assertNoNodes(result.stdout, "ERROR", "MISSING", "unexpected_command_text");
+  assertNoNodes(
+    result.stdout,
+    "text_introducer",
+    "ERROR",
+    "MISSING",
+    "unexpected_command_text",
+  );
 });
 
 test("ownership: a malformed interval ends before a following construct", () => {
@@ -820,7 +893,7 @@ test("ownership: a malformed interval ends before a following construct", () => 
           range: "[0, 7] - [0, 7]",
         },
       ],
-      nodes: ["back_close_parenthesis_token"],
+      nodes: ["back_close_parenthesis"],
     },
     {
       scope: "source.sed",
@@ -856,7 +929,7 @@ test("ownership: a malformed interval ends before a following construct", () => 
           range: "[0, 5] - [0, 5]",
         },
       ],
-      nodes: ["close_parenthesis_token"],
+      nodes: ["close_parenthesis"],
     },
   ];
   for (const testCase of cases) {
@@ -1174,8 +1247,7 @@ test("ownership: excess address unit owns its separator and address", () => {
         "        issue: (syntax_issue",
         "          (nonconforming_syntax",
         "            (excess_address",
-        "              separator: (address_separator",
-        "                token: (address_separator_token))",
+        "              separator: (address_separator)",
         "              address: (address",
         "                (line_number_address)))))",
       ].join("\n"),
@@ -1298,26 +1370,28 @@ for (const grammar of grammars) {
   });
 }
 
-test("ownership: separator blanks live inside blank issues on both sides", () => {
+test("ownership: separator blanks live inside sibling blank issues", () => {
   const result = parseSuccessfully("source.sed", "1 \t, \t2p\n", [], {
     ranges: true,
   });
-  assert.ok(
-    result.stdout.includes(
-      [
-        "        separator: (address_separator [0, 1] - [0, 6]",
-        "          issue: (syntax_issue [0, 1] - [0, 3]",
-        "            (nonconforming_syntax [0, 1] - [0, 3]",
-        "              (blanks_around_address_separator [0, 1] - [0, 3]",
-        "                (blank [0, 1] - [0, 3]))))",
-        "          token: (address_separator_token [0, 3] - [0, 4])",
-        "          issue: (syntax_issue [0, 4] - [0, 6]",
-        "            (nonconforming_syntax [0, 4] - [0, 6]",
-        "              (blanks_around_address_separator [0, 4] - [0, 6]",
-        "                (blank [0, 4] - [0, 6])))))",
-      ].join("\n"),
-    ),
-    `each blank run must be owned by its own separator issue\n${result.stdout}`,
+  assert.deepEqual(
+    syntaxSignatures(result.stdout, [
+      "address_clause",
+      "address_separator",
+      "syntax_issue",
+      "blanks_around_address_separator",
+      "blank",
+    ]),
+    [
+      "addresses: address_clause [0, 0] - [0, 7]",
+      "  issue: syntax_issue [0, 1] - [0, 3]",
+      "    blanks_around_address_separator [0, 1] - [0, 3]",
+      "      blank [0, 1] - [0, 3]",
+      "  separator: address_separator [0, 3] - [0, 4]",
+      "  issue: syntax_issue [0, 4] - [0, 6]",
+      "    blanks_around_address_separator [0, 4] - [0, 6]",
+      "      blank [0, 4] - [0, 6]",
+    ],
   );
 });
 
@@ -1740,7 +1814,7 @@ test("ownership: unmatched BRE closers own one source child", () => {
     {
       source: "/\\)/p\n",
       reason: "unmatched_subexpression_close",
-      child: "back_close_parenthesis_token",
+      child: "back_close_parenthesis",
     },
   ];
   for (const testCase of cases) {
@@ -1781,7 +1855,7 @@ test("ownership: unmatched BRE closers own one source child", () => {
 test("schema: unmatched BRE closer reasons require their source child", () => {
   const cases = [
     ["unmatched_interval_close", "back_close_brace"],
-    ["unmatched_subexpression_close", "back_close_parenthesis_token"],
+    ["unmatched_subexpression_close", "back_close_parenthesis"],
   ];
   for (const [reason, child] of cases) {
     const nodeType = nodeTypesByName
@@ -1872,7 +1946,7 @@ for (const grammar of grammars) {
         );
         return {
           start,
-          nodes: topLevelEditingCommands(result.stdout)[0].nodes,
+          nodes: topLevelEditingCommands(result.stdout, commandSource)[0].nodes,
         };
       });
       const offset = Buffer.byteLength(before);
@@ -1908,7 +1982,7 @@ for (const grammar of grammars) {
           history.edits,
           options,
         );
-        const commands = topLevelEditingCommands(result.stdout);
+        const commands = topLevelEditingCommands(result.stdout, source);
         for (const command of expected) {
           assert.deepEqual(
             commands.find(
@@ -2040,7 +2114,6 @@ const explicitConvergenceCases = [
     syntax: [
       "unmatched_closing_brace [0, 0] - [0, 1]",
       "  closing_brace [0, 0] - [0, 1]",
-      "    closing_brace_token [0, 0] - [0, 1]",
       "function: function [0, 1] - [0, 2]",
       "  print_function [0, 1] - [0, 2]",
       "    verb: function_verb [0, 1] - [0, 2]",
@@ -2170,7 +2243,6 @@ const explicitConvergenceCases = [
           "    line_number_address [0, 0] - [0, 1]",
           "  excess_address [0, 1] - [0, 3]",
           "    separator: address_separator [0, 1] - [0, 2]",
-          "      token: address_separator_token [0, 1] - [0, 2]",
           "    address: address [0, 2] - [0, 3]",
           "      line_number_address [0, 2] - [0, 3]",
           "function: function [0, 3] - [0, 4]",
@@ -2225,7 +2297,6 @@ const explicitConvergenceCases = [
           "    line_number_address [0, 0] - [0, 1]",
           "  excess_address [0, 1] - [0, 2]",
           "    separator: address_separator [0, 1] - [0, 2]",
-          "      token: address_separator_token [0, 1] - [0, 2]",
           "    omitted_address [0, 2] - [0, 2]",
           "function: function [0, 2] - [0, 3]",
           "  quit_function [0, 2] - [0, 3]",
@@ -2437,77 +2508,41 @@ const fragments = [
   "\\%re%p",
   "s;a;b;",
 ];
-const insertions = "psdxq!{};,\n\\/*[]().^$|+?-:=# \tabw12".split("");
-let seed = 42;
-
-function random() {
-  seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-  return seed / 0x7fffffff;
-}
-
-function pick(list) {
-  return list[Math.floor(random() * list.length)];
-}
-
-function randomCase() {
-  const lineCount = 1 + Math.floor(random() * 3);
-  const lines = [];
-  for (let line = 0; line < lineCount; line++) {
-    lines.push(pick(fragments));
-  }
-  const base = `${lines.join("\n")}\n`;
-  const position = Math.floor(random() * (base.length + 1));
-  if (random() < 0.5) {
-    const text = pick(insertions);
-    if (text === "\n") {
-      return null;
-    }
-    return {
-      base,
-      edit: `${position} 0 ${text}`,
-      edited: base.slice(0, position) + text + base.slice(position),
-    };
-  }
-  const deleted = Math.min(
-    1 + Math.floor(random() * 2),
-    base.length - position,
-  );
-  if (deleted <= 0) {
-    return null;
-  }
-  return {
-    base,
-    edit: `${position} ${deleted} `,
-    edited: base.slice(0, position) + base.slice(position + deleted),
-  };
-}
+const insertions = "psdxq!{};,\n\\/*[]().^$|+?-:=# \tabw12";
 
 test("incremental: fixed-seed generated histories converge", () => {
+  let seed = 1n;
+  function next(maximum) {
+    seed = BigInt.asUintN(64, seed * 6364136223846793005n + 1n);
+    return Number(seed >> 32n) % maximum;
+  }
   for (const grammar of grammars) {
-    for (let index = 0; index < 100; index++) {
-      const testCase = randomCase();
-      if (testCase === null) {
-        continue;
+    for (let iteration = 0; iteration < 100; iteration++) {
+      const lines = [];
+      const count = 1 + next(3);
+      for (let line = 0; line < count; line++)
+        lines.push(fragments[next(fragments.length)]);
+      const initial = `${lines.join("\n")}\n`;
+      let source = Buffer.from(initial);
+      const edits = [];
+      for (let step = 0; step < 5; step++) {
+        const position = next(source.length + 1);
+        const insert = next(2) === 0 || position === source.length;
+        const edit = insert
+          ? `${position} 0 ${insertions[next(insertions.length)]}`
+          : `${position} ${Math.min(next(2) + 1, source.length - position)} `;
+        edits.push(edit);
+        source = applyEdits(source, [edit]);
+        const fresh = parse(grammar.scope, source, [], { ranges: true });
+        const incremental = parse(grammar.scope, initial, edits, {
+          ranges: true,
+        });
+        assertIncrementalContract(
+          fresh,
+          incremental,
+          `seed 1, ${grammar.name}, iteration ${iteration}, source ${JSON.stringify(initial)}, edits ${JSON.stringify(edits)}`,
+        );
       }
-      assert.deepEqual(
-        applyEdits(testCase.base, [testCase.edit]),
-        Buffer.from(testCase.edited),
-      );
-      const fresh = parse(grammar.scope, testCase.edited, [], { ranges: true });
-      const incremental = parse(grammar.scope, testCase.base, [testCase.edit], {
-        ranges: true,
-      });
-      assertIncrementalContract(
-        fresh,
-        incremental,
-        grammar.scope +
-          ": base=" +
-          JSON.stringify(testCase.base) +
-          ", edit=" +
-          JSON.stringify(testCase.edit) +
-          ", edited=" +
-          JSON.stringify(testCase.edited),
-      );
     }
   }
 });
@@ -3032,6 +3067,7 @@ for (const grammar of grammars) {
     const isolatedQuit = topLevelEditingCommands(
       parseSuccessfully(grammar.scope, "q\n", [], { cst: true, ranges: true })
         .stdout,
+      "q\n",
     )[0].nodes;
     for (const testCase of nulPayloadCases) {
       const expectedIssues = [
@@ -3078,6 +3114,7 @@ for (const grammar of grammars) {
             cst: true,
             ranges: true,
           }).stdout,
+          testCase.source,
         );
         assert.deepEqual(commands.at(-1).nodes, isolatedQuit, testCase.name);
       }
@@ -3105,3 +3142,190 @@ for (const grammar of grammars) {
     }
   });
 }
+
+for (const grammar of grammars) {
+  test(`partial commands retain prefixes without invented functions in ${grammar.name}`, () => {
+    for (const [source, outcome, position] of [
+      ["1", "incomplete_syntax/missing_function", 1],
+      ["1\n", "nonconforming_syntax/missing_function", 1],
+      ["!", "incomplete_syntax/missing_function", 1],
+      ["1!", "incomplete_syntax/missing_function", 2],
+      ["Z", "nonconforming_syntax/unknown_function", 0],
+      ["1Z", "nonconforming_syntax/unknown_function", 1],
+    ]) {
+      const fresh = parseSuccessfully(grammar.scope, source, [], {
+        ranges: true,
+      });
+      const [classification, reason] = outcome.split("/");
+      const end = position + Number(source[position] === "Z");
+      assert.deepEqual(issueSignatures(fresh.stdout), [
+        {
+          outcome: classification,
+          reason,
+          range: `[0, ${position}] - [0, ${end}]`,
+        },
+      ]);
+      const nodes = publicNodesFor(fresh);
+      assert.ok(
+        nodes.some(({ kind }) => kind === "editing_command"),
+        source,
+      );
+      assert.ok(
+        !nodes.some(
+          ({ kind, field }) =>
+            kind === "function" ||
+            kind === "function_verb" ||
+            field === "function",
+        ),
+        source,
+      );
+      if (source.startsWith("1")) {
+        for (const kind of ["address_clause", "line_number_address"])
+          assert.ok(
+            nodes.some((node) => node.kind === kind),
+            source,
+          );
+      }
+      if (source.includes("!"))
+        assert.ok(
+          nodes.some(({ kind }) => kind === "negation"),
+          source,
+        );
+      const boundary =
+        source.indexOf("\n") < 0 ? source.length : source.indexOf("\n");
+      const complete = source.includes("Z")
+        ? source.replace("Z", "p")
+        : `${source.slice(0, boundary)}p${source.slice(boundary)}`;
+      const edits = source.includes("Z")
+        ? [`${boundary - 1} 1 Z`]
+        : [`${boundary} 1 `];
+      const incremental = parseSuccessfully(grammar.scope, complete, edits, {
+        ranges: true,
+      });
+      assertIncrementalContract(fresh, incremental, source);
+    }
+  });
+
+  test(`lexical classes are direct leaves with exact ranges in ${grammar.name}`, () => {
+    const cases = [
+      [
+        "s/a/b/\n",
+        "delimiter",
+        [
+          [0, 1, 0, 2],
+          [0, 3, 0, 4],
+          [0, 5, 0, 6],
+        ],
+      ],
+      ["1,2p\n", "address_separator", [[0, 1, 0, 2]]],
+      ["{p;}\n", "closing_brace", [[0, 3, 0, 4]]],
+      ["a\\\nx\n", "text_introducer", [[0, 1, 1, 0]]],
+      ["/[a]/p\n", "close_bracket", [[0, 3, 0, 4]]],
+      ["/[a]/p\n", "collating_element", [[0, 2, 0, 3]]],
+      ["/a\\./p\n", "quoted_character", [[0, 2, 0, 4]]],
+      grammar.name === "sed"
+        ? ["/\\(a\\)/p\n", "back_close_parenthesis", [[0, 4, 0, 6]]]
+        : ["/(a)/p\n", "close_parenthesis", [[0, 3, 0, 4]]],
+    ];
+    for (const [source, kind, expected] of cases) {
+      const result = parseSuccessfully(grammar.scope, source, [], {
+        cst: true,
+      });
+      const nodes = publicNodes(result.stdout, source);
+      assert.deepEqual(
+        nodes
+          .filter((node) => node.kind === kind)
+          .map(({ start, end }) => [...start, ...end]),
+        expected,
+        kind,
+      );
+      for (const [index, node] of nodes.entries()) {
+        if (node.kind === kind)
+          assert.ok(
+            !nodes.some(({ parent }) => parent === index),
+            `${kind} must be a leaf`,
+          );
+      }
+    }
+  });
+
+  test(`missing components attach issues to confirmed owners in ${grammar.name}`, () => {
+    for (const [source, owner, reason, forbidden] of [
+      ["s", "substitute_function", "missing_opening_delimiter", "delimiter"],
+      ["s/a/b", "substitute_function", "incomplete_replacement", "delimiter"],
+      ["{p\n", "block_function", "missing_closing_brace", "closing_brace"],
+      [
+        "a\\",
+        "append_function",
+        "incomplete_text_introducer",
+        "text_introducer",
+      ],
+      [
+        "/[a",
+        "bracket_expression",
+        "unclosed_bracket_expression",
+        "close_bracket",
+      ],
+    ]) {
+      const result = parseSuccessfully(grammar.scope, source, [], {
+        cst: true,
+      });
+      const nodes = publicNodes(result.stdout, source);
+      const reasonNode = nodes.find(({ kind }) => kind === reason);
+      assert.ok(reasonNode, source);
+      const issue = nodes[nodes[reasonNode.parent].parent];
+      assert.equal(issue.kind, "syntax_issue");
+      assert.equal(nodes[issue.parent].kind, owner);
+      assert.equal(issue.field, "issue");
+      assert.ok(
+        !nodes.some(
+          (node) =>
+            node.kind === forbidden &&
+            node.startByte === issue.startByte &&
+            node.endByte === issue.endByte,
+        ),
+        source,
+      );
+    }
+    for (const source of ["/[", "/[^"]) {
+      const result = parseSuccessfully(grammar.scope, source, [], {
+        cst: true,
+      });
+      const nodes = publicNodes(result.stdout, source);
+      assert.ok(!nodes.some(({ kind }) => kind === "matching_list"), source);
+      assert.equal(
+        nodes.filter(({ kind }) => kind === "nonmatching_list").length,
+        Number(source.endsWith("^")),
+        source,
+      );
+    }
+  });
+}
+
+test("empty ERE alternatives do not invent branches or operand fields", () => {
+  for (const [source, count] of [
+    ["/|a/p\n", 1],
+    ["/a|/p\n", 1],
+    ["/|/p\n", 0],
+    ["/(|)/p\n", 1],
+    ["/(a|", 2],
+  ]) {
+    const result = parseSuccessfully("source.sed.ere", source, [], {
+      cst: true,
+    });
+    const nodes = publicNodes(result.stdout, source);
+    const branches = nodes.filter(({ kind }) => kind === "ere_branch");
+    assert.equal(branches.length, count, source);
+    assert.ok(
+      branches.every(({ startByte, endByte }) => endByte > startByte),
+      source,
+    );
+    for (const reason of nodes.filter(({ kind }) =>
+      ["empty_alternative", "incomplete_alternative"].includes(kind),
+    )) {
+      const issue = nodes[nodes[reason.parent].parent];
+      assert.equal(issue.field, "issue");
+      assert.equal(nodes[issue.parent].kind, "extended_reg_exp");
+    }
+  }
+});

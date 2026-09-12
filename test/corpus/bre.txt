@@ -12,8 +12,7 @@ s#^\(ab*\)\{2,3\}$#x#
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_expression
@@ -36,8 +35,7 @@ s#^\(ab*\)\{2,3\}$#x#
                                 (ordinary_character)))
                             (bre_dupl_symbol
                               (zero_or_more_operator))))))
-                    (back_close_parenthesis
-                      (back_close_parenthesis_token)))
+                    (back_close_parenthesis))
                   (bre_dupl_symbol
                     (back_open_brace)
                     (dup_count)
@@ -45,12 +43,10 @@ s#^\(ab*\)\{2,3\}$#x#
                     (dup_count)
                     (back_close_brace)))
                 (right_anchor))))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (replacement
             (replacement_literal))
-          (delimiter
-            (delimiter_token)))))
+          (delimiter))))
     (command_separator)))
 
 ==================
@@ -67,8 +63,7 @@ Preserves BRE interval recovery structure
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (basic_reg_exp
               (bre_branch
                 (bre_branch
@@ -104,8 +99,7 @@ Preserves BRE interval recovery structure
                         (undefined_syntax
                           (unmatched_interval_close
                             (back_close_brace)))))))))
-            (delimiter
-              (delimiter_token)))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -125,8 +119,7 @@ Rejects optional BRE anchors while preserving implementation-defined escapes
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (basic_reg_exp
               (bre_branch
                 (bre_branch
@@ -162,8 +155,7 @@ Rejects optional BRE anchors while preserving implementation-defined escapes
                                               (syntax_issue
                                                 (nonconforming_syntax
                                                   (bre_subexpression_right_anchor)))))))))
-                                  (back_close_parenthesis
-                                    (back_close_parenthesis_token))))))
+                                  (back_close_parenthesis)))))
                           (bre_expression
                             (simple_bre
                               (nondupl_bre
@@ -203,8 +195,7 @@ Rejects optional BRE anchors while preserving implementation-defined escapes
                     (nondupl_bre
                       (one_char_or_coll_elem_bre
                         (ordinary_character)))))))
-            (delimiter
-              (delimiter_token)))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -224,8 +215,7 @@ Classifies malformed BRE interval recovery inside the POSIX hierarchy
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (basic_reg_exp
               (bre_branch
                 (bre_branch
@@ -237,8 +227,7 @@ Classifies malformed BRE interval recovery inside the POSIX hierarchy
                           (syntax_issue
                             (undefined_syntax
                               (empty_subexpression)))
-                          (back_close_parenthesis
-                            (back_close_parenthesis_token))))))
+                          (back_close_parenthesis)))))
                   (bre_expression
                     (simple_bre
                       (nondupl_bre
@@ -259,9 +248,8 @@ Classifies malformed BRE interval recovery inside the POSIX hierarchy
                       (syntax_issue
                         (undefined_syntax
                           (unmatched_subexpression_close
-                            (back_close_parenthesis_token)))))))))
-            (delimiter
-              (delimiter_token)))))
+                            (back_close_parenthesis)))))))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -282,8 +270,7 @@ s/b\{1\//x/
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (basic_reg_exp
               (bre_branch
                 (bre_expression
@@ -299,8 +286,7 @@ s/b\{1\//x/
                       (syntax_issue
                         (undefined_syntax
                           (malformed_interval))))))))
-            (delimiter
-              (delimiter_token)))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -309,8 +295,7 @@ s/b\{1\//x/
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_expression
@@ -324,12 +309,10 @@ s/b\{1\//x/
                     (syntax_issue
                       (undefined_syntax
                         (malformed_interval))))))))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (replacement
             (replacement_literal))
-          (delimiter
-            (delimiter_token)))))
+          (delimiter))))
     (command_separator)))
 
 ==================
@@ -348,40 +331,33 @@ s|$\||x|
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_expression
                 (simple_bre
                   (nondupl_bre
                     (one_char_or_coll_elem_bre
-                      (quoted_character
-                        (escaped_delimiter))))))))
-          (delimiter
-            (delimiter_token))
+                      (escaped_delimiter)))))))
+          (delimiter)
           (replacement
             (replacement_literal))
-          (delimiter
-            (delimiter_token)))))
+          (delimiter))))
     (command_separator)
     (editing_command
       (address_clause
         (address
           (context_address
             (address_escape)
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (basic_reg_exp
               (bre_branch
                 (bre_expression
                   (simple_bre
                     (nondupl_bre
                       (one_char_or_coll_elem_bre
-                        (quoted_character
-                          (escaped_delimiter))))))))
-            (delimiter
-              (delimiter_token)))))
+                        (escaped_delimiter)))))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -390,8 +366,7 @@ s|$\||x|
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_branch
@@ -404,14 +379,11 @@ s|$\||x|
                 (simple_bre
                   (nondupl_bre
                     (one_char_or_coll_elem_bre
-                      (quoted_character
-                        (escaped_delimiter))))))))
-          (delimiter
-            (delimiter_token))
+                      (escaped_delimiter)))))))
+          (delimiter)
           (replacement
             (replacement_literal))
-          (delimiter
-            (delimiter_token)))))
+          (delimiter))))
     (command_separator)))
 
 ==================
@@ -428,8 +400,7 @@ s.\..x.
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_expression
@@ -439,12 +410,10 @@ s.\..x.
                       (syntax_issue
                         (unspecified_syntax
                           (special_delimiter_escape)))))))))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (replacement
             (replacement_literal))
-          (delimiter
-            (delimiter_token)))))
+          (delimiter))))
     (command_separator)))
 
 ==================
@@ -462,8 +431,7 @@ s😺猫😺犬😺g
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (basic_reg_exp
               (bre_branch
                 (bre_branch
@@ -477,8 +445,7 @@ s😺猫😺犬😺g
                     (nondupl_bre
                       (one_char_or_coll_elem_bre
                         (ordinary_character)))))))
-            (delimiter
-              (delimiter_token)))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -487,8 +454,7 @@ s😺猫😺犬😺g
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_expression
@@ -496,12 +462,10 @@ s😺猫😺犬😺g
                   (nondupl_bre
                     (one_char_or_coll_elem_bre
                       (ordinary_character)))))))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (replacement
             (replacement_literal))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (substitution_flags
             (global_flag)))))
     (command_separator)))
@@ -520,8 +484,7 @@ Keeps nonconforming BRE subexpression anchors structured for duplication recover
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (basic_reg_exp
               (bre_branch
                 (bre_branch
@@ -544,8 +507,7 @@ Keeps nonconforming BRE subexpression anchors structured for duplication recover
                                 (nondupl_bre
                                   (one_char_or_coll_elem_bre
                                     (ordinary_character)))))))
-                        (back_close_parenthesis
-                          (back_close_parenthesis_token))))))
+                        (back_close_parenthesis)))))
                 (bre_expression
                   (simple_bre
                     (nondupl_bre
@@ -569,10 +531,8 @@ Keeps nonconforming BRE subexpression anchors structured for duplication recover
                                       (back_open_brace)
                                       (dup_count)
                                       (back_close_brace)))))))))
-                      (back_close_parenthesis
-                        (back_close_parenthesis_token)))))))
-            (delimiter
-              (delimiter_token)))))
+                      (back_close_parenthesis))))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -592,8 +552,7 @@ Classifies empty BRE subexpressions inside the POSIX hierarchy
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (basic_reg_exp
               (bre_branch
                 (bre_expression
@@ -603,10 +562,8 @@ Classifies empty BRE subexpressions inside the POSIX hierarchy
                       (syntax_issue
                         (undefined_syntax
                           (empty_subexpression)))
-                      (back_close_parenthesis
-                        (back_close_parenthesis_token)))))))
-            (delimiter
-              (delimiter_token)))))
+                      (back_close_parenthesis))))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -627,8 +584,7 @@ s/x*\{\}y\{2\}/z/
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (basic_reg_exp
               (bre_branch
                 (bre_branch
@@ -652,8 +608,7 @@ s/x*\{\}y\{2\}/z/
                       (back_open_brace)
                       (dup_count)
                       (back_close_brace))))))
-            (delimiter
-              (delimiter_token)))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -662,8 +617,7 @@ s/x*\{\}y\{2\}/z/
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_branch
@@ -693,12 +647,10 @@ s/x*\{\}y\{2\}/z/
                     (back_open_brace)
                     (dup_count)
                     (back_close_brace))))))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (replacement
             (replacement_literal))
-          (delimiter
-            (delimiter_token)))))
+          (delimiter))))
     (command_separator)))
 
 ==================
@@ -715,8 +667,7 @@ s)\(a$\))x)
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_expression
@@ -741,18 +692,14 @@ s)\(a$\))x)
                           (simple_bre
                             (nondupl_bre
                               (one_char_or_coll_elem_bre
-                                (quoted_character
-                                  (escaped_delimiter))))))))
-                    (back_close_parenthesis
-                      (syntax_issue
-                        (undefined_syntax
-                          (unclosed_subexpression)))))))))
-          (delimiter
-            (delimiter_token))
+                                (escaped_delimiter)))))))
+                    (syntax_issue
+                      (undefined_syntax
+                        (unclosed_subexpression))))))))
+          (delimiter)
           (replacement
             (replacement_literal))
-          (delimiter
-            (delimiter_token)))))
+          (delimiter))))
     (command_separator)))
 
 ==================
@@ -771,8 +718,7 @@ Leaves following constructs outside a malformed BRE interval
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (basic_reg_exp
               (bre_branch
                 (bre_branch
@@ -801,15 +747,12 @@ Leaves following constructs outside a malformed BRE interval
                                     (expression_term
                                       (single_expression
                                         (end_range
-                                          (collating_element
-                                            (collating_element_token))))))
+                                          (collating_element)))))
                                   (expression_term
                                     (single_expression
                                       (end_range
-                                        (collating_element
-                                          (collating_element_token))))))))
-                            (close_bracket
-                              (close_bracket_token))))))))
+                                        (collating_element)))))))
+                            (close_bracket)))))))
                 (bre_expression
                   (simple_bre
                     (nondupl_bre
@@ -817,8 +760,7 @@ Leaves following constructs outside a malformed BRE interval
                         (undefined_syntax
                           (unmatched_interval_close
                             (back_close_brace)))))))))
-            (delimiter
-              (delimiter_token)))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -827,8 +769,7 @@ Leaves following constructs outside a malformed BRE interval
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (basic_reg_exp
               (bre_branch
                 (bre_expression
@@ -848,10 +789,8 @@ Leaves following constructs outside a malformed BRE interval
                                 (syntax_issue
                                   (undefined_syntax
                                     (malformed_interval))))))))
-                      (back_close_parenthesis
-                        (back_close_parenthesis_token)))))))
-            (delimiter
-              (delimiter_token)))))
+                      (back_close_parenthesis))))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -860,8 +799,7 @@ Leaves following constructs outside a malformed BRE interval
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (basic_reg_exp
               (bre_branch
                 (bre_expression
@@ -876,8 +814,7 @@ Leaves following constructs outside a malformed BRE interval
                         (undefined_syntax
                           (malformed_interval)))
                       (back_close_brace))))))
-            (delimiter
-              (delimiter_token)))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -897,8 +834,7 @@ s.a\{1[.]b.x.
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_branch
@@ -926,19 +862,15 @@ s.a\{1[.]b.x.
                                 (expression_term
                                   (single_expression
                                     (end_range
-                                      (collating_element
-                                        (collating_element_token))))))))
-                          (close_bracket
-                            (close_bracket_token))))))))
+                                      (collating_element)))))))
+                          (close_bracket)))))))
               (bre_expression
                 (simple_bre
                   (nondupl_bre
                     (one_char_or_coll_elem_bre
                       (ordinary_character)))))))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (replacement
             (replacement_literal))
-          (delimiter
-            (delimiter_token)))))
+          (delimiter))))
     (command_separator)))

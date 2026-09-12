@@ -519,7 +519,7 @@ mod tests {
                 "\\(",
                 "\\)",
                 "back_open_parenthesis",
-                "back_close_parenthesis_token",
+                "back_close_parenthesis",
             ),
             (
                 super::LANGUAGE_ERE,
@@ -527,7 +527,7 @@ mod tests {
                 "(",
                 ")",
                 "open_parenthesis",
-                "close_parenthesis_token",
+                "close_parenthesis",
             ),
         ] {
             let mut parser = tree_sitter::Parser::new();

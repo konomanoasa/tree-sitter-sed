@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 
-const {
+import assert from "node:assert/strict";
+import {
   mkdtempSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   rmSync,
   statSync,
-} = require("node:fs");
-const { tmpdir } = require("node:os");
-const { join, relative } = require("node:path");
-const { generateParsers, grammars, root } = require("./tree-sitter");
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join, relative } from "node:path";
+import { generateParsers, grammars, root } from "./tree-sitter.js";
 
 const issueOutcomeNames = new Set([
   "undefined_syntax",
@@ -195,7 +196,11 @@ function namedNode(nodeTypes, type, path) {
 
 function requiredSingleChildren(node, path) {
   const { children } = node;
-  if (!children?.required || children.multiple) {
+  if (
+    !children?.required ||
+    children.multiple ||
+    Object.keys(node.fields ?? {}).length !== 0
+  ) {
     throw new Error(`${path}: expected one required child`);
   }
   if (
@@ -205,6 +210,84 @@ function requiredSingleChildren(node, path) {
     throw new Error(`${path}: expected named child types`);
   }
   return children.types;
+}
+
+function checkSourceChildren(nodeTypes, grammar, displayPath) {
+  const expectedChildren = [
+    ["blanks_after_negation", "blank"],
+    ["blanks_around_address_separator", "blank"],
+  ];
+  const unmatchedClosers = [
+    ["unmatched_interval_close", "back_close_brace"],
+    ["unmatched_subexpression_close", "back_close_parenthesis"],
+  ];
+  if (grammar.name === "sed") {
+    expectedChildren.push(...unmatchedClosers);
+  } else {
+    for (const [reason] of unmatchedClosers) {
+      assert.ok(
+        !nodeTypes.some((node) => node.named && node.type === reason),
+        `${displayPath}: ${reason} must remain BRE-only`,
+      );
+    }
+  }
+  for (const [reason, child] of expectedChildren) {
+    const node = namedNode(nodeTypes, reason, displayPath);
+    assert.deepEqual(
+      requiredSingleChildren(node, `${displayPath}:${reason}`),
+      [{ type: child, named: true }],
+      `${displayPath}: ${reason} must own one ${child} source child`,
+    );
+  }
+}
+
+function checkBracketTerms(nodeTypes, displayPath) {
+  assert.deepEqual(
+    nodeTypes
+      .filter((node) => !node.named)
+      .map((node) => node.type)
+      .sort(),
+    ["[", ":", ".", "=", "]"].sort(),
+    `${displayPath}: only bracket term delimiters may be anonymous`,
+  );
+  for (const obsolete of [
+    "open_colon",
+    "colon_close",
+    "open_dot",
+    "dot_close",
+    "open_equal",
+    "equal_close",
+  ]) {
+    assert.ok(
+      !nodeTypes.some((node) => node.type === obsolete),
+      `${displayPath}: ${obsolete} must not be public`,
+    );
+  }
+  for (const [type, field, payloadTypes] of [
+    ["character_class", "name", ["class_name"]],
+    [
+      "collating_symbol",
+      "element",
+      ["coll_elem_multi", "coll_elem_single", "meta_char"],
+    ],
+    ["equivalence_class", "element", ["coll_elem_multi", "coll_elem_single"]],
+  ]) {
+    const node = namedNode(nodeTypes, type, displayPath);
+    assert.deepEqual(
+      Object.keys(node.fields).sort(),
+      [field, "issue"].sort(),
+      `${displayPath}: ${type} fields`,
+    );
+    assert.deepEqual(
+      node.fields[field],
+      {
+        multiple: true,
+        required: false,
+        types: payloadTypes.map((payload) => ({ type: payload, named: true })),
+      },
+      `${displayPath}: ${type}.${field} payload`,
+    );
+  }
 }
 
 function checkPublicCst(grammar, generatedRoot) {
@@ -217,6 +300,7 @@ function checkPublicCst(grammar, generatedRoot) {
     `${displayPath}:syntax_issue`,
   );
   const actualOutcomes = new Set(outcomeTypes.map(({ type }) => type));
+  const reasons = new Set();
 
   for (const { type } of outcomeTypes) {
     if (!issueOutcomeNames.has(type)) {
@@ -225,7 +309,19 @@ function checkPublicCst(grammar, generatedRoot) {
       );
     }
     const outcome = namedNode(nodeTypes, type, displayPath);
-    requiredSingleChildren(outcome, `${displayPath}:${type}`);
+    for (const reason of requiredSingleChildren(
+      outcome,
+      `${displayPath}:${type}`,
+    )) {
+      if (
+        reason.type === "syntax_issue" ||
+        issueOutcomeNames.has(reason.type)
+      ) {
+        throw new Error(`${displayPath}: invalid issue reason ${reason.type}`);
+      }
+      namedNode(nodeTypes, reason.type, displayPath);
+      reasons.add(reason.type);
+    }
   }
 
   for (const outcome of issueOutcomeNames) {
@@ -236,6 +332,57 @@ function checkPublicCst(grammar, generatedRoot) {
       throw new Error(`${displayPath}: ${outcome} bypasses syntax_issue`);
     }
   }
+
+  for (const node of nodeTypes) {
+    if (
+      node.named &&
+      /(^_|(^|_)(recovery|control|marker|placeholder)($|_)|_token$)/.test(
+        node.type,
+      )
+    ) {
+      throw new Error(`${displayPath}: internal node ${node.type} is public`);
+    }
+    for (const reference of [
+      node.children,
+      ...Object.values(node.fields ?? {}),
+    ]) {
+      for (const child of reference?.types ?? []) {
+        if (!child.named) {
+          continue;
+        }
+        if (actualOutcomes.has(child.type) && node.type !== "syntax_issue") {
+          throw new Error(
+            `${displayPath}: ${node.type} owns ${child.type} outside syntax_issue`,
+          );
+        }
+        if (reasons.has(child.type) && !actualOutcomes.has(node.type)) {
+          throw new Error(
+            `${displayPath}: ${node.type} owns reason ${child.type} outside an outcome`,
+          );
+        }
+      }
+    }
+  }
+
+  for (const type of [
+    "address_separator",
+    "delimiter",
+    "closing_brace",
+    "text_introducer",
+    "close_bracket",
+    "collating_element",
+    grammar.name === "sed" ? "back_close_parenthesis" : "close_parenthesis",
+  ]) {
+    const node = namedNode(nodeTypes, type, displayPath);
+    assert.ok(
+      node.children === undefined &&
+        Object.keys(node.fields ?? {}).length === 0,
+      `${displayPath}: ${type} must be a lexical leaf`,
+    );
+  }
+
+  checkSourceChildren(nodeTypes, grammar, displayPath);
+  checkBracketTerms(nodeTypes, displayPath);
 }
 
 function main() {
@@ -261,6 +408,7 @@ function main() {
             JSON.stringify(actualPaths),
         );
       }
+      checkPublicCst(grammar, generatedRoot);
       for (const path of generatedPaths) {
         const generatedPath = join(generatedDirectory, path);
         const repositoryPath = join(root, grammar.path, "src", path);
@@ -281,7 +429,6 @@ function main() {
     let failed = false;
     const languageVersions = new Map();
     for (const grammar of grammars) {
-      checkPublicCst(grammar, generatedRoot);
       const result = checkParserBudget(grammar, generatedRoot);
       failed = result.failed || failed;
       languageVersions.set(grammar.name, result.languageVersion);

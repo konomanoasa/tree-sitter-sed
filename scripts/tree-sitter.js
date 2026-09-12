@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 
-const { spawnSync } = require("node:child_process");
-const {
+import { spawnSync } from "node:child_process";
+import {
   cpSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
   writeFileSync,
-} = require("node:fs");
-const { tmpdir } = require("node:os");
-const { dirname, join } = require("node:path");
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 
-const root = join(__dirname, "..");
+const root = join(import.meta.dirname, "..");
 const configuration = JSON.parse(
   readFileSync(join(root, "tree-sitter.json"), "utf8"),
 );
@@ -32,13 +32,15 @@ for (const grammar of configuration.grammars) {
   }
 }
 const grammars = Object.freeze(
-  configuration.grammars.map(({ highlights, name, path, scope }) =>
-    Object.freeze({
-      highlights: Object.freeze([].concat(highlights ?? [])),
-      name,
-      path,
-      scope,
-    }),
+  configuration.grammars.map(
+    ({ "external-files": externalFiles, highlights, name, path, scope }) =>
+      Object.freeze({
+        externalFiles: Object.freeze([].concat(externalFiles ?? [])),
+        highlights: Object.freeze([].concat(highlights ?? [])),
+        name,
+        path,
+        scope,
+      }),
   ),
 );
 const executable = join(
@@ -48,6 +50,14 @@ const executable = join(
   process.platform === "win32" ? "tree-sitter.exe" : "tree-sitter",
 );
 const missingCliMessage = "Tree-sitter CLI is missing; run npm ci.";
+
+function copyFiles(paths, destinationRoot) {
+  for (const path of paths) {
+    const destination = join(destinationRoot, path);
+    mkdirSync(dirname(destination), { recursive: true });
+    cpSync(join(root, path), destination, { recursive: true });
+  }
+}
 
 function resultStatus(result) {
   if (result.error) {
@@ -70,14 +80,26 @@ function createTreeSitter(environment = {}) {
   const configDirectory = join(temporaryDirectory, "config");
   const libraryDirectory = join(temporaryDirectory, "lib");
   const treeSitterConfigDirectory = join(configDirectory, "tree-sitter");
+  const parserDirectory = join(temporaryDirectory, "parsers");
 
   try {
     mkdirSync(cacheDirectory, { recursive: true });
     mkdirSync(libraryDirectory);
     mkdirSync(treeSitterConfigDirectory, { recursive: true });
+    copyFiles(
+      new Set([
+        "tree-sitter.json",
+        ...grammars.flatMap((grammar) => [
+          join(grammar.path, "src"),
+          ...grammar.externalFiles,
+          ...grammar.highlights,
+        ]),
+      ]),
+      join(parserDirectory, "tree-sitter-sed"),
+    );
     writeFileSync(
       join(treeSitterConfigDirectory, "config.json"),
-      `${JSON.stringify({ "parser-directories": [dirname(root)] }, null, 2)}\n`,
+      `${JSON.stringify({ "parser-directories": [parserDirectory] }, null, 2)}\n`,
     );
   } catch (error) {
     rmSync(temporaryDirectory, { recursive: true, force: true });
@@ -122,70 +144,26 @@ function runChecked(runner, arguments_, options = { stdio: "inherit" }) {
 }
 
 function generateParsers(outputRoot = root) {
-  const runner = createTreeSitter();
-  try {
-    for (const grammar of grammars) {
-      const output = join(outputRoot, grammar.path, "src");
-      mkdirSync(output, { recursive: true });
-      const status = runChecked(runner, [
-        "generate",
-        join(root, grammar.path, "grammar.js"),
-        "--output",
-        output,
-      ]);
-      if (status !== 0) {
-        return status;
-      }
-    }
-    return 0;
-  } finally {
-    runner.close();
-  }
-}
-
-function fuzzParsers(arguments_) {
-  const buildDirectory = mkdtempSync(join(tmpdir(), "tree-sitter-sed-fuzz-"));
-  let runner;
-  const extension =
-    process.platform === "win32"
-      ? ".dll"
-      : process.platform === "darwin"
-        ? ".dylib"
-        : ".so";
-
-  try {
-    runner = createTreeSitter({ TREE_SITTER_SEED: "1" });
-    for (const grammar of grammars) {
-      const library = join(buildDirectory, grammar.name + extension);
-      let status = runChecked(runner, [
-        "build",
-        "--output",
-        library,
-        join(root, grammar.path),
-      ]);
-      if (status !== 0) {
-        return status;
-      }
-      status = runChecked(runner, [
-        "fuzz",
-        "--lib-path",
-        library,
-        "--lang-name",
-        grammar.name,
-        ...arguments_,
-      ]);
-      if (status !== 0) {
-        return status;
-      }
-    }
-    return 0;
-  } finally {
-    try {
-      runner?.close();
-    } finally {
-      rmSync(buildDirectory, { recursive: true, force: true });
+  for (const grammar of grammars) {
+    const output = join(outputRoot, grammar.path, "src");
+    mkdirSync(output, { recursive: true });
+    const status = resultStatus(
+      spawnSync(
+        executable,
+        [
+          "generate",
+          join(root, grammar.path, "grammar.js"),
+          "--output",
+          output,
+        ],
+        { cwd: root, windowsHide: true, stdio: "inherit" },
+      ),
+    );
+    if (status !== 0) {
+      return status;
     }
   }
+  return 0;
 }
 
 function testCorpus(arguments_) {
@@ -193,19 +171,19 @@ function testCorpus(arguments_) {
   let runner;
 
   try {
-    for (const path of [
-      "common",
-      "grammar.js",
-      "src",
-      join("sed_ere", "grammar.js"),
-      join("sed_ere", "src"),
-      join("test", "corpus"),
-      "tree-sitter.json",
-    ]) {
-      const destination = join(testRoot, path);
-      mkdirSync(dirname(destination), { recursive: true });
-      cpSync(join(root, path), destination, { recursive: true });
-    }
+    copyFiles(
+      [
+        "common",
+        "grammar.js",
+        "package.json",
+        "src",
+        join("sed_ere", "grammar.js"),
+        join("sed_ere", "src"),
+        join("test", "corpus"),
+        "tree-sitter.json",
+      ],
+      testRoot,
+    );
     runner = createTreeSitter();
     return runChecked(runner, ["test", ...arguments_], {
       cwd: testRoot,
@@ -228,9 +206,6 @@ function main(arguments_) {
     }
     return generateParsers();
   }
-  if (command === "fuzz-all") {
-    return fuzzParsers(rest);
-  }
   if (command === "test-corpus") {
     return testCorpus(rest);
   }
@@ -243,13 +218,8 @@ function main(arguments_) {
   }
 }
 
-if (require.main === module) {
+if (import.meta.main) {
   process.exitCode = main(process.argv.slice(2));
 }
 
-module.exports = {
-  createTreeSitter,
-  generateParsers,
-  grammars,
-  root,
-};
+export { createTreeSitter, generateParsers, grammars, root };

@@ -1,4 +1,37 @@
 ==================
+Preserves a final address without synthesizing a function
+:language(sed)
+==================
+1
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address)))
+      (syntax_issue
+        (incomplete_syntax
+          (missing_function))))))
+
+==================
+Preserves final negation without synthesizing a function
+:language(sed_ere)
+==================
+!
+---
+
+(script
+  (command_list
+    (editing_command
+      (negation
+        (negation_operator))
+      (syntax_issue
+        (incomplete_syntax
+          (missing_function))))))
+
+==================
 Classifies missing command components at physical line boundaries
 :language(sed)
 ==================
@@ -18,10 +51,9 @@ p
       (address_clause
         (address
           (line_number_address)))
-      (function
-        (syntax_issue
-          (nonconforming_syntax
-            (missing_function)))))
+      (syntax_issue
+        (nonconforming_syntax
+          (missing_function))))
     (command_separator)
     (editing_command
       (function
@@ -62,10 +94,9 @@ p
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (syntax_issue
-              (nonconforming_syntax
-                (missing_opening_delimiter)))))))
+          (syntax_issue
+            (nonconforming_syntax
+              (missing_opening_delimiter))))))
     (command_separator)
     (editing_command
       (function
@@ -96,8 +127,7 @@ Distinguishes a closing-brace separator error from a newline
             (syntax_issue
               (nonconforming_syntax
                 (missing_command_separator))))
-          (closing_brace
-            (closing_brace_token)))))
+          (closing_brace))))
     (command_separator)
     (editing_command
       (function
@@ -109,10 +139,9 @@ Distinguishes a closing-brace separator error from a newline
                 (print_function
                   (function_verb))))
             (command_separator))
-          (closing_brace
-            (syntax_issue
-              (incomplete_syntax
-                (missing_closing_brace)))))))))
+          (syntax_issue
+            (incomplete_syntax
+              (missing_closing_brace))))))))
 
 ==================
 Classifies a blank-separated closing brace inside a block
@@ -132,8 +161,7 @@ Classifies a blank-separated closing brace inside a block
             (syntax_issue
               (nonconforming_syntax
                 (missing_command_separator))))
-          (closing_brace
-            (closing_brace_token)))))
+          (closing_brace))))
     (command_separator)))
 
 ==================
@@ -151,8 +179,7 @@ p
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_expression
@@ -160,14 +187,12 @@ p
                   (nondupl_bre
                     (one_char_or_coll_elem_bre
                       (ordinary_character)))))))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (replacement
             (replacement_literal))
-          (delimiter
-            (syntax_issue
-              (nonconforming_syntax
-                (unterminated_replacement)))))))
+          (syntax_issue
+            (nonconforming_syntax
+              (unterminated_replacement))))))
     (command_separator)
     (editing_command
       (function
@@ -190,8 +215,7 @@ p};p
     (syntax_issue
       (nonconforming_syntax
         (unmatched_closing_brace
-          (closing_brace
-            (closing_brace_token)))))
+          (closing_brace))))
     (syntax_issue
       (nonconforming_syntax
         (missing_command_separator)))
@@ -213,8 +237,7 @@ p};p
     (syntax_issue
       (nonconforming_syntax
         (unmatched_closing_brace
-          (closing_brace
-            (closing_brace_token)))))
+          (closing_brace))))
     (command_separator)
     (editing_command
       (function
@@ -226,8 +249,7 @@ p};p
     (syntax_issue
       (nonconforming_syntax
         (unmatched_closing_brace
-          (closing_brace
-            (closing_brace_token)))))
+          (closing_brace))))
     (command_separator)
     (editing_command
       (function
@@ -263,11 +285,9 @@ s\a\b\
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (syntax_issue
-              (nonconforming_syntax
-                (invalid_delimiter
-                  (delimiter_token)))))))
+          (syntax_issue
+            (nonconforming_syntax
+              (invalid_delimiter)))))
       (syntax_issue
         (nonconforming_syntax
           (unexpected_command_text))))

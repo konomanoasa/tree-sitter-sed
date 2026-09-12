@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 
-const { spawnSync } = require("node:child_process");
-const {
-  constants,
+import { spawnSync } from "node:child_process";
+import {
   accessSync,
+  constants,
   mkdtempSync,
   realpathSync,
   rmSync,
-} = require("node:fs");
-const { tmpdir } = require("node:os");
-const { delimiter, dirname, isAbsolute, join } = require("node:path");
-const { grammars, root } = require("./tree-sitter");
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { delimiter, dirname, isAbsolute, join } from "node:path";
+import { grammars, root } from "./tree-sitter.js";
 
 const scannerHeader = join(root, "common", "scanner.h");
 const scannerContract = join(root, "test", "scanner.test.c");

@@ -1,3 +1,3 @@
-const defineGrammar = require("./common/grammar");
+import defineGrammar from "./common/grammar.js";
 
-module.exports = defineGrammar("sed", "bre");
+export default defineGrammar("sed", "bre");

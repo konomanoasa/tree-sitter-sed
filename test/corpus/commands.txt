@@ -12,8 +12,7 @@ Exposes addresses, negation, and the selected function
       (address_clause
         (address
           (line_number_address))
-        (address_separator
-          (address_separator_token))
+        (address_separator)
         (address
           (last_line_address)))
       (negation
@@ -21,8 +20,7 @@ Exposes addresses, negation, and the selected function
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_expression
@@ -30,12 +28,10 @@ Exposes addresses, negation, and the selected function
                   (nondupl_bre
                     (one_char_or_coll_elem_bre
                       (ordinary_character)))))))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (replacement
             (replacement_literal))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (substitution_flags
             (global_flag)))))
     (command_separator)))
@@ -114,8 +110,7 @@ d;D;g;G;h;H;l;n;N;p;P;q;s/a/b/;x;y/a/b/;=
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_expression
@@ -123,12 +118,10 @@ d;D;g;G;h;H;l;n;N;p;P;q;s/a/b/;x;y/a/b/;=
                   (nondupl_bre
                     (one_char_or_coll_elem_bre
                       (ordinary_character)))))))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (replacement
             (replacement_literal))
-          (delimiter
-            (delimiter_token)))))
+          (delimiter))))
     (command_separator)
     (editing_command
       (function
@@ -139,16 +132,13 @@ d;D;g;G;h;H;l;n;N;p;P;q;s/a/b/;x;y/a/b/;=
       (function
         (translate_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (translation_string
             (translation_literal))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (translation_string
             (translation_literal))
-          (delimiter
-            (delimiter_token)))))
+          (delimiter))))
     (command_separator)
     (editing_command
       (function
@@ -200,8 +190,7 @@ Nests a command list inside a block function
       (address_clause
         (address
           (line_number_address))
-        (address_separator
-          (address_separator_token))
+        (address_separator)
         (address
           (line_number_address)))
       (function
@@ -222,8 +211,7 @@ Nests a command list inside a block function
             (command_separator)
             (empty_command)
             (command_separator))
-          (closing_brace
-            (closing_brace_token)))))
+          (closing_brace))))
     (command_separator)))
 
 ==================
@@ -307,8 +295,7 @@ p
         (syntax_issue
           (undefined_syntax
             (omitted_address)))
-        (address_separator
-          (address_separator_token))
+        (address_separator)
         (syntax_issue
           (undefined_syntax
             (omitted_address))))
@@ -323,8 +310,7 @@ p
         (syntax_issue
           (nonconforming_syntax
             (excess_address
-              (address_separator
-                (address_separator_token))
+              (address_separator)
               (address
                 (line_number_address))))))
       (function
@@ -346,13 +332,12 @@ p
           (function_verb))))
     (command_separator)
     (editing_command
-      (function
-        (syntax_issue
-          (nonconforming_syntax
-            (unknown_function)))
-        (syntax_issue
-          (nonconforming_syntax
-            (unexpected_command_text)))))
+      (syntax_issue
+        (nonconforming_syntax
+          (unknown_function)))
+      (syntax_issue
+        (nonconforming_syntax
+          (unexpected_command_text))))
     (command_separator)
     (editing_command
       (address_clause
@@ -360,10 +345,9 @@ p
           (line_number_address)))
       (negation
         (negation_operator))
-      (function
-        (syntax_issue
-          (nonconforming_syntax
-            (unknown_function)))))
+      (syntax_issue
+        (nonconforming_syntax
+          (unknown_function))))
     (command_separator)
     (editing_command
       (function
@@ -374,29 +358,24 @@ p
       (address_clause
         (address
           (line_number_address))
-        (address_separator
-          (address_separator_token))
+        (address_separator)
         (address
           (line_number_address))
         (syntax_issue
           (nonconforming_syntax
             (excess_address
-              (address_separator
-                (syntax_issue
-                  (nonconforming_syntax
-                    (missing_address_separator))))
+              (syntax_issue
+                (nonconforming_syntax
+                  (missing_address_separator)))
               (address
                 (context_address
-                  (delimiter
-                    (delimiter_token))
-                  (delimiter
-                    (syntax_issue
-                      (nonconforming_syntax
-                        (unterminated_regular_expression))))))))))
-      (function
-        (syntax_issue
-          (nonconforming_syntax
-            (missing_function)))))
+                  (delimiter)
+                  (syntax_issue
+                    (nonconforming_syntax
+                      (unterminated_regular_expression)))))))))
+      (syntax_issue
+        (nonconforming_syntax
+          (missing_function))))
     (command_separator)
     (editing_command
       (function
@@ -427,8 +406,7 @@ Preserves address separator tokens across recovery shapes
       (address_clause
         (address
           (line_number_address))
-        (address_separator
-          (address_separator_token))
+        (address_separator)
         (syntax_issue
           (undefined_syntax
             (omitted_address))))
@@ -440,12 +418,11 @@ Preserves address separator tokens across recovery shapes
       (address_clause
         (address
           (line_number_address))
-        (address_separator
-          (syntax_issue
-            (nonconforming_syntax
-              (blanks_around_address_separator
-                (blank))))
-          (address_separator_token))
+        (syntax_issue
+          (nonconforming_syntax
+            (blanks_around_address_separator
+              (blank))))
+        (address_separator)
         (address
           (line_number_address)))
       (function
@@ -456,12 +433,11 @@ Preserves address separator tokens across recovery shapes
       (address_clause
         (address
           (line_number_address))
-        (address_separator
-          (address_separator_token)
-          (syntax_issue
-            (nonconforming_syntax
-              (blanks_around_address_separator
-                (blank)))))
+        (address_separator)
+        (syntax_issue
+          (nonconforming_syntax
+            (blanks_around_address_separator
+              (blank))))
         (address
           (line_number_address)))
       (function
@@ -472,16 +448,15 @@ Preserves address separator tokens across recovery shapes
       (address_clause
         (address
           (line_number_address))
-        (address_separator
-          (syntax_issue
-            (nonconforming_syntax
-              (blanks_around_address_separator
-                (blank))))
-          (address_separator_token)
-          (syntax_issue
-            (nonconforming_syntax
-              (blanks_around_address_separator
-                (blank)))))
+        (syntax_issue
+          (nonconforming_syntax
+            (blanks_around_address_separator
+              (blank))))
+        (address_separator)
+        (syntax_issue
+          (nonconforming_syntax
+            (blanks_around_address_separator
+              (blank))))
         (address
           (line_number_address)))
       (function
@@ -492,10 +467,9 @@ Preserves address separator tokens across recovery shapes
       (address_clause
         (address
           (line_number_address))
-        (address_separator
-          (syntax_issue
-            (nonconforming_syntax
-              (missing_address_separator))))
+        (syntax_issue
+          (nonconforming_syntax
+            (missing_address_separator)))
         (address
           (line_number_address)))
       (function
@@ -506,14 +480,12 @@ Preserves address separator tokens across recovery shapes
       (address_clause
         (address
           (line_number_address))
-        (address_separator
-          (syntax_issue
-            (nonconforming_syntax
-              (missing_address_separator))))
+        (syntax_issue
+          (nonconforming_syntax
+            (missing_address_separator)))
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (basic_reg_exp
               (bre_branch
                 (bre_branch
@@ -527,8 +499,7 @@ Preserves address separator tokens across recovery shapes
                     (nondupl_bre
                       (one_char_or_coll_elem_bre
                         (ordinary_character)))))))
-            (delimiter
-              (delimiter_token)))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -538,17 +509,15 @@ Preserves address separator tokens across recovery shapes
         (syntax_issue
           (undefined_syntax
             (omitted_address)))
-        (address_separator
-          (address_separator_token))
+        (address_separator)
         (address
           (line_number_address))
         (syntax_issue
           (nonconforming_syntax
             (excess_address
-              (address_separator
-                (syntax_issue
-                  (nonconforming_syntax
-                    (missing_address_separator))))
+              (syntax_issue
+                (nonconforming_syntax
+                  (missing_address_separator)))
               (address
                 (last_line_address))))))
       (function
@@ -560,12 +529,11 @@ Preserves address separator tokens across recovery shapes
         (syntax_issue
           (undefined_syntax
             (omitted_address)))
-        (address_separator
-          (address_separator_token)
-          (syntax_issue
-            (nonconforming_syntax
-              (blanks_around_address_separator
-                (blank)))))
+        (address_separator)
+        (syntax_issue
+          (nonconforming_syntax
+            (blanks_around_address_separator
+              (blank))))
         (address
           (line_number_address)))
       (function
@@ -576,8 +544,7 @@ Preserves address separator tokens across recovery shapes
       (address_clause
         (address
           (line_number_address))
-        (address_separator
-          (address_separator_token))
+        (address_separator)
         (syntax_issue
           (undefined_syntax
             (omitted_address))))
@@ -589,12 +556,11 @@ Preserves address separator tokens across recovery shapes
       (address_clause
         (address
           (line_number_address))
-        (address_separator
-          (syntax_issue
-            (nonconforming_syntax
-              (blanks_around_address_separator
-                (blank))))
-          (address_separator_token))
+        (syntax_issue
+          (nonconforming_syntax
+            (blanks_around_address_separator
+              (blank))))
+        (address_separator)
         (syntax_issue
           (undefined_syntax
             (omitted_address))))
@@ -685,8 +651,7 @@ Recovers a block whose leading empty command precedes a missing separator
             (syntax_issue
               (nonconforming_syntax
                 (missing_command_separator))))
-          (closing_brace
-            (closing_brace_token)))))
+          (closing_brace))))
     (command_separator)))
 
 ==================
@@ -725,8 +690,7 @@ Classifies excess address units inside the address clause
         (syntax_issue
           (nonconforming_syntax
             (excess_address
-              (address_separator
-                (address_separator_token))
+              (address_separator)
               (address
                 (line_number_address))))))
       (function
@@ -741,8 +705,7 @@ Classifies excess address units inside the address clause
         (syntax_issue
           (nonconforming_syntax
             (excess_address
-              (address_separator
-                (address_separator_token))
+              (address_separator)
               (address
                 (line_number_address))))))
       (function
@@ -753,15 +716,13 @@ Classifies excess address units inside the address clause
       (address_clause
         (address
           (line_number_address))
-        (address_separator
-          (address_separator_token))
+        (address_separator)
         (address
           (line_number_address))
         (syntax_issue
           (nonconforming_syntax
             (excess_address
-              (address_separator
-                (address_separator_token))
+              (address_separator)
               (address
                 (line_number_address))))))
       (function
@@ -772,22 +733,19 @@ Classifies excess address units inside the address clause
       (address_clause
         (address
           (line_number_address))
-        (address_separator
-          (address_separator_token))
+        (address_separator)
         (address
           (line_number_address))
         (syntax_issue
           (nonconforming_syntax
             (excess_address
-              (address_separator
-                (address_separator_token))
+              (address_separator)
               (address
                 (line_number_address)))))
         (syntax_issue
           (nonconforming_syntax
             (excess_address
-              (address_separator
-                (address_separator_token))
+              (address_separator)
               (address
                 (line_number_address))))))
       (function
@@ -819,10 +777,9 @@ Classifies blank-separated address units by function maximum
         (syntax_issue
           (nonconforming_syntax
             (excess_address
-              (address_separator
-                (syntax_issue
-                  (nonconforming_syntax
-                    (missing_address_separator))))
+              (syntax_issue
+                (nonconforming_syntax
+                  (missing_address_separator)))
               (address
                 (line_number_address))))))
       (function
@@ -840,10 +797,9 @@ Classifies blank-separated address units by function maximum
         (syntax_issue
           (nonconforming_syntax
             (excess_address
-              (address_separator
-                (syntax_issue
-                  (nonconforming_syntax
-                    (missing_address_separator))))
+              (syntax_issue
+                (nonconforming_syntax
+                  (missing_address_separator)))
               (address
                 (line_number_address))))))
       (function
@@ -859,10 +815,9 @@ Classifies blank-separated address units by function maximum
         (syntax_issue
           (nonconforming_syntax
             (excess_address
-              (address_separator
-                (syntax_issue
-                  (nonconforming_syntax
-                    (missing_address_separator))))
+              (syntax_issue
+                (nonconforming_syntax
+                  (missing_address_separator)))
               (address
                 (line_number_address))))))
       (function
@@ -873,17 +828,15 @@ Classifies blank-separated address units by function maximum
       (address_clause
         (address
           (line_number_address))
-        (address_separator
-          (address_separator_token))
+        (address_separator)
         (address
           (line_number_address))
         (syntax_issue
           (nonconforming_syntax
             (excess_address
-              (address_separator
-                (syntax_issue
-                  (nonconforming_syntax
-                    (missing_address_separator))))
+              (syntax_issue
+                (nonconforming_syntax
+                  (missing_address_separator)))
               (address
                 (line_number_address))))))
       (function
@@ -910,8 +863,7 @@ Nests omissions inside excess address units
         (syntax_issue
           (nonconforming_syntax
             (excess_address
-              (address_separator
-                (address_separator_token))
+              (address_separator)
               (syntax_issue
                 (undefined_syntax
                   (omitted_address)))))))
@@ -927,8 +879,7 @@ Nests omissions inside excess address units
         (syntax_issue
           (nonconforming_syntax
             (excess_address
-              (address_separator
-                (address_separator_token))
+              (address_separator)
               (address
                 (line_number_address))))))
       (function
@@ -943,8 +894,7 @@ Nests omissions inside excess address units
         (syntax_issue
           (nonconforming_syntax
             (excess_address
-              (address_separator
-                (address_separator_token))
+              (address_separator)
               (syntax_issue
                 (undefined_syntax
                   (omitted_address)))))))
@@ -970,19 +920,17 @@ Keeps excess address units before blanks, negation, and separators
       (address_clause
         (address
           (line_number_address))
-        (address_separator
-          (address_separator_token))
+        (address_separator)
         (address
           (line_number_address))
         (syntax_issue
           (nonconforming_syntax
             (excess_address
-              (address_separator
-                (syntax_issue
-                  (nonconforming_syntax
-                    (blanks_around_address_separator
-                      (blank))))
-                (address_separator_token))
+              (syntax_issue
+                (nonconforming_syntax
+                  (blanks_around_address_separator
+                    (blank))))
+              (address_separator)
               (address
                 (line_number_address))))))
       (function
@@ -996,8 +944,7 @@ Keeps excess address units before blanks, negation, and separators
         (syntax_issue
           (nonconforming_syntax
             (excess_address
-              (address_separator
-                (address_separator_token))
+              (address_separator)
               (address
                 (line_number_address))))))
       (negation
@@ -1023,16 +970,14 @@ Keeps excess address units before blanks, negation, and separators
                 (syntax_issue
                   (nonconforming_syntax
                     (excess_address
-                      (address_separator
-                        (address_separator_token))
+                      (address_separator)
                       (address
                         (line_number_address))))))
               (function
                 (quit_function
                   (function_verb))))
             (command_separator))
-          (closing_brace
-            (closing_brace_token)))))
+          (closing_brace))))
     (command_separator)))
 
 ==================
@@ -1057,8 +1002,7 @@ $ q
       (function
         (append_function
           (function_verb)
-          (text_introducer
-            (text_introducer_token))
+          (text_introducer)
           (text
             (text_literal)))))
     (command_separator)
@@ -1071,8 +1015,7 @@ $ q
       (function
         (insert_function
           (function_verb)
-          (text_introducer
-            (text_introducer_token))
+          (text_introducer)
           (text
             (text_literal)))))
     (command_separator)
@@ -1135,8 +1078,7 @@ t }
                   (argument_separator)
                   (label))))
             (command_separator))
-          (closing_brace
-            (closing_brace_token)))))
+          (closing_brace))))
     (command_separator)))
 
 ==================
@@ -1181,6 +1123,5 @@ p;;
           (command_list
             (empty_command)
             (command_separator))
-          (closing_brace
-            (closing_brace_token)))))
+          (closing_brace))))
     (command_separator)))

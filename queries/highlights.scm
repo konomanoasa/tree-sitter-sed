@@ -3,7 +3,7 @@
   (escaped_delimiter)
   (replacement_escaped_delimiter)
   (translation_escaped_delimiter)
-  (quoted_character_token)
+  (quoted_character !issue)
   (replacement_escape)
   (sed_newline_escape)
   (text_backslash_escape)
@@ -37,7 +37,7 @@
 
 [
   (escaped_newline)
-  (text_introducer_token)
+  (text_introducer)
   (text_escaped_newline)
 ] @punctuation.special
 
@@ -64,11 +64,11 @@
 
 [
   (back_close_brace)
-  (back_close_parenthesis_token)
+  (back_close_parenthesis)
   (back_open_brace)
   (back_open_parenthesis)
-  (close_bracket_token)
-  (closing_brace_token)
+  (close_bracket)
+  (closing_brace)
   (open_bracket)
 ] @punctuation.bracket
 
@@ -111,14 +111,14 @@
   (class_name)
   (coll_elem_multi)
   (coll_elem_single)
-  (collating_element_token)
+  (collating_element)
   (meta_char)
   (period)
 ] @character.special
 
 [
-  (address_separator_token)
-  (delimiter_token)
+  (address_separator)
+  (delimiter)
   (interval_separator)
 ] @punctuation.delimiter
 

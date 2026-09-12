@@ -12,8 +12,7 @@ Mirrors the POSIX bracket expression production hierarchy
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (basic_reg_exp
               (bre_branch
                 (bre_expression
@@ -33,18 +32,15 @@ Mirrors the POSIX bracket expression production hierarchy
                                         (expression_term
                                           (single_expression
                                             (end_range
-                                              (collating_element
-                                                (collating_element_token))))))
+                                              (collating_element)))))
                                       (expression_term
                                         (range_expression
                                           (start_range
                                             (end_range
-                                              (collating_element
-                                                (collating_element_token)))
+                                              (collating_element))
                                             (range_operator))
                                           (end_range
-                                            (collating_element
-                                              (collating_element_token))))))
+                                            (collating_element)))))
                                     (expression_term
                                       (single_expression
                                         (character_class
@@ -59,10 +55,8 @@ Mirrors the POSIX bracket expression production hierarchy
                                     (equivalence_class
                                       (coll_elem_single)))))
                               (trailing_hyphen)))
-                          (close_bracket
-                            (close_bracket_token)))))))))
-            (delimiter
-              (delimiter_token)))))
+                          (close_bracket))))))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -82,8 +76,7 @@ Distinguishes POSIX collating tokens and range endings
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (extended_reg_exp
               (ere_branch
                 (ere_branch
@@ -105,8 +98,7 @@ Distinguishes POSIX collating tokens and range endings
                                               (end_range
                                                 (collating_symbol
                                                   (coll_elem_single))))))))
-                                    (close_bracket
-                                      (close_bracket_token))))))
+                                    (close_bracket)))))
                             (ere_expression
                               (one_char_or_coll_elem_ere
                                 (bracket_expression
@@ -119,8 +111,7 @@ Distinguishes POSIX collating tokens and range endings
                                             (end_range
                                               (collating_symbol
                                                 (coll_elem_multi))))))))
-                                  (close_bracket
-                                    (close_bracket_token))))))
+                                  (close_bracket)))))
                           (ere_expression
                             (one_char_or_coll_elem_ere
                               (bracket_expression
@@ -133,8 +124,7 @@ Distinguishes POSIX collating tokens and range endings
                                           (end_range
                                             (collating_symbol
                                               (meta_char))))))))
-                                (close_bracket
-                                  (close_bracket_token))))))
+                                (close_bracket)))))
                         (ere_expression
                           (one_char_or_coll_elem_ere
                             (bracket_expression
@@ -146,8 +136,7 @@ Distinguishes POSIX collating tokens and range endings
                                       (single_expression
                                         (equivalence_class
                                           (coll_elem_single)))))))
-                              (close_bracket
-                                (close_bracket_token))))))
+                              (close_bracket)))))
                       (ere_expression
                         (one_char_or_coll_elem_ere
                           (bracket_expression
@@ -159,8 +148,7 @@ Distinguishes POSIX collating tokens and range endings
                                     (single_expression
                                       (equivalence_class
                                         (coll_elem_multi)))))))
-                            (close_bracket
-                              (close_bracket_token))))))
+                            (close_bracket)))))
                     (ere_expression
                       (one_char_or_coll_elem_ere
                         (bracket_expression
@@ -172,12 +160,10 @@ Distinguishes POSIX collating tokens and range endings
                                   (range_expression
                                     (start_range
                                       (end_range
-                                        (collating_element
-                                          (collating_element_token)))
+                                        (collating_element))
                                       (range_operator))
                                     (range_end_hyphen))))))
-                          (close_bracket
-                            (close_bracket_token))))))
+                          (close_bracket)))))
                   (ere_expression
                     (one_char_or_coll_elem_ere
                       (bracket_expression
@@ -189,14 +175,11 @@ Distinguishes POSIX collating tokens and range endings
                                 (range_expression
                                   (start_range
                                     (end_range
-                                      (collating_element
-                                        (collating_element_token)))
+                                      (collating_element))
                                     (range_operator))
                                   (end_range
-                                    (collating_element
-                                      (collating_element_token))))))))
-                        (close_bracket
-                          (close_bracket_token))))))
+                                    (collating_element)))))))
+                        (close_bracket)))))
                 (ere_expression
                   (one_char_or_coll_elem_ere
                     (bracket_expression
@@ -207,13 +190,10 @@ Distinguishes POSIX collating tokens and range endings
                             (expression_term
                               (single_expression
                                 (end_range
-                                  (collating_element
-                                    (collating_element_token))))))
+                                  (collating_element)))))
                           (trailing_hyphen)))
-                      (close_bracket
-                        (close_bracket_token)))))))
-            (delimiter
-              (delimiter_token)))))
+                      (close_bracket))))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -233,8 +213,7 @@ Exposes the POSIX ambiguous outer-bracket form
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (basic_reg_exp
               (bre_branch
                 (bre_expression
@@ -254,22 +233,17 @@ Exposes the POSIX ambiguous outer-bracket form
                                           (expression_term
                                             (single_expression
                                               (end_range
-                                                (collating_element
-                                                  (collating_element_token))))))
+                                                (collating_element)))))
                                         (expression_term
                                           (single_expression
                                             (end_range
-                                              (collating_element
-                                                (collating_element_token))))))
+                                              (collating_element)))))
                                       (expression_term
                                         (single_expression
                                           (end_range
-                                            (collating_element
-                                              (collating_element_token))))))))
-                                (close_bracket
-                                  (close_bracket_token))))))))))))
-            (delimiter
-              (delimiter_token)))))
+                                            (collating_element)))))))
+                                (close_bracket)))))))))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -289,8 +263,7 @@ Recovers malformed terms and non-portable ranges
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (extended_reg_exp
               (ere_branch
                 (ere_branch
@@ -310,12 +283,10 @@ Recovers malformed terms and non-portable ranges
                                           (range_expression
                                             (start_range
                                               (end_range
-                                                (collating_element
-                                                  (collating_element_token)))
+                                                (collating_element))
                                               (range_operator))
                                             (end_range
-                                              (collating_element
-                                                (collating_element_token))))))
+                                              (collating_element)))))
                                       (expression_term
                                         (syntax_issue
                                           (undefined_syntax
@@ -323,10 +294,8 @@ Recovers malformed terms and non-portable ranges
                                     (expression_term
                                       (single_expression
                                         (end_range
-                                          (collating_element
-                                            (collating_element_token))))))))
-                              (close_bracket
-                                (close_bracket_token))))))
+                                          (collating_element)))))))
+                              (close_bracket)))))
                       (ere_expression
                         (one_char_or_coll_elem_ere
                           (bracket_expression
@@ -338,8 +307,7 @@ Recovers malformed terms and non-portable ranges
                                     (range_expression
                                       (start_range
                                         (end_range
-                                          (collating_element
-                                            (collating_element_token)))
+                                          (collating_element))
                                         (range_operator))
                                       (end_range
                                         (syntax_issue
@@ -347,8 +315,7 @@ Recovers malformed terms and non-portable ranges
                                             (character_class_range_end
                                               (character_class
                                                 (class_name)))))))))))
-                            (close_bracket
-                              (close_bracket_token))))))
+                            (close_bracket)))))
                     (ere_expression
                       (one_char_or_coll_elem_ere
                         (bracket_expression
@@ -366,10 +333,8 @@ Recovers malformed terms and non-portable ranges
                                               (coll_elem_single)))))
                                       (range_operator))
                                     (end_range
-                                      (collating_element
-                                        (collating_element_token))))))))
-                          (close_bracket
-                            (close_bracket_token))))))
+                                      (collating_element)))))))
+                          (close_bracket)))))
                   (ere_expression
                     (one_char_or_coll_elem_ere
                       (bracket_expression
@@ -381,8 +346,7 @@ Recovers malformed terms and non-portable ranges
                                 (range_expression
                                   (start_range
                                     (end_range
-                                      (collating_element
-                                        (collating_element_token)))
+                                      (collating_element))
                                     (range_operator))
                                   (end_range
                                     (syntax_issue
@@ -390,8 +354,7 @@ Recovers malformed terms and non-portable ranges
                                         (equivalence_class_range_end
                                           (equivalence_class
                                             (coll_elem_single)))))))))))
-                        (close_bracket
-                          (close_bracket_token))))))
+                        (close_bracket)))))
                 (ere_expression
                   (one_char_or_coll_elem_ere
                     (bracket_expression
@@ -407,10 +370,8 @@ Recovers malformed terms and non-portable ranges
                                     (syntax_issue
                                       (undefined_syntax
                                         (malformed_bracket_term))))))))))
-                      (close_bracket
-                        (close_bracket_token)))))))
-            (delimiter
-              (delimiter_token)))))
+                      (close_bracket))))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -430,8 +391,7 @@ Rejects meta characters inside equivalence classes
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (basic_reg_exp
               (bre_branch
                 (bre_branch
@@ -453,8 +413,7 @@ Rejects meta characters inside equivalence classes
                                               (syntax_issue
                                                 (undefined_syntax
                                                   (malformed_bracket_term)))))))))
-                                  (close_bracket
-                                    (close_bracket_token))))))))
+                                  (close_bracket)))))))
                       (bre_expression
                         (simple_bre
                           (nondupl_bre
@@ -470,8 +429,7 @@ Rejects meta characters inside equivalence classes
                                             (syntax_issue
                                               (undefined_syntax
                                                 (malformed_bracket_term)))))))))
-                                (close_bracket
-                                  (close_bracket_token))))))))
+                                (close_bracket)))))))
                     (bre_expression
                       (simple_bre
                         (nondupl_bre
@@ -485,8 +443,7 @@ Rejects meta characters inside equivalence classes
                                       (single_expression
                                         (equivalence_class
                                           (coll_elem_single)))))))
-                              (close_bracket
-                                (close_bracket_token))))))))
+                              (close_bracket)))))))
                   (bre_expression
                     (simple_bre
                       (nondupl_bre
@@ -501,8 +458,7 @@ Rejects meta characters inside equivalence classes
                                       (end_range
                                         (collating_symbol
                                           (coll_elem_single))))))))
-                            (close_bracket
-                              (close_bracket_token))))))))
+                            (close_bracket)))))))
                 (bre_expression
                   (simple_bre
                     (nondupl_bre
@@ -517,10 +473,8 @@ Rejects meta characters inside equivalence classes
                                     (end_range
                                       (collating_symbol
                                         (meta_char))))))))
-                          (close_bracket
-                            (close_bracket_token)))))))))
-            (delimiter
-              (delimiter_token)))))
+                          (close_bracket))))))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -540,8 +494,7 @@ s/[[:1:]]/x/
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_expression
@@ -560,14 +513,11 @@ s/[[:1:]]/x/
                                       (undefined_syntax
                                         (malformed_bracket_term
                                           (class_name))))))))))
-                        (close_bracket
-                          (close_bracket_token)))))))))
-          (delimiter
-            (delimiter_token))
+                        (close_bracket))))))))
+          (delimiter)
           (replacement
             (replacement_literal))
-          (delimiter
-            (delimiter_token)))))
+          (delimiter))))
     (command_separator)))
 
 ==================
@@ -584,8 +534,7 @@ s/[[:1:]]/x/
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (extended_reg_exp
             (ere_branch
               (ere_expression
@@ -602,12 +551,9 @@ s/[[:1:]]/x/
                                   (undefined_syntax
                                     (malformed_bracket_term
                                       (class_name))))))))))
-                    (close_bracket
-                      (close_bracket_token)))))))
-          (delimiter
-            (delimiter_token))
+                    (close_bracket))))))
+          (delimiter)
           (replacement
             (replacement_literal))
-          (delimiter
-            (delimiter_token)))))
+          (delimiter))))
     (command_separator)))

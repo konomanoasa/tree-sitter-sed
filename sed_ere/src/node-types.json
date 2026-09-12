@@ -69,32 +69,6 @@
     }
   },
   {
-    "type": "address_separator",
-    "named": true,
-    "fields": {
-      "issue": {
-        "multiple": true,
-        "required": false,
-        "types": [
-          {
-            "type": "syntax_issue",
-            "named": true
-          }
-        ]
-      },
-      "token": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "address_separator_token",
-            "named": true
-          }
-        ]
-      }
-    }
-  },
-  {
     "type": "adjacent_duplication_symbol",
     "named": true,
     "fields": {
@@ -207,7 +181,7 @@
     "fields": {
       "closing": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "closing_brace",
@@ -221,6 +195,16 @@
         "types": [
           {
             "type": "command_list",
+            "named": true
+          }
+        ]
+      },
+      "issue": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "syntax_issue",
             "named": true
           }
         ]
@@ -243,7 +227,7 @@
     "fields": {
       "closing": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "close_bracket",
@@ -251,9 +235,19 @@
           }
         ]
       },
+      "issue": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "syntax_issue",
+            "named": true
+          }
+        ]
+      },
       "list": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "matching_list",
@@ -444,106 +438,17 @@
   {
     "type": "close_bracket",
     "named": true,
-    "fields": {
-      "issue": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "syntax_issue",
-            "named": true
-          }
-        ]
-      }
-    },
-    "children": {
-      "multiple": false,
-      "required": false,
-      "types": [
-        {
-          "type": "close_bracket_token",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "close_parenthesis",
-    "named": true,
-    "fields": {
-      "issue": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "syntax_issue",
-            "named": true
-          }
-        ]
-      }
-    },
-    "children": {
-      "multiple": false,
-      "required": false,
-      "types": [
-        {
-          "type": "close_parenthesis_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "closing_brace",
     "named": true,
-    "fields": {
-      "issue": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "syntax_issue",
-            "named": true
-          }
-        ]
-      }
-    },
-    "children": {
-      "multiple": false,
-      "required": false,
-      "types": [
-        {
-          "type": "closing_brace_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "collating_element",
     "named": true,
-    "fields": {
-      "issue": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "syntax_issue",
-            "named": true
-          }
-        ]
-      }
-    },
-    "children": {
-      "multiple": false,
-      "required": false,
-      "types": [
-        {
-          "type": "collating_element_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "collating_symbol",
@@ -702,9 +607,19 @@
           }
         ]
       },
+      "issue": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "syntax_issue",
+            "named": true
+          }
+        ]
+      },
       "opening": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "delimiter",
@@ -740,32 +655,6 @@
         "types": [
           {
             "type": "function_verb",
-            "named": true
-          }
-        ]
-      }
-    }
-  },
-  {
-    "type": "delimiter",
-    "named": true,
-    "fields": {
-      "issue": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "syntax_issue",
-            "named": true
-          }
-        ]
-      },
-      "token": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "delimiter_token",
             "named": true
           }
         ]
@@ -809,7 +698,7 @@
       },
       "function": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "function",
@@ -858,6 +747,16 @@
     "type": "end_range",
     "named": true,
     "fields": {
+      "issue": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "syntax_issue",
+            "named": true
+          }
+        ]
+      },
       "term": {
         "multiple": false,
         "required": false,
@@ -953,16 +852,6 @@
     "type": "ere_branch",
     "named": true,
     "fields": {
-      "issue": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "syntax_issue",
-            "named": true
-          }
-        ]
-      },
       "left": {
         "multiple": false,
         "required": false,
@@ -1114,7 +1003,7 @@
         ]
       },
       "issue": {
-        "multiple": false,
+        "multiple": true,
         "required": false,
         "types": [
           {
@@ -1214,7 +1103,7 @@
         ]
       },
       "issue": {
-        "multiple": false,
+        "multiple": true,
         "required": false,
         "types": [
           {
@@ -1285,14 +1174,20 @@
     "type": "extended_reg_exp",
     "named": true,
     "fields": {
+      "issue": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "syntax_issue",
+            "named": true
+          }
+        ]
+      },
       "left": {
         "multiple": false,
         "required": false,
         "types": [
-          {
-            "type": "ere_branch",
-            "named": true
-          },
           {
             "type": "extended_reg_exp",
             "named": true
@@ -1390,21 +1285,10 @@
   {
     "type": "function",
     "named": true,
-    "fields": {
-      "issue": {
-        "multiple": true,
-        "required": false,
-        "types": [
-          {
-            "type": "syntax_issue",
-            "named": true
-          }
-        ]
-      }
-    },
+    "fields": {},
     "children": {
       "multiple": false,
-      "required": false,
+      "required": true,
       "types": [
         {
           "type": "append_function",
@@ -1783,18 +1667,7 @@
   {
     "type": "invalid_delimiter",
     "named": true,
-    "fields": {
-      "token": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "delimiter_token",
-            "named": true
-          }
-        ]
-      }
-    }
+    "fields": {}
   },
   {
     "type": "invalid_regular_expression_character",
@@ -1977,20 +1850,10 @@
     "fields": {
       "elements": {
         "multiple": false,
-        "required": false,
+        "required": true,
         "types": [
           {
             "type": "bracket_list",
-            "named": true
-          }
-        ]
-      },
-      "issue": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "syntax_issue",
             "named": true
           }
         ]
@@ -2294,6 +2157,10 @@
           "named": true
         },
         {
+          "type": "escaped_delimiter",
+          "named": true
+        },
+        {
           "type": "ordinary_character",
           "named": true
         },
@@ -2389,20 +2256,6 @@
           }
         ]
       }
-    },
-    "children": {
-      "multiple": false,
-      "required": false,
-      "types": [
-        {
-          "type": "escaped_delimiter",
-          "named": true
-        },
-        {
-          "type": "quoted_character_token",
-          "named": true
-        }
-      ]
     }
   },
   {
@@ -2692,6 +2545,16 @@
           }
         ]
       },
+      "issue": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "syntax_issue",
+            "named": true
+          }
+        ]
+      },
       "middle": {
         "multiple": false,
         "required": false,
@@ -2704,7 +2567,7 @@
       },
       "opening": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "delimiter",
@@ -2890,28 +2753,7 @@
   {
     "type": "text_introducer",
     "named": true,
-    "fields": {
-      "issue": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "syntax_issue",
-            "named": true
-          }
-        ]
-      }
-    },
-    "children": {
-      "multiple": false,
-      "required": false,
-      "types": [
-        {
-          "type": "text_introducer_token",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "text_literal",
@@ -2932,6 +2774,16 @@
           }
         ]
       },
+      "issue": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "syntax_issue",
+            "named": true
+          }
+        ]
+      },
       "middle": {
         "multiple": false,
         "required": false,
@@ -2944,7 +2796,7 @@
       },
       "opening": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "delimiter",
@@ -3395,7 +3247,7 @@
     "named": true
   },
   {
-    "type": "address_separator_token",
+    "type": "address_separator",
     "named": true
   },
   {
@@ -3419,15 +3271,7 @@
     "named": true
   },
   {
-    "type": "close_bracket_token",
-    "named": true
-  },
-  {
-    "type": "close_parenthesis_token",
-    "named": true
-  },
-  {
-    "type": "closing_brace_token",
+    "type": "close_parenthesis",
     "named": true
   },
   {
@@ -3436,10 +3280,6 @@
   },
   {
     "type": "coll_elem_single",
-    "named": true
-  },
-  {
-    "type": "collating_element_token",
     "named": true
   },
   {
@@ -3455,7 +3295,7 @@
     "named": true
   },
   {
-    "type": "delimiter_token",
+    "type": "delimiter",
     "named": true
   },
   {
@@ -3507,10 +3347,6 @@
     "named": true
   },
   {
-    "type": "quoted_character_token",
-    "named": true
-  },
-  {
     "type": "range_end_hyphen",
     "named": true
   },
@@ -3520,10 +3356,6 @@
   },
   {
     "type": "substitution_flag",
-    "named": true
-  },
-  {
-    "type": "text_introducer_token",
     "named": true
   },
   {

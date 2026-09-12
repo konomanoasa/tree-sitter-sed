@@ -1,4 +1,4 @@
-const { issueField, issueNode, namedExternal } = require("./dsl");
+import { issueField, issueNode, namedExternal } from "./dsl.js";
 
 function subexpressionBody($, expression) {
   return choice(
@@ -99,7 +99,7 @@ function bracketListBody($) {
 
 function subexpressionClose($, tokenName) {
   return choice(
-    namedExternal($, $._regex_group_close, tokenName),
+    field("closing", namedExternal($, $._regex_group_close, tokenName)),
     issueField($, "unclosed_subexpression"),
     issueField($, "incomplete_unclosed_subexpression"),
   );
@@ -108,9 +108,17 @@ function subexpressionClose($, tokenName) {
 function bracketExpression($, ambiguous) {
   return seq(
     field("opening", namedExternal($, $._regex_bracket_open, "open_bracket")),
-    field("list", choice($.matching_list, $.nonmatching_list)),
+    choice(
+      field("list", choice($.matching_list, $.nonmatching_list)),
+      issueField($, "missing_bracket_list"),
+      issueField($, "incomplete_missing_bracket_list"),
+    ),
     ...(ambiguous ? [$._ambiguous_bracket_expression_marker] : []),
-    field("closing", $.close_bracket),
+    choice(
+      field("closing", $.close_bracket),
+      issueField($, "unclosed_bracket_expression"),
+      issueField($, "incomplete_unclosed_bracket_expression"),
+    ),
   );
 }
 
@@ -126,14 +134,9 @@ function bracketRules() {
         issueField($, "ambiguous_bracket_expression"),
       ),
 
-    close_bracket: ($) =>
-      choice(
-        namedExternal($, $._regex_bracket_close, "close_bracket_token"),
-        issueField($, "unclosed_bracket_expression"),
-        issueField($, "incomplete_unclosed_bracket_expression"),
-      ),
+    close_bracket: ($) => $._regex_bracket_close,
 
-    matching_list: bracketListBody,
+    matching_list: ($) => field("elements", $.bracket_list),
 
     nonmatching_list: ($) =>
       seq(
@@ -246,13 +249,14 @@ function bracketRules() {
         ),
       ),
 
-    end_range: ($) => choice($.collating_element, $.collating_symbol),
-
-    collating_element: ($) =>
+    end_range: ($) =>
       choice(
-        namedExternal($, $._regex_bracket_literal, "collating_element_token"),
+        $.collating_element,
+        $.collating_symbol,
         issueField($, "invalid_regular_expression_character"),
       ),
+
+    collating_element: ($) => $._regex_bracket_literal,
 
     collating_symbol: ($) =>
       compoundBracketExpression(
@@ -293,23 +297,29 @@ function bracketRules() {
   };
 }
 
+function regularExpressionEscape($) {
+  return choice(
+    $.quoted_character,
+    alias($._invalid_quoted_character, $.quoted_character),
+    $.escaped_delimiter,
+    issueField($, "ordinary_character_escape"),
+    issueField($, "incomplete_regular_expression_escape"),
+    issueField($, "forbidden_regular_expression_newline"),
+  );
+}
+
 function commonRegularExpressionRules() {
   return {
     dup_count: ($) => $._regex_dup_count,
 
     ordinary_character: ($) => $._regex_literal,
 
-    quoted_character: ($) =>
-      choice(
-        namedExternal($, $._regex_quoted_escape, "quoted_character_token"),
-        seq(
-          $._escape_prefix,
-          issueField($, "invalid_regular_expression_character"),
-        ),
-        $.escaped_delimiter,
-        issueField($, "ordinary_character_escape"),
-        issueField($, "incomplete_regular_expression_escape"),
-        issueField($, "forbidden_regular_expression_newline"),
+    quoted_character: ($) => $._regex_quoted_escape,
+
+    _invalid_quoted_character: ($) =>
+      seq(
+        $._escape_prefix,
+        issueField($, "invalid_regular_expression_character"),
       ),
 
     escaped_delimiter: ($) => $._regex_escaped_delimiter,
@@ -410,15 +420,12 @@ function breRules() {
             namedExternal($, $._regex_group_open, "back_open_parenthesis"),
           ),
           subexpressionBody($, $.basic_reg_exp),
-          field("closing", $.back_close_parenthesis),
+          subexpressionClose($, "back_close_parenthesis"),
         ),
         $.backreference,
         issueField($, "unmatched_subexpression_close"),
         issueField($, "unmatched_interval_close"),
       ),
-
-    back_close_parenthesis: ($) =>
-      subexpressionClose($, "back_close_parenthesis_token"),
 
     backreference: ($) => $._regex_backreference,
 
@@ -426,7 +433,7 @@ function breRules() {
       choice(
         issueField($, "invalid_regular_expression_character"),
         $.ordinary_character,
-        $.quoted_character,
+        regularExpressionEscape($),
         $.sed_newline_escape,
         $.period,
         $._bracket_expression,
@@ -456,20 +463,18 @@ function ereDuplicationSymbol($) {
 
 function ereRules() {
   return {
-    extended_reg_exp: ($) => {
-      const emptyBranch = alias($._empty_ere_branch, $.ere_branch);
-      return choice(
+    extended_reg_exp: ($) =>
+      choice(
         $.ere_branch,
         prec.left(
           1,
           seq(
-            field("left", choice($.extended_reg_exp, emptyBranch)),
+            choice(field("left", $.extended_reg_exp), $._empty_ere_branch),
             field("operator", $.ere_alternation_operator),
-            field("right", choice($.ere_branch, emptyBranch)),
+            choice(field("right", $.ere_branch), $._empty_ere_branch),
           ),
         ),
-      );
-    },
+      ),
 
     _empty_ere_branch: ($) =>
       choice(
@@ -498,7 +503,7 @@ function ereRules() {
             namedExternal($, $._regex_group_open, "open_parenthesis"),
           ),
           subexpressionBody($, $.extended_reg_exp),
-          field("closing", $.close_parenthesis),
+          subexpressionClose($, "close_parenthesis"),
         ),
         prec.left(
           1,
@@ -516,13 +521,11 @@ function ereRules() {
         field("operator", issueNode($, "leading_duplication_symbol")),
       ),
 
-    close_parenthesis: ($) => subexpressionClose($, "close_parenthesis_token"),
-
     one_char_or_coll_elem_ere: ($) =>
       choice(
         issueField($, "invalid_regular_expression_character"),
         $.ordinary_character,
-        $.quoted_character,
+        regularExpressionEscape($),
         $.sed_newline_escape,
         $.period,
         $._bracket_expression,
@@ -548,4 +551,4 @@ function regularExpressionRules(mode) {
   };
 }
 
-module.exports = regularExpressionRules;
+export default regularExpressionRules;

@@ -12,8 +12,7 @@ s#^(ab|c)+d{2,3}$#x#
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (extended_reg_exp
             (ere_branch
               (ere_branch
@@ -39,8 +38,7 @@ s#^(ab|c)+d{2,3}$#x#
                           (ere_expression
                             (one_char_or_coll_elem_ere
                               (ordinary_character)))))
-                      (close_parenthesis
-                        (close_parenthesis_token)))
+                      (close_parenthesis))
                     (ere_dupl_symbol
                       (one_or_more_operator))))
                 (ere_expression
@@ -55,12 +53,10 @@ s#^(ab|c)+d{2,3}$#x#
                     (close_brace))))
               (ere_expression
                 (right_anchor))))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (replacement
             (replacement_literal))
-          (delimiter
-            (delimiter_token)))))
+          (delimiter))))
     (command_separator)))
 
 ==================
@@ -77,8 +73,7 @@ Preserves adjacent and leading ERE duplication structures
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (extended_reg_exp
               (extended_reg_exp
                 (ere_branch
@@ -107,8 +102,7 @@ Preserves adjacent and leading ERE duplication structures
                           (open_brace)
                           (dup_count)
                           (close_brace))))))))
-            (delimiter
-              (delimiter_token)))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -129,12 +123,9 @@ s///w pig file
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
-          (delimiter
-            (delimiter_token))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
+          (delimiter)
+          (delimiter)
           (substitution_flags
             (write_flag
               (substitution_flag)
@@ -149,12 +140,9 @@ s///w pig file
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
-          (delimiter
-            (delimiter_token))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
+          (delimiter)
+          (delimiter)
           (substitution_flags
             (write_flag
               (substitution_flag)
@@ -175,8 +163,7 @@ Exposes POSIX repetition modifiers
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (extended_reg_exp
               (ere_branch
                 (ere_branch
@@ -214,8 +201,7 @@ Exposes POSIX repetition modifiers
                     (dup_count)
                     (close_brace)
                     (repetition_modifier)))))
-            (delimiter
-              (delimiter_token)))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -235,8 +221,7 @@ Classifies empty ERE subexpressions and alternatives inside the POSIX hierarchy
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (extended_reg_exp
               (extended_reg_exp
                 (extended_reg_exp
@@ -247,23 +232,20 @@ Classifies empty ERE subexpressions and alternatives inside the POSIX hierarchy
                         (syntax_issue
                           (undefined_syntax
                             (empty_subexpression)))
-                        (close_parenthesis
-                          (close_parenthesis_token))))
+                        (close_parenthesis)))
                     (ere_expression
                       (one_char_or_coll_elem_ere
                         (ordinary_character)))))
                 (ere_alternation_operator)
-                (ere_branch
-                  (syntax_issue
-                    (undefined_syntax
-                      (empty_alternative)))))
+                (syntax_issue
+                  (undefined_syntax
+                    (empty_alternative))))
               (ere_alternation_operator)
               (ere_branch
                 (ere_expression
                   (one_char_or_coll_elem_ere
                     (ordinary_character)))))
-            (delimiter
-              (delimiter_token)))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -288,8 +270,7 @@ Classifies excess address units in ERE mode
         (syntax_issue
           (nonconforming_syntax
             (excess_address
-              (address_separator
-                (address_separator_token))
+              (address_separator)
               (address
                 (line_number_address))))))
       (function
@@ -301,8 +282,7 @@ Classifies excess address units in ERE mode
         (syntax_issue
           (undefined_syntax
             (omitted_address)))
-        (address_separator
-          (address_separator_token))
+        (address_separator)
         (address
           (line_number_address)))
       (function
@@ -319,10 +299,9 @@ Classifies excess address units in ERE mode
         (syntax_issue
           (nonconforming_syntax
             (excess_address
-              (address_separator
-                (syntax_issue
-                  (nonconforming_syntax
-                    (missing_address_separator))))
+              (syntax_issue
+                (nonconforming_syntax
+                  (missing_address_separator)))
               (address
                 (line_number_address))))))
       (function
@@ -347,8 +326,7 @@ Leaves following constructs outside a malformed ERE interval
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (extended_reg_exp
               (ere_branch
                 (ere_branch
@@ -374,20 +352,16 @@ Leaves following constructs outside a malformed ERE interval
                                 (expression_term
                                   (single_expression
                                     (end_range
-                                      (collating_element
-                                        (collating_element_token))))))
+                                      (collating_element)))))
                               (expression_term
                                 (single_expression
                                   (end_range
-                                    (collating_element
-                                      (collating_element_token))))))))
-                        (close_bracket
-                          (close_bracket_token))))))
+                                    (collating_element)))))))
+                        (close_bracket)))))
                 (ere_expression
                   (one_char_or_coll_elem_ere
                     (ordinary_character)))))
-            (delimiter
-              (delimiter_token)))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -396,8 +370,7 @@ Leaves following constructs outside a malformed ERE interval
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (extended_reg_exp
               (ere_branch
                 (ere_expression
@@ -414,10 +387,8 @@ Leaves following constructs outside a malformed ERE interval
                           (syntax_issue
                             (undefined_syntax
                               (malformed_interval)))))))
-                  (close_parenthesis
-                    (close_parenthesis_token)))))
-            (delimiter
-              (delimiter_token)))))
+                  (close_parenthesis))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -426,8 +397,7 @@ Leaves following constructs outside a malformed ERE interval
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (extended_reg_exp
               (extended_reg_exp
                 (ere_branch
@@ -446,8 +416,7 @@ Leaves following constructs outside a malformed ERE interval
                 (ere_expression
                   (one_char_or_coll_elem_ere
                     (ordinary_character)))))
-            (delimiter
-              (delimiter_token)))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))
@@ -467,8 +436,7 @@ Structures a leading malformed ERE interval
       (address_clause
         (address
           (context_address
-            (delimiter
-              (delimiter_token))
+            (delimiter)
             (extended_reg_exp
               (ere_branch
                 (ere_expression
@@ -481,8 +449,7 @@ Structures a leading malformed ERE interval
                             (undefined_syntax
                               (malformed_interval)))
                           (close_brace))))))))
-            (delimiter
-              (delimiter_token)))))
+            (delimiter))))
       (function
         (print_function
           (function_verb))))

@@ -1,9 +1,9 @@
-const assert = require("node:assert/strict");
-const { mkdtempSync, readFileSync, rmSync, writeFileSync } = require("node:fs");
-const { tmpdir } = require("node:os");
-const { join } = require("node:path");
-const { after, before, test } = require("node:test");
-const { createTreeSitter, grammars, root } = require("../scripts/tree-sitter");
+import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { after, before, test } from "node:test";
+import { createTreeSitter, grammars, root } from "../scripts/tree-sitter.js";
 
 let temporaryDirectory;
 let treeSitter;
@@ -79,5 +79,37 @@ for (const grammar of grammars) {
       0,
       queryResult.stdout + queryResult.stderr,
     );
+  });
+}
+
+for (const grammar of grammars) {
+  test(`${grammar.name} highlights only complete quoted escapes`, () => {
+    const path = join(temporaryDirectory, `${grammar.name}-escape.sed`);
+    for (const [source, expected] of [
+      [Buffer.from("/\\*/p\n"), 1],
+      [Buffer.from([47, 92, 0, 47, 112, 10]), 0],
+      [Buffer.from([47, 92, 255, 47, 112, 10]), 0],
+    ]) {
+      writeFileSync(path, source);
+      const result = treeSitter.run(
+        [
+          "query",
+          "--captures",
+          "--scope",
+          grammar.scope,
+          join(temporaryDirectory, `${grammar.name}.scm`),
+          path,
+        ],
+        { encoding: "utf8", env: { NO_COLOR: "1" } },
+      );
+      assert.ifError(result.error);
+      assert.equal(result.status, 0, result.stdout + result.stderr);
+      const captures = result.stdout
+        .split("\n")
+        .filter((line) => line.includes("string.escape"));
+      assert.equal(captures.length, expected, result.stdout);
+      if (expected === 1)
+        assert.match(captures[0], /start: \(0, 1\), end: \(0, 3\)/);
+    }
   });
 }

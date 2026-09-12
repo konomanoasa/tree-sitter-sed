@@ -17,8 +17,7 @@ w output
       (function
         (change_function
           (function_verb)
-          (text_introducer
-            (text_introducer_token))
+          (text_introducer)
           (text
             (text_literal)))))
     (command_separator)
@@ -26,8 +25,7 @@ w output
       (function
         (insert_function
           (function_verb)
-          (text_introducer
-            (text_introducer_token))
+          (text_introducer)
           (text
             (text_literal)))))
     (command_separator)
@@ -62,8 +60,7 @@ w file;p
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_expression
@@ -71,21 +68,18 @@ w file;p
                   (nondupl_bre
                     (one_char_or_coll_elem_bre
                       (ordinary_character)))))))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (replacement
             (syntax_issue
               (unspecified_syntax
                 (replacement_ampersand_delimiter_escape))))
-          (delimiter
-            (delimiter_token)))))
+          (delimiter))))
     (command_separator)
     (editing_command
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_expression
@@ -93,12 +87,10 @@ w file;p
                   (nondupl_bre
                     (one_char_or_coll_elem_bre
                       (ordinary_character)))))))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (replacement
             (replacement_literal))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (substitution_flags
             (write_flag
               (substitution_flag)
@@ -113,8 +105,7 @@ w file;p
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_expression
@@ -122,12 +113,10 @@ w file;p
                   (nondupl_bre
                     (one_char_or_coll_elem_bre
                       (ordinary_character)))))))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (replacement
             (replacement_literal))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (substitution_flags
             (write_flag
               (substitution_flag)
@@ -157,8 +146,7 @@ s|a|\&\\|
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_expression
@@ -166,16 +154,14 @@ s|a|\&\\|
                   (nondupl_bre
                     (one_char_or_coll_elem_bre
                       (ordinary_character)))))))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (replacement
             (replacement_literal)
             (matched_text_reference)
             (replacement_backreference)
             (replacement_backreference)
             (replacement_escaped_delimiter))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (substitution_flags
             (global_flag)
             (case_insensitive_flag)
@@ -188,8 +174,7 @@ s|a|\&\\|
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_expression
@@ -197,13 +182,11 @@ s|a|\&\\|
                   (nondupl_bre
                     (one_char_or_coll_elem_bre
                       (ordinary_character)))))))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (replacement
             (replacement_escape)
             (replacement_escape))
-          (delimiter
-            (delimiter_token)))))
+          (delimiter))))
     (command_separator)))
 
 ==================
@@ -221,8 +204,7 @@ second|
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_expression
@@ -230,14 +212,12 @@ second|
                   (nondupl_bre
                     (one_char_or_coll_elem_bre
                       (ordinary_character)))))))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (replacement
             (replacement_literal)
             (escaped_newline)
             (replacement_literal))
-          (delimiter
-            (delimiter_token)))))
+          (delimiter))))
     (command_separator)))
 
 ==================
@@ -254,20 +234,17 @@ y|a\n\||b\\c|
       (function
         (translate_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (translation_string
             (translation_literal)
             (translation_escape)
             (translation_escaped_delimiter))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (translation_string
             (translation_literal)
             (translation_escape)
             (translation_literal))
-          (delimiter
-            (delimiter_token)))))
+          (delimiter))))
     (command_separator)))
 
 ==================
@@ -286,8 +263,7 @@ third
       (function
         (append_function
           (function_verb)
-          (text_introducer
-            (text_introducer_token))
+          (text_introducer)
           (text
             (text_literal)
             (text_backslash_escape)
@@ -351,8 +327,7 @@ s/a/b/000
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_expression
@@ -360,12 +335,10 @@ s/a/b/000
                   (nondupl_bre
                     (one_char_or_coll_elem_bre
                       (ordinary_character)))))))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (replacement
             (replacement_literal))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (substitution_flags
             (occurrence_flag)))))
     (command_separator)
@@ -373,8 +346,7 @@ s/a/b/000
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_expression
@@ -382,12 +354,10 @@ s/a/b/000
                   (nondupl_bre
                     (one_char_or_coll_elem_bre
                       (ordinary_character)))))))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (replacement
             (replacement_literal))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (substitution_flags
             (occurrence_flag)))))
     (command_separator)))
@@ -427,12 +397,9 @@ s///w pig file
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
-          (delimiter
-            (delimiter_token))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
+          (delimiter)
+          (delimiter)
           (substitution_flags
             (write_flag
               (substitution_flag)
@@ -447,12 +414,9 @@ s///w pig file
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
-          (delimiter
-            (delimiter_token))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
+          (delimiter)
+          (delimiter)
           (substitution_flags
             (write_flag
               (substitution_flag)
@@ -474,8 +438,7 @@ p
       (function
         (substitute_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (basic_reg_exp
             (bre_branch
               (bre_expression
@@ -489,14 +452,12 @@ p
                             (nondupl_bre
                               (one_char_or_coll_elem_bre
                                 (ordinary_character)))))))
-                    (back_close_parenthesis
-                      (syntax_issue
-                        (undefined_syntax
-                          (unclosed_subexpression)))))))))
-          (delimiter
-            (syntax_issue
-              (nonconforming_syntax
-                (unterminated_regular_expression)))))))
+                    (syntax_issue
+                      (undefined_syntax
+                        (unclosed_subexpression))))))))
+          (syntax_issue
+            (nonconforming_syntax
+              (unterminated_regular_expression))))))
     (command_separator)
     (editing_command
       (function
@@ -519,21 +480,18 @@ p
       (function
         (translate_function
           (function_verb)
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (translation_string
             (translation_literal))
-          (delimiter
-            (delimiter_token))
+          (delimiter)
           (translation_string
             (translation_literal)
             (syntax_issue
               (undefined_syntax
                 (undefined_translation_escape))))
-          (delimiter
-            (syntax_issue
-              (nonconforming_syntax
-                (unterminated_translation)))))))
+          (syntax_issue
+            (nonconforming_syntax
+              (unterminated_translation))))))
     (command_separator)
     (editing_command
       (function
