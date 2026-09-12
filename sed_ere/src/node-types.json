@@ -1667,6 +1667,22 @@
   {
     "type": "invalid_delimiter",
     "named": true,
+    "fields": {
+      "issue": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "syntax_issue",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "invalid_encoding",
+    "named": true,
     "fields": {}
   },
   {
@@ -1677,7 +1693,18 @@
   {
     "type": "invalid_substitution_flag",
     "named": true,
-    "fields": {}
+    "fields": {
+      "issue": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "syntax_issue",
+            "named": true
+          }
+        ]
+      }
+    }
   },
   {
     "type": "invalid_syntax",
@@ -1688,11 +1715,11 @@
       "required": true,
       "types": [
         {
-          "type": "invalid_regular_expression_character",
+          "type": "invalid_encoding",
           "named": true
         },
         {
-          "type": "omitted_file_separator",
+          "type": "invalid_regular_expression_character",
           "named": true
         }
       ]
@@ -1817,7 +1844,7 @@
       "required": false,
       "types": [
         {
-          "type": "class_name",
+          "type": "meta_char",
           "named": true
         }
       ]
@@ -2051,6 +2078,10 @@
           "named": true
         },
         {
+          "type": "omitted_file_separator",
+          "named": true
+        },
+        {
           "type": "unexpected_command_text",
           "named": true
         },
@@ -2245,18 +2276,7 @@
   {
     "type": "quoted_character",
     "named": true,
-    "fields": {
-      "issue": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "syntax_issue",
-            "named": true
-          }
-        ]
-      }
-    }
+    "fields": {}
   },
   {
     "type": "range_expression",
@@ -2384,7 +2404,17 @@
   {
     "type": "replacement_ampersand_delimiter_escape",
     "named": true,
-    "fields": {}
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "replacement_escaped_delimiter",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "replacement_backreference",
@@ -2451,7 +2481,17 @@
   {
     "type": "shared_range_endpoint",
     "named": true,
-    "fields": {}
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "range_operator",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "single_expression",
@@ -2479,7 +2519,17 @@
   {
     "type": "special_delimiter_escape",
     "named": true,
-    "fields": {}
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "escaped_delimiter",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "start_range",
@@ -3001,7 +3051,18 @@
   {
     "type": "unknown_function",
     "named": true,
-    "fields": {}
+    "fields": {
+      "issue": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "syntax_issue",
+            "named": true
+          }
+        ]
+      }
+    }
   },
   {
     "type": "unmatched_closing_brace",

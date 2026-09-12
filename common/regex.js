@@ -65,8 +65,12 @@ function compoundBracketExpression(
     choice(
       field(contentField, content),
       issueField($, "invalid_regular_expression_character"),
+      issueField($, "invalid_encoding"),
       ...(marker === ":"
         ? [issueField($, "invalid_character_class_name")]
+        : []),
+      ...(marker === "="
+        ? [issueField($, "equivalence_class_meta_character")]
         : []),
     ),
   );
@@ -251,6 +255,7 @@ function bracketRules() {
         $.collating_element,
         $.collating_symbol,
         issueField($, "invalid_regular_expression_character"),
+        issueField($, "invalid_encoding"),
       ),
 
     collating_element: ($) => $._regex_bracket_literal,
@@ -297,7 +302,13 @@ function bracketRules() {
 function regularExpressionEscape($) {
   return choice(
     $.quoted_character,
-    alias($._invalid_quoted_character, $.quoted_character),
+    seq(
+      $._escape_prefix,
+      choice(
+        issueField($, "invalid_regular_expression_character"),
+        issueField($, "invalid_encoding"),
+      ),
+    ),
     $.escaped_delimiter,
     issueField($, "ordinary_character_escape"),
     issueField($, "incomplete_regular_expression_escape"),
@@ -312,12 +323,6 @@ function commonRegularExpressionRules() {
     ordinary_character: ($) => $._regex_literal,
 
     quoted_character: ($) => $._regex_quoted_escape,
-
-    _invalid_quoted_character: ($) =>
-      seq(
-        $._escape_prefix,
-        issueField($, "invalid_regular_expression_character"),
-      ),
 
     escaped_delimiter: ($) => $._regex_escaped_delimiter,
 
@@ -429,6 +434,7 @@ function breRules() {
     one_char_or_coll_elem_bre: ($) =>
       choice(
         issueField($, "invalid_regular_expression_character"),
+        issueField($, "invalid_encoding"),
         $.ordinary_character,
         regularExpressionEscape($),
         $.sed_newline_escape,
@@ -521,6 +527,7 @@ function ereRules() {
     one_char_or_coll_elem_ere: ($) =>
       choice(
         issueField($, "invalid_regular_expression_character"),
+        issueField($, "invalid_encoding"),
         $.ordinary_character,
         regularExpressionEscape($),
         $.sed_newline_escape,

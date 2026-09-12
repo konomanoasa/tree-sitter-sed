@@ -63,10 +63,10 @@ Mirrors the POSIX bracket expression production hierarchy
     (command_separator)))
 
 ==================
-Distinguishes POSIX collating tokens and range endings
+Distinguishes POSIX collating tokens with embedded closing brackets and range endings
 :language(sed_ere)
 ==================
-/[[.a.]][[.ch.]][[.-.]][[=a=]][[=ch=]][%--][--@][a-]/p
+/[[.a.]][[.c]h.]][[.-.]][[=a=]][[=c]h=]][%--][--@][a-]/p
 
 ---
 
@@ -290,7 +290,8 @@ Recovers malformed terms and non-portable ranges
                                       (expression_term
                                         (syntax_issue
                                           (undefined_syntax
-                                            (shared_range_endpoint)))))
+                                            (shared_range_endpoint
+                                              (range_operator))))))
                                     (expression_term
                                       (single_expression
                                         (end_range
@@ -366,15 +367,19 @@ Recovers malformed terms and non-portable ranges
                               (single_expression
                                 (end_range
                                   (collating_symbol
-                                    (coll_elem_single)
+                                    (coll_elem_multi)
                                     (syntax_issue
                                       (undefined_syntax
                                         (malformed_bracket_term))))))))))
-                      (close_bracket))))))
-            (delimiter))))
-      (function
-        (print_function
-          (function_verb))))
+                      (syntax_issue
+                        (undefined_syntax
+                          (unclosed_bracket_expression))))))))
+            (syntax_issue
+              (nonconforming_syntax
+                (unterminated_regular_expression))))))
+      (syntax_issue
+        (nonconforming_syntax
+          (missing_function))))
     (command_separator)))
 
 ==================
@@ -412,7 +417,8 @@ Rejects meta characters inside equivalence classes
                                             (equivalence_class
                                               (syntax_issue
                                                 (undefined_syntax
-                                                  (malformed_bracket_term)))))))))
+                                                  (malformed_bracket_term
+                                                    (meta_char))))))))))
                                   (close_bracket)))))))
                       (bre_expression
                         (simple_bre
@@ -428,7 +434,8 @@ Rejects meta characters inside equivalence classes
                                           (equivalence_class
                                             (syntax_issue
                                               (undefined_syntax
-                                                (malformed_bracket_term)))))))))
+                                                (malformed_bracket_term
+                                                  (meta_char))))))))))
                                 (close_bracket)))))))
                     (bre_expression
                       (simple_bre
@@ -511,8 +518,7 @@ s/[[:1:]]/x/
                                   (character_class
                                     (syntax_issue
                                       (undefined_syntax
-                                        (malformed_bracket_term
-                                          (class_name))))))))))
+                                        (malformed_bracket_term)))))))))
                         (close_bracket))))))))
           (delimiter)
           (replacement
@@ -549,8 +555,7 @@ s/[[:1:]]/x/
                               (character_class
                                 (syntax_issue
                                   (undefined_syntax
-                                    (malformed_bracket_term
-                                      (class_name))))))))))
+                                    (malformed_bracket_term)))))))))
                     (close_bracket))))))
           (delimiter)
           (replacement

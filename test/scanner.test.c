@@ -9,6 +9,8 @@
 typedef struct {
   TSLexer lexer;
   const char *source;
+  const int32_t *characters;
+  size_t length;
   size_t offset;
   size_t mark;
 } MockLexer;
@@ -21,13 +23,21 @@ static const MockLexer *const_mock_lexer(const TSLexer *lexer) {
   return (const MockLexer *)lexer;
 }
 
+static int32_t mock_lookahead(const MockLexer *mock) {
+  if (mock->offset == mock->length) {
+    return 0;
+  }
+  return mock->characters != NULL ? mock->characters[mock->offset]
+                                  : (unsigned char)mock->source[mock->offset];
+}
+
 static void mock_advance(TSLexer *lexer, bool skip) {
   (void)skip;
   MockLexer *mock = mock_lexer(lexer);
-  if (mock->source[mock->offset] != '\0') {
+  if (mock->offset < mock->length) {
     mock->offset++;
   }
-  lexer->lookahead = (unsigned char)mock->source[mock->offset];
+  lexer->lookahead = mock_lookahead(mock);
 }
 
 static void mock_mark_end(TSLexer *lexer) {
@@ -37,7 +47,7 @@ static void mock_mark_end(TSLexer *lexer) {
 
 static bool mock_eof(const TSLexer *lexer) {
   const MockLexer *mock = const_mock_lexer(lexer);
-  return mock->source[mock->offset] == '\0';
+  return mock->offset == mock->length;
 }
 
 static MockLexer make_mock_lexer(const char *source) {
@@ -50,6 +60,22 @@ static MockLexer make_mock_lexer(const char *source) {
         .eof = mock_eof,
       },
     .source = source,
+    .length = strlen(source),
+  };
+}
+
+static MockLexer
+make_character_lexer(const int32_t *characters, size_t length) {
+  return (MockLexer){
+    .lexer =
+      {
+        .lookahead = length == 0 ? 0 : characters[0],
+        .advance = mock_advance,
+        .mark_end = mock_mark_end,
+        .eof = mock_eof,
+      },
+    .characters = characters,
+    .length = length,
   };
 }
 
@@ -164,6 +190,237 @@ static void check_failed_scan_preserves_state(void) {
   assert_same_state(&expected, &state);
 }
 
+static void check_encoding_issues_preserve_construct_state(void) {
+  static const struct {
+    enum ScannerMode mode;
+    enum RegexState bracket_state;
+    enum RegexBracketTermState term_state;
+    bool interval;
+  } contexts[] = {
+    {MODE_NONE, REGEX_OUTSIDE_BRACKET, REGEX_BRACKET_TERM_NONE, false},
+    {MODE_REGEX_ADDRESS, REGEX_OUTSIDE_BRACKET, REGEX_BRACKET_TERM_NONE, false},
+    {MODE_SUBSTITUTE_PATTERN,
+      REGEX_BRACKET_FIRST,
+      REGEX_BRACKET_TERM_NONE,
+      false},
+    {MODE_SUBSTITUTE_PATTERN,
+      REGEX_BRACKET_BODY,
+      REGEX_BRACKET_TERM_COLON,
+      false},
+    {MODE_SUBSTITUTE_PATTERN,
+      REGEX_OUTSIDE_BRACKET,
+      REGEX_BRACKET_TERM_NONE,
+      true},
+    {MODE_SUBSTITUTE_REPLACEMENT,
+      REGEX_OUTSIDE_BRACKET,
+      REGEX_BRACKET_TERM_NONE,
+      false},
+    {MODE_TRANSLATE_SOURCE,
+      REGEX_OUTSIDE_BRACKET,
+      REGEX_BRACKET_TERM_NONE,
+      false},
+    {MODE_TRANSLATE_DESTINATION,
+      REGEX_OUTSIDE_BRACKET,
+      REGEX_BRACKET_TERM_NONE,
+      false},
+    {MODE_TEXT, REGEX_OUTSIDE_BRACKET, REGEX_BRACKET_TERM_NONE, false},
+  };
+  static const struct {
+    int32_t character;
+    TSSymbol symbol;
+  } issues[] = {{-1, INVALID_CHARACTER}, {0, NUL_CHARACTER}};
+
+  for (
+    size_t context = 0; context < sizeof(contexts) / sizeof(contexts[0]);
+    context++
+  ) {
+    for (
+      size_t issue = 0; issue < sizeof(issues) / sizeof(issues[0]); issue++
+    ) {
+      ScannerState state = {
+        .delimiter = '/',
+        .mode = contexts[context].mode,
+        .regex_state = contexts[context].bracket_state,
+        .regex_position = REGEX_AT_BRANCH_START,
+        .regex_in_interval = contexts[context].interval,
+        .regex_bracket_term_state = contexts[context].term_state,
+        .regex_group_depth = 3,
+      };
+      ScannerState initial = state;
+      const int32_t source[] = {issues[issue].character, 'a'};
+      MockLexer mock = make_character_lexer(source, 2);
+      bool valid_symbols[ERROR_SENTINEL + 1] = {false};
+      valid_symbols[REGEX_CLASS_NAME] =
+        contexts[context].term_state != REGEX_BRACKET_TERM_NONE;
+
+      assert(!sed_scanner_scan(&state, &mock.lexer, valid_symbols));
+      assert_same_state(&initial, &state);
+      mock = make_character_lexer(source, 2);
+      valid_symbols[issues[issue].symbol] = true;
+      assert(sed_scanner_scan(&state, &mock.lexer, valid_symbols));
+      assert(mock.lexer.result_symbol == issues[issue].symbol);
+      assert(mock.mark == 1);
+      assert(mock.lexer.lookahead == 'a');
+      assert(state.mode == initial.mode);
+      assert(state.delimiter == '/');
+      assert(state.regex_group_depth == 3);
+      assert(state.regex_in_interval == initial.regex_in_interval);
+      if (is_regex_mode(state.mode)) {
+        assert(state.regex_position == REGEX_AFTER_ATOM);
+      }
+      if (initial.regex_state == REGEX_BRACKET_FIRST) {
+        assert(state.regex_state == REGEX_BRACKET_BODY);
+        assert(
+          state.regex_bracket_pending_element == REGEX_BRACKET_PENDING_OTHER
+        );
+      }
+      if (initial.regex_bracket_term_state != REGEX_BRACKET_TERM_NONE) {
+        assert(
+          state.regex_bracket_term_state == initial.regex_bracket_term_state
+        );
+        assert(state.regex_bracket_term_has_content);
+      }
+      if (state.mode == MODE_TEXT) {
+        assert(state.text_line_has_content);
+      }
+      char buffer[TREE_SITTER_SERIALIZATION_BUFFER_SIZE] = {0};
+      serialize_state(&state, buffer);
+      ScannerState restored = {0};
+      sed_scanner_deserialize(&restored, buffer, SCANNER_SERIALIZED_STATE_SIZE);
+      assert_same_state(&state, &restored);
+    }
+  }
+}
+
+static void check_opaque_literals_split_at_encoding_issues(void) {
+  static const struct {
+    enum ScannerMode mode;
+    TSSymbol literal;
+  } contexts[] = {
+    {MODE_NONE, LINE_WORD},
+    {MODE_NONE, COMMENT_TEXT},
+    {MODE_NONE, FILE_ARGUMENT},
+    {MODE_NONE, SUBSTITUTION_WFILE_ARGUMENT},
+    {MODE_NONE, SUBSTITUTION_WFILE_CONTINUATION},
+    {MODE_NONE, UNEXPECTED_COMMAND_TEXT},
+    {MODE_SUBSTITUTE_REPLACEMENT, REPLACEMENT_LITERAL},
+    {MODE_TRANSLATE_SOURCE, TRANSLATE_LITERAL},
+    {MODE_TRANSLATE_DESTINATION, TRANSLATE_LITERAL},
+    {MODE_TEXT, TEXT_LITERAL},
+  };
+  static const struct {
+    int32_t character;
+    TSSymbol symbol;
+  } issues[] = {{-1, INVALID_CHARACTER}, {0, NUL_CHARACTER}};
+
+  for (
+    size_t context = 0; context < sizeof(contexts) / sizeof(contexts[0]);
+    context++
+  ) {
+    for (
+      size_t issue = 0; issue < sizeof(issues) / sizeof(issues[0]); issue++
+    ) {
+      ScannerState state = {.mode = contexts[context].mode, .delimiter = '/'};
+      const int32_t source[] = {'a', issues[issue].character, 'b', '\n'};
+      MockLexer mock = make_character_lexer(source, 4);
+      bool valid_symbols[ERROR_SENTINEL + 1] = {false};
+      valid_symbols[contexts[context].literal] = true;
+      valid_symbols[INVALID_CHARACTER] = true;
+      valid_symbols[NUL_CHARACTER] = true;
+
+      const TSSymbol expected[] = {
+        contexts[context].literal,
+        issues[issue].symbol,
+        contexts[context].literal
+      };
+      for (size_t token = 0; token < 3; token++) {
+        assert(sed_scanner_scan(&state, &mock.lexer, valid_symbols));
+        assert(mock.lexer.result_symbol == expected[token]);
+        assert(mock.mark == token + 1);
+        assert(mock.offset == mock.mark);
+        assert(state.mode == contexts[context].mode);
+      }
+      assert(mock.lexer.lookahead == '\n');
+    }
+  }
+}
+
+static void check_escape_prefixes_stop_before_encoding_issues(void) {
+  static const enum ScannerMode modes[] = {
+    MODE_REGEX_ADDRESS,
+    MODE_SUBSTITUTE_REPLACEMENT,
+    MODE_TRANSLATE_SOURCE,
+    MODE_TRANSLATE_DESTINATION,
+    MODE_TEXT
+  };
+  static const struct {
+    int32_t character;
+    TSSymbol symbol;
+  } issues[] = {{-1, INVALID_CHARACTER}, {0, NUL_CHARACTER}};
+
+  for (size_t mode = 0; mode < sizeof(modes) / sizeof(modes[0]); mode++) {
+    for (
+      size_t issue = 0; issue < sizeof(issues) / sizeof(issues[0]); issue++
+    ) {
+      ScannerState state = {.mode = modes[mode], .delimiter = '/'};
+      const int32_t source[] = {'\\', issues[issue].character, 'a'};
+      MockLexer mock = make_character_lexer(source, 3);
+      bool valid_symbols[ERROR_SENTINEL + 1] = {false};
+      valid_symbols[ESCAPE_PREFIX] = true;
+      valid_symbols[INVALID_CHARACTER] = true;
+      valid_symbols[NUL_CHARACTER] = true;
+
+      assert(sed_scanner_scan(&state, &mock.lexer, valid_symbols));
+      assert(mock.lexer.result_symbol == ESCAPE_PREFIX);
+      assert(mock.mark == 1);
+      assert(mock.lexer.lookahead == issues[issue].character);
+      assert(sed_scanner_scan(&state, &mock.lexer, valid_symbols));
+      assert(mock.lexer.result_symbol == issues[issue].symbol);
+      assert(mock.mark == 2);
+      assert(mock.lexer.lookahead == 'a');
+    }
+  }
+}
+
+static void check_unexpected_text_after_failed_blank_recovery(void) {
+  const int32_t source[] = {' ', 'a', -1, 'b', ';', 'q'};
+  MockLexer mock = make_character_lexer(source, 6);
+  ScannerState state = {0};
+  bool valid_symbols[ERROR_SENTINEL + 1] = {false};
+  valid_symbols[MISSING_ADDRESS_SEPARATOR_MARKER] = true;
+  valid_symbols[UNEXPECTED_COMMAND_TEXT] = true;
+  valid_symbols[INVALID_CHARACTER] = true;
+
+  const TSSymbol expected[] =
+    {UNEXPECTED_COMMAND_TEXT, INVALID_CHARACTER, UNEXPECTED_COMMAND_TEXT};
+  const size_t marks[] = {2, 3, 4};
+  for (size_t token = 0; token < 3; token++) {
+    assert(sed_scanner_scan(&state, &mock.lexer, valid_symbols));
+    assert(mock.lexer.result_symbol == expected[token]);
+    assert(mock.mark == marks[token]);
+  }
+  assert(!sed_scanner_scan(&state, &mock.lexer, valid_symbols));
+  assert(mock.lexer.lookahead == ';');
+}
+
+static void check_substitution_flags_precede_unexpected_text(void) {
+  static const char *const sources[] = {"g", "i", "p", "w output", "123"};
+  for (
+    size_t index = 0; index < sizeof(sources) / sizeof(sources[0]); index++
+  ) {
+    ScannerState state = {0};
+    ScannerState initial = state;
+    MockLexer mock = make_mock_lexer(sources[index]);
+    bool valid_symbols[ERROR_SENTINEL + 1] = {false};
+    valid_symbols[INVALID_SUBSTITUTION_FLAG] = true;
+    valid_symbols[UNEXPECTED_COMMAND_TEXT] = true;
+
+    assert(!sed_scanner_scan(&state, &mock.lexer, valid_symbols));
+    assert(mock.offset == 0);
+    assert_same_state(&initial, &state);
+  }
+}
+
 static void check_bracket_term_delimiter_leaf_ranges(void) {
   static const struct {
     const char *opening_source;
@@ -269,12 +526,181 @@ static void check_bracket_term_delimiter_leaf_ranges(void) {
   assert(state.regex_bracket_term_state == REGEX_BRACKET_TERM_NONE);
 }
 
+static void check_bracket_term_payload_owns_embedded_closing_brackets(void) {
+  static const struct {
+    const char *source;
+    enum RegexBracketTermState term_state;
+    bool has_content;
+    TSSymbol expected;
+    size_t expected_mark;
+  } cases[] = {
+    {"a].]", REGEX_BRACKET_TERM_DOT, false, REGEX_COLL_ELEM_MULTI, 2},
+    {"a]b.]", REGEX_BRACKET_TERM_DOT, false, REGEX_COLL_ELEM_MULTI, 3},
+    {"]]a.]", REGEX_BRACKET_TERM_DOT, false, REGEX_COLL_ELEM_MULTI, 3},
+    {"]a.]", REGEX_BRACKET_TERM_DOT, true, REGEX_COLL_ELEM_MULTI, 2},
+    {"a]]/p", REGEX_BRACKET_TERM_DOT, false, REGEX_COLL_ELEM_MULTI, 5},
+    {"a]]/p\n", REGEX_BRACKET_TERM_DOT, false, REGEX_COLL_ELEM_MULTI, 5},
+    {"a]=]", REGEX_BRACKET_TERM_EQUAL, false, REGEX_COLL_ELEM_MULTI, 2},
+    {"a]b=]", REGEX_BRACKET_TERM_EQUAL, false, REGEX_COLL_ELEM_MULTI, 3},
+    {"]]a=]", REGEX_BRACKET_TERM_EQUAL, false, REGEX_COLL_ELEM_MULTI, 3},
+    {"]a=]", REGEX_BRACKET_TERM_EQUAL, true, REGEX_COLL_ELEM_MULTI, 2},
+    {"a]]/p", REGEX_BRACKET_TERM_EQUAL, false, REGEX_COLL_ELEM_MULTI, 5},
+    {"a]]/p\n", REGEX_BRACKET_TERM_EQUAL, false, REGEX_COLL_ELEM_MULTI, 5},
+    {"a]b:]", REGEX_BRACKET_TERM_COLON, false, REGEX_CLASS_NAME, 1},
+  };
+
+  for (size_t index = 0; index < sizeof(cases) / sizeof(cases[0]); index++) {
+    ScannerState state = make_regex_state();
+    state.regex_state = REGEX_BRACKET_BODY;
+    state.regex_bracket_term_state = cases[index].term_state;
+    state.regex_bracket_term_has_content = cases[index].has_content;
+    MockLexer mock = make_mock_lexer(cases[index].source);
+    bool valid_symbols[ERROR_SENTINEL + 1] = {false};
+    valid_symbols[cases[index].expected] = true;
+    TSSymbol symbol = ERROR_SENTINEL;
+
+    assert(scan_regex_bracket_term_content(
+      &mock.lexer,
+      &state,
+      valid_symbols,
+      &symbol
+    ));
+    assert(symbol == cases[index].expected);
+    assert(mock.mark == cases[index].expected_mark);
+    assert(state.regex_bracket_term_state == cases[index].term_state);
+    assert(state.regex_bracket_term_has_content);
+  }
+}
+
+static void check_regex_closers_at_source_boundaries(void) {
+  static const struct {
+    const char *source;
+    int32_t delimiter;
+    bool in_interval;
+    TSSymbol expected;
+  } cases[] = {
+    {"", '/', true, REGEX_INCOMPLETE_INTERVAL},
+    {"", '}', true, REGEX_INVALID_INTERVAL},
+    {"\n", '/', true, REGEX_INVALID_INTERVAL},
+    {"/", '/', true, REGEX_INVALID_INTERVAL},
+    {"", '/', false, REGEX_INCOMPLETE_GROUP},
+    {"", ')', false, REGEX_UNCLOSED_GROUP},
+    {"\n", '/', false, REGEX_UNCLOSED_GROUP},
+    {"/", '/', false, REGEX_UNCLOSED_GROUP},
+  };
+
+  for (size_t index = 0; index < sizeof(cases) / sizeof(cases[0]); index++) {
+    ScannerState state = {
+      .delimiter = cases[index].delimiter,
+      .mode = MODE_SUBSTITUTE_PATTERN,
+      .regex_state = REGEX_OUTSIDE_BRACKET,
+      .regex_position = REGEX_AFTER_ATOM,
+      .regex_in_interval = cases[index].in_interval,
+      .regex_group_depth = cases[index].in_interval ? 0 : 1,
+    };
+    MockLexer mock = make_mock_lexer(cases[index].source);
+    bool valid_symbols[ERROR_SENTINEL + 1] = {false};
+    valid_symbols[REGEX_INCOMPLETE_INTERVAL] = cases[index].in_interval;
+    valid_symbols[REGEX_INVALID_INTERVAL] = cases[index].in_interval;
+    valid_symbols[REGEX_INCOMPLETE_GROUP] = !cases[index].in_interval;
+    valid_symbols[REGEX_UNCLOSED_GROUP] = !cases[index].in_interval;
+
+    assert(sed_scanner_scan(&state, &mock.lexer, valid_symbols));
+    assert(mock.lexer.result_symbol == cases[index].expected);
+    assert(mock.mark == 0);
+    assert(!state.regex_in_interval);
+    assert(state.regex_group_depth == 0);
+  }
+}
+
+static void
+check_group_body_omission_is_independent_of_closer_availability(void) {
+  ScannerState state = {
+    .delimiter = ')',
+    .mode = MODE_SUBSTITUTE_PATTERN,
+    .regex_state = REGEX_OUTSIDE_BRACKET,
+    .regex_position = REGEX_AT_BRANCH_START,
+    .regex_group_depth = 1,
+  };
+  MockLexer mock = make_mock_lexer("");
+  bool valid_symbols[ERROR_SENTINEL + 1] = {false};
+  valid_symbols[MISSING_SUBEXPRESSION_MARKER] = true;
+  valid_symbols[MISSING_SUBEXPRESSION_PLACEHOLDER_MARKER] = true;
+
+  assert(sed_scanner_scan(&state, &mock.lexer, valid_symbols));
+  assert(mock.lexer.result_symbol == MISSING_SUBEXPRESSION_MARKER);
+  assert(mock.mark == 0);
+  assert(state.regex_group_depth == 1);
+
+  valid_symbols[MISSING_SUBEXPRESSION_MARKER] = false;
+  valid_symbols[MISSING_SUBEXPRESSION_PLACEHOLDER_MARKER] = false;
+  valid_symbols[REGEX_INCOMPLETE_GROUP] = true;
+  valid_symbols[REGEX_UNCLOSED_GROUP] = true;
+
+  assert(sed_scanner_scan(&state, &mock.lexer, valid_symbols));
+  assert(mock.lexer.result_symbol == REGEX_UNCLOSED_GROUP);
+  assert(mock.mark == 0);
+  assert(state.regex_group_depth == 0);
+}
+
+#if !SED_REGEX_EXTENDED
+static void check_bre_interval_backslash_requires_a_completable_closer(void) {
+  static const struct {
+    const char *source;
+    int32_t delimiter;
+    bool has_minimum;
+    TSSymbol expected;
+    size_t expected_mark;
+  } cases[] = {
+    {"\\", '/', false, REGEX_INVALID_INTERVAL, 1},
+    {"\\", '/', true, REGEX_INCOMPLETE_INTERVAL, 1},
+    {"\\", '}', false, REGEX_INVALID_INTERVAL, 1},
+    {"\\", '}', true, REGEX_INVALID_INTERVAL, 1},
+    {"\\\n", '/', true, REGEX_INVALID_INTERVAL, 1},
+    {"\\}", '/', true, REGEX_INTERVAL_CLOSE, 2},
+    {"\\}", '/', false, REGEX_INVALID_INTERVAL, 0},
+  };
+
+  for (size_t index = 0; index < sizeof(cases) / sizeof(cases[0]); index++) {
+    ScannerState state = {
+      .delimiter = cases[index].delimiter,
+      .mode = MODE_REGEX_ADDRESS,
+      .regex_state = REGEX_OUTSIDE_BRACKET,
+      .regex_position = REGEX_AFTER_ATOM,
+      .regex_in_interval = true,
+    };
+    MockLexer mock = make_mock_lexer(cases[index].source);
+    bool valid_symbols[ERROR_SENTINEL + 1] = {false};
+    valid_symbols[REGEX_DUP_COUNT] = !cases[index].has_minimum;
+    valid_symbols[REGEX_INTERVAL_CLOSE] = cases[index].has_minimum;
+    valid_symbols[REGEX_INCOMPLETE_INTERVAL] = true;
+    valid_symbols[REGEX_INVALID_INTERVAL] = true;
+
+    assert(sed_scanner_scan(&state, &mock.lexer, valid_symbols));
+    assert(mock.lexer.result_symbol == cases[index].expected);
+    assert(mock.mark == cases[index].expected_mark);
+    assert(!state.regex_in_interval);
+  }
+}
+#endif
+
 int main(void) {
   check_lifecycle();
   check_serialization_round_trip();
   check_empty_serialization_resets_state();
   check_bracket_content_serialization_round_trip();
   check_failed_scan_preserves_state();
+  check_encoding_issues_preserve_construct_state();
+  check_opaque_literals_split_at_encoding_issues();
+  check_escape_prefixes_stop_before_encoding_issues();
+  check_unexpected_text_after_failed_blank_recovery();
+  check_substitution_flags_precede_unexpected_text();
   check_bracket_term_delimiter_leaf_ranges();
+  check_bracket_term_payload_owns_embedded_closing_brackets();
+  check_regex_closers_at_source_boundaries();
+  check_group_body_omission_is_independent_of_closer_availability();
+#if !SED_REGEX_EXTENDED
+  check_bre_interval_backslash_requires_a_completable_closer();
+#endif
   return 0;
 }

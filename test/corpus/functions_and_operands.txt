@@ -72,7 +72,8 @@ w file;p
           (replacement
             (syntax_issue
               (unspecified_syntax
-                (replacement_ampersand_delimiter_escape))))
+                (replacement_ampersand_delimiter_escape
+                  (replacement_escaped_delimiter)))))
           (delimiter))))
     (command_separator)
     (editing_command
@@ -377,7 +378,7 @@ rfile
         (read_function
           (function_verb)
           (syntax_issue
-            (invalid_syntax
+            (nonconforming_syntax
               (omitted_file_separator)))
           (rfile))))
     (command_separator)))

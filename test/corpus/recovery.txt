@@ -1,4 +1,98 @@
 ==================
+Rejects a BRE interval escape before its mandatory minimum at EOF
+:language(sed)
+==================
+s/a\{\
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character)))
+                  (bre_dupl_symbol
+                    (back_open_brace)
+                    (syntax_issue
+                      (undefined_syntax
+                        (malformed_interval))))))))
+          (syntax_issue
+            (incomplete_syntax
+              (incomplete_regular_expression))))))))
+
+==================
+Rejects an unclosed BRE group whose delimiter prevents completion at EOF
+:language(sed)
+==================
+s)\(a
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (back_open_parenthesis)
+                    (basic_reg_exp
+                      (bre_branch
+                        (bre_expression
+                          (simple_bre
+                            (nondupl_bre
+                              (one_char_or_coll_elem_bre
+                                (ordinary_character)))))))
+                    (syntax_issue
+                      (undefined_syntax
+                        (unclosed_subexpression))))))))
+          (syntax_issue
+            (incomplete_syntax
+              (incomplete_regular_expression))))))))
+
+==================
+Rejects an ERE interval whose delimiter prevents completion at EOF
+:language(sed_ere)
+==================
+s}a{1
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (extended_reg_exp
+            (ere_branch
+              (ere_expression
+                (ere_expression
+                  (one_char_or_coll_elem_ere
+                    (ordinary_character)))
+                (ere_dupl_symbol
+                  (open_brace)
+                  (dup_count)
+                  (syntax_issue
+                    (undefined_syntax
+                      (malformed_interval)))))))
+          (syntax_issue
+            (incomplete_syntax
+              (incomplete_regular_expression))))))))
+
+==================
 Preserves a final address without synthesizing a function
 :language(sed)
 ==================

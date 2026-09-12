@@ -409,7 +409,8 @@ s.\..x.
                     (one_char_or_coll_elem_bre
                       (syntax_issue
                         (unspecified_syntax
-                          (special_delimiter_escape)))))))))
+                          (special_delimiter_escape
+                            (escaped_delimiter))))))))))
           (delimiter)
           (replacement
             (replacement_literal))

@@ -33,18 +33,18 @@ const parserBudgets = {
     STATE_COUNT: 2_000,
     LARGE_STATE_COUNT: 50,
     SYMBOL_COUNT: 650,
-    EXTERNAL_TOKEN_COUNT: 144,
+    EXTERNAL_TOKEN_COUNT: 145,
     parser_bytes: 2_100_000,
-    maximum_ACTIONS_index: 3_310,
+    maximum_ACTIONS_index: 3_320,
     parse_table_storage_bytes: 160_000,
   },
   sed_ere: {
     STATE_COUNT: 2_000,
     LARGE_STATE_COUNT: 50,
     SYMBOL_COUNT: 625,
-    EXTERNAL_TOKEN_COUNT: 142,
+    EXTERNAL_TOKEN_COUNT: 143,
     parser_bytes: 2_000_000,
-    maximum_ACTIONS_index: 3_260,
+    maximum_ACTIONS_index: 3_270,
     parse_table_storage_bytes: 150_000,
   },
 };
@@ -216,6 +216,9 @@ function checkSourceChildren(nodeTypes, grammar, displayPath) {
   const expectedChildren = [
     ["blanks_after_negation", "blank"],
     ["blanks_around_address_separator", "blank"],
+    ["shared_range_endpoint", "range_operator"],
+    ["special_delimiter_escape", "escaped_delimiter"],
+    ["replacement_ampersand_delimiter_escape", "replacement_escaped_delimiter"],
   ];
   const unmatchedClosers = [
     ["unmatched_interval_close", "back_close_brace"],
@@ -242,6 +245,21 @@ function checkSourceChildren(nodeTypes, grammar, displayPath) {
 }
 
 function checkBracketTerms(nodeTypes, displayPath) {
+  const malformed = namedNode(nodeTypes, "malformed_bracket_term", displayPath);
+  assert.deepEqual(
+    malformed.fields,
+    {},
+    `${displayPath}: malformed_bracket_term must not own fields`,
+  );
+  assert.deepEqual(
+    malformed.children,
+    {
+      multiple: false,
+      required: false,
+      types: [{ type: "meta_char", named: true }],
+    },
+    `${displayPath}: malformed_bracket_term may only own one meta_char source child`,
+  );
   assert.deepEqual(
     nodeTypes
       .filter((node) => !node.named)
@@ -371,6 +389,13 @@ function checkPublicCst(grammar, generatedRoot) {
     "text_introducer",
     "close_bracket",
     "collating_element",
+    "quoted_character",
+    "invalid_encoding",
+    "class_name",
+    "meta_char",
+    "range_operator",
+    "escaped_delimiter",
+    "replacement_escaped_delimiter",
     grammar.name === "sed" ? "back_close_parenthesis" : "close_parenthesis",
   ]) {
     const node = namedNode(nodeTypes, type, displayPath);

@@ -28,7 +28,7 @@
     "generate": "npm run tree-sitter -- generate-all",
     "parse": "npm run tree-sitter -- parse --scope source.sed",
     "parse:ere": "npm run tree-sitter -- parse --scope source.sed.ere",
-    "test": "npm run tree-sitter -- test-corpus --rebuild && node --test && cargo test --all-targets",
+    "test": "npm run tree-sitter -- test-corpus --rebuild && node --test && cargo test",
     "test:fuzz": "node --test --test-name-pattern=\"fixed-seed generated histories\" test/parser.test.js",
     "tree-sitter": "node scripts/tree-sitter.js"
   },

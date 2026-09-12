@@ -43,8 +43,12 @@ function executableCandidates(name) {
   }
   const extensions = (process.env.PATHEXT ?? ".EXE;.CMD;.BAT")
     .split(";")
-    .filter(Boolean);
-  return extensions.map((extension) => name + extension.toLowerCase());
+    .filter(Boolean)
+    .map((extension) => extension.toLowerCase());
+  if (extensions.some((extension) => name.toLowerCase().endsWith(extension))) {
+    return [name];
+  }
+  return extensions.map((extension) => name + extension);
 }
 
 function isExecutable(path) {

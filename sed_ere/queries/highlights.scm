@@ -3,8 +3,7 @@
   (escaped_delimiter)
   (replacement_escaped_delimiter)
   (translation_escaped_delimiter)
-  (quoted_character
-    !issue)
+  (quoted_character)
   (replacement_escape)
   (sed_newline_escape)
   (text_backslash_escape)
@@ -74,34 +73,31 @@
 ] @punctuation.bracket
 
 (character_class
-  "[" @punctuation.bracket
-  .
-  ":" @punctuation.delimiter)
+  [
+    "["
+    "]"
+  ] @punctuation.bracket)
 
 (character_class
-  ":" @punctuation.delimiter
-  .
-  "]" @punctuation.bracket)
+  ":" @punctuation.delimiter)
 
 (collating_symbol
-  "[" @punctuation.bracket
-  .
+  [
+    "["
+    "]"
+  ] @punctuation.bracket)
+
+(collating_symbol
   "." @punctuation.delimiter)
 
-(collating_symbol
-  "." @punctuation.delimiter
-  .
-  "]" @punctuation.bracket)
+(equivalence_class
+  [
+    "["
+    "]"
+  ] @punctuation.bracket)
 
 (equivalence_class
-  "[" @punctuation.bracket
-  .
   "=" @punctuation.delimiter)
-
-(equivalence_class
-  "=" @punctuation.delimiter
-  .
-  "]" @punctuation.bracket)
 
 [
   (range_end_hyphen)

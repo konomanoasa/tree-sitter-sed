@@ -9,6 +9,18 @@ permissions:
   contents: read
 
 jobs:
+  checks:
+    name: Check source and generated parsers
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: brew install llvm
+      - run: npm ci
+      - run: npm run check
+
   parser:
     name: Test sed and sed_ere parsers
     runs-on: ${{ matrix.os }}

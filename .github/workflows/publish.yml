@@ -24,11 +24,9 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
-      - run: brew install llvm
       - run: npm ci
       - name: Verify tag matches package version
         run: |
           package_version=$(node --print "require('./package.json').version")
           test "v${package_version}" = "${GITHUB_REF_NAME}"
-      - run: npm run check
       - run: npm publish
