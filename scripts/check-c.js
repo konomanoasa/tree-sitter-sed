@@ -18,10 +18,12 @@ const scannerConfigurations = {
   sed: {
     externalCount: "ERROR_SENTINEL + 1",
     contractArguments: ["-DSED_REGEX_EXTENDED=0"],
+    reuseAllocator: true,
   },
   sed_ere: {
     externalCount: "ERROR_SENTINEL + 1",
     contractArguments: ["-DSED_REGEX_EXTENDED=1"],
+    reuseAllocator: true,
   },
 };
 
@@ -127,6 +129,10 @@ function scannerVariants() {
     const configuration = scannerConfigurations[grammar.name];
     if (configuration === undefined)
       throw new Error(`Unsupported scanner grammar ${grammar.name}.`);
+    if (typeof configuration.reuseAllocator !== "boolean")
+      throw new Error(
+        `Scanner grammar ${grammar.name} must declare reuseAllocator.`,
+      );
     const includeDirectory = join(root, grammar.path, "src");
     return {
       ...configuration,

@@ -2,9 +2,42 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "../common/scanner.h"
+
+#ifdef TREE_SITTER_REUSE_ALLOCATOR
+static size_t reuse_calloc_calls;
+static size_t reuse_free_calls;
+static size_t reuse_live_allocations;
+static bool reuse_fail_next_calloc;
+
+static void *reuse_calloc(size_t count, size_t size) {
+  reuse_calloc_calls += 1;
+  if (reuse_fail_next_calloc) {
+    reuse_fail_next_calloc = false;
+    return NULL;
+  }
+  void *result = calloc(count, size);
+  if (result != NULL) {
+    reuse_live_allocations += 1;
+  }
+  return result;
+}
+
+static void reuse_free(void *allocation) {
+  reuse_free_calls += 1;
+  if (allocation != NULL) {
+    assert(reuse_live_allocations > 0);
+    reuse_live_allocations -= 1;
+  }
+  free(allocation);
+}
+
+void *(*ts_current_calloc)(size_t, size_t) = reuse_calloc;
+void (*ts_current_free)(void *) = reuse_free;
+#endif
 
 typedef struct {
   TSLexer lexer;
@@ -179,9 +212,12 @@ static void test_bracket_content_serialization_round_trip(void) {
   assert_same_state(&source, &destination);
 }
 
-static void test_disabled_tokens_preserve_state(void) {
+static void test_disabled_and_all_valid_scans_preserve_state(void) {
   const char *inputs[] = {"{", "\\{", "/", "p", " ", "\n", ""};
-  const bool valid_symbols[ERROR_SENTINEL + 1] = {false};
+  bool valid_symbols[ERROR_SENTINEL + 1];
+  for (size_t token = 0; token <= ERROR_SENTINEL; token++) {
+    valid_symbols[token] = true;
+  }
   for (enum ScannerMode mode = MODE_NONE; mode <= MODE_TEXT; mode++) {
     for (
       size_t index = 0; index < sizeof(inputs) / sizeof(inputs[0]); index++
@@ -192,6 +228,10 @@ static void test_disabled_tokens_preserve_state(void) {
       ScannerState expected = state;
       MockLexer mock = make_mock_lexer(inputs[index]);
       assert(!sed_scanner_scan(&state, &mock.lexer, valid_symbols));
+      assert_same_state(&expected, &state);
+      const bool disabled_symbols[ERROR_SENTINEL + 1] = {false};
+      mock = make_mock_lexer(inputs[index]);
+      assert(!sed_scanner_scan(&state, &mock.lexer, disabled_symbols));
       assert_same_state(&expected, &state);
     }
   }
@@ -691,12 +731,24 @@ static void test_bre_interval_backslash_requires_a_completable_closer(void) {
 }
 #endif
 
+#ifdef TREE_SITTER_REUSE_ALLOCATOR
+static void test_reuse_allocator_contract(void) {
+  assert(reuse_calloc_calls > 0);
+  assert(reuse_free_calls > 0);
+  assert(reuse_live_allocations == 0);
+  reuse_fail_next_calloc = true;
+  assert(sed_scanner_create() == NULL);
+  assert(!reuse_fail_next_calloc);
+  assert(reuse_live_allocations == 0);
+}
+#endif
+
 int main(void) {
   test_lifecycle();
   test_serialization_round_trip();
   test_empty_serialization_resets_state();
   test_bracket_content_serialization_round_trip();
-  test_disabled_tokens_preserve_state();
+  test_disabled_and_all_valid_scans_preserve_state();
   test_encoding_issues_preserve_construct_state();
   test_opaque_literals_split_at_encoding_issues();
   test_escape_prefixes_stop_before_encoding_issues();
@@ -708,6 +760,9 @@ int main(void) {
   test_group_body_omission_is_independent_of_closer_availability();
 #if !SED_REGEX_EXTENDED
   test_bre_interval_backslash_requires_a_completable_closer();
+#endif
+#ifdef TREE_SITTER_REUSE_ALLOCATOR
+  test_reuse_allocator_contract();
 #endif
   return 0;
 }
