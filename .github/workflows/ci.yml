@@ -3,8 +3,10 @@ name: CI
 on:
   push:
     branches: [main]
+  workflow_call:
 
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
   parser:

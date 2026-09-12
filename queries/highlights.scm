@@ -3,7 +3,8 @@
   (escaped_delimiter)
   (replacement_escaped_delimiter)
   (translation_escaped_delimiter)
-  (quoted_character !issue)
+  (quoted_character
+    !issue)
   (replacement_escape)
   (sed_newline_escape)
   (text_backslash_escape)
