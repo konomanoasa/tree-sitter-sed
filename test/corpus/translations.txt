@@ -1,0 +1,60 @@
+==================
+exposes translation string atoms
+:language(sed)
+==================
+y|a\n\||b\\c|
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (translate_function
+          (function_verb)
+          (delimiter)
+          (translation_string
+            (translation_literal)
+            (translation_escape)
+            (translation_escaped_delimiter))
+          (delimiter)
+          (translation_string
+            (translation_literal)
+            (translation_escape)
+            (translation_literal))
+          (delimiter))))
+    (command_separator)))
+
+==================
+terminates a nonconforming translation at a physical line boundary
+:language(sed)
+==================
+y/a/b\
+p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (translate_function
+          (function_verb)
+          (delimiter)
+          (translation_string
+            (translation_literal))
+          (delimiter)
+          (translation_string
+            (translation_literal)
+            (syntax_issue
+              (undefined_syntax
+                (undefined_translation_escape))))
+          (syntax_issue
+            (nonconforming_syntax
+              (unterminated_translation))))))
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))

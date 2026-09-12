@@ -1,0 +1,1161 @@
+==================
+exposes addresses, negation, and the selected function
+:language(sed)
+==================
+001,$!s|a|b|g
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator)
+        (address
+          (last_line_address)))
+      (negation
+        (negation_operator))
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character)))))))
+          (delimiter)
+          (replacement
+            (replacement_literal))
+          (delimiter)
+          (substitution_flags
+            (global_flag)))))
+    (command_separator)))
+
+==================
+keeps an append function after an address and a blank
+:language(sed)
+==================
+1 a\
+x
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address)))
+      (function
+        (append_function
+          (function_verb)
+          (text_introducer)
+          (text
+            (text_literal)))))
+    (command_separator)))
+
+==================
+keeps an insert function after a last-line address and negation
+:language(sed)
+==================
+$!i\
+y
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (last_line_address)))
+      (negation
+        (negation_operator))
+      (function
+        (insert_function
+          (function_verb)
+          (text_introducer)
+          (text
+            (text_literal)))))
+    (command_separator)))
+
+==================
+keeps a read function after address blanks and negation
+:language(sed)
+==================
+2 !r file
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address)))
+      (negation
+        (negation_operator))
+      (function
+        (read_function
+          (function_verb)
+          (rfile))))
+    (command_separator)))
+
+==================
+keeps a quit function after a last-line address and a blank
+:language(sed)
+==================
+$ q
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (last_line_address)))
+      (function
+        (quit_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+classifies blanks after address negation
+:language(sed)
+==================
+1! p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address)))
+      (negation
+        (negation_operator)
+        (syntax_issue
+          (unspecified_syntax
+            (blanks_after_negation
+              (blank)))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+classifies both omitted addresses around a separator
+:language(sed)
+==================
+,p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (syntax_issue
+          (undefined_syntax
+            (omitted_address)))
+        (address_separator)
+        (syntax_issue
+          (undefined_syntax
+            (omitted_address))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+classifies the excess address of a quit function
+:language(sed)
+==================
+1,2q
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (address_separator)
+              (address
+                (line_number_address))))))
+      (function
+        (quit_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+recovers an unterminated excess context address at a newline
+:language(sed)
+==================
+1,2/
+p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator)
+        (address
+          (line_number_address))
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (syntax_issue
+                (nonconforming_syntax
+                  (missing_address_separator)))
+              (address
+                (context_address
+                  (delimiter)
+                  (syntax_issue
+                    (nonconforming_syntax
+                      (unterminated_regular_expression)))))))))
+      (syntax_issue
+        (nonconforming_syntax
+          (missing_function))))
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+owns an adjacent duplicate negation operator
+:language(sed)
+==================
+!!p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (negation
+        (negation_operator)
+        (syntax_issue
+          (nonconforming_syntax
+            (duplicate_negation
+              (negation_operator)))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+owns a duplicate negation operator after a blank
+:language(sed)
+==================
+! !p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (negation
+        (negation_operator)
+        (syntax_issue
+          (unspecified_syntax
+            (blanks_after_negation
+              (blank))))
+        (syntax_issue
+          (nonconforming_syntax
+            (duplicate_negation
+              (negation_operator)))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+owns repeated negation operators before a blank
+:language(sed)
+==================
+!!! p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (negation
+        (negation_operator)
+        (syntax_issue
+          (nonconforming_syntax
+            (duplicate_negation
+              (negation_operator))))
+        (syntax_issue
+          (nonconforming_syntax
+            (duplicate_negation
+              (negation_operator))))
+        (syntax_issue
+          (unspecified_syntax
+            (blanks_after_negation
+              (blank)))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+classifies one excess address before a label function
+:language(sed)
+==================
+1:x
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (address
+                (line_number_address))))))
+      (function
+        (label_function
+          (function_verb)
+          (label))))
+    (command_separator)))
+
+==================
+classifies an excess address range before a label function
+:language(sed)
+==================
+1,2:x
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (address
+                (line_number_address)))))
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (address_separator)
+              (address
+                (line_number_address))))))
+      (function
+        (label_function
+          (function_verb)
+          (label))))
+    (command_separator)))
+
+==================
+classifies an excess address before a line-number function
+:language(sed)
+==================
+1,2=
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (address_separator)
+              (address
+                (line_number_address))))))
+      (function
+        (line_number_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+classifies a third address before a print function
+:language(sed)
+==================
+1,2,3p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator)
+        (address
+          (line_number_address))
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (address_separator)
+              (address
+                (line_number_address))))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+classifies two excess addresses before a write function
+:language(sed)
+==================
+1,2,3,4w f
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator)
+        (address
+          (line_number_address))
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (address_separator)
+              (address
+                (line_number_address)))))
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (address_separator)
+              (address
+                (line_number_address))))))
+      (function
+        (write_function
+          (function_verb)
+          (wfile))))
+    (command_separator)))
+
+==================
+classifies blank-separated excess addresses before a label function
+:language(sed)
+==================
+1 2:x
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (address
+                (line_number_address)))))
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (syntax_issue
+                (nonconforming_syntax
+                  (missing_address_separator)))
+              (address
+                (line_number_address))))))
+      (function
+        (label_function
+          (function_verb)
+          (label))))
+    (command_separator)))
+
+==================
+classifies blank-separated excess addresses before a comment function
+:language(sed)
+==================
+1 2#x
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (address
+                (line_number_address)))))
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (syntax_issue
+                (nonconforming_syntax
+                  (missing_address_separator)))
+              (address
+                (line_number_address))))))
+      (function
+        (comment_function
+          (function_verb)
+          (comment
+            (comment_text)))))
+    (command_separator)))
+
+==================
+classifies a blank-separated excess address before a quit function
+:language(sed)
+==================
+1 2q
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (syntax_issue
+                (nonconforming_syntax
+                  (missing_address_separator)))
+              (address
+                (line_number_address))))))
+      (function
+        (quit_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+classifies a blank-separated third address before a print function
+:language(sed)
+==================
+1,2 3p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator)
+        (address
+          (line_number_address))
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (syntax_issue
+                (nonconforming_syntax
+                  (missing_address_separator)))
+              (address
+                (line_number_address))))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+nests an omitted trailing address inside an excess address
+:language(sed)
+==================
+1,q
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (address_separator)
+              (syntax_issue
+                (undefined_syntax
+                  (omitted_address)))))))
+      (function
+        (quit_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+keeps an omitted leading address before an excess address
+:language(sed)
+==================
+,2q
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (syntax_issue
+          (undefined_syntax
+            (omitted_address)))
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (address_separator)
+              (address
+                (line_number_address))))))
+      (function
+        (quit_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+keeps an omitted leading address before an omitted excess address
+:language(sed)
+==================
+,q
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (syntax_issue
+          (undefined_syntax
+            (omitted_address)))
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (address_separator)
+              (syntax_issue
+                (undefined_syntax
+                  (omitted_address)))))))
+      (function
+        (quit_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+owns a blank before an excess address separator
+:language(sed)
+==================
+1,2 ,3p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator)
+        (address
+          (line_number_address))
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (syntax_issue
+                (nonconforming_syntax
+                  (blanks_around_address_separator
+                    (blank))))
+              (address_separator)
+              (address
+                (line_number_address))))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+keeps an excess address before negation and a following command
+:language(sed)
+==================
+1,2!q;p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (address_separator)
+              (address
+                (line_number_address))))))
+      (negation
+        (negation_operator))
+      (function
+        (quit_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+keeps an excess address inside a block command
+:language(sed)
+==================
+{1,2q
+}
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (block_function
+          (function_verb)
+          (command_list
+            (editing_command
+              (address_clause
+                (address
+                  (line_number_address))
+                (syntax_issue
+                  (nonconforming_syntax
+                    (excess_address
+                      (address_separator)
+                      (address
+                        (line_number_address))))))
+              (function
+                (quit_function
+                  (function_verb))))
+            (command_separator))
+          (closing_brace))))
+    (command_separator)))
+
+==================
+classifies an excess address before a quit function in ERE mode
+:language(sed_ere)
+==================
+1,2q
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (address_separator)
+              (address
+                (line_number_address))))))
+      (function
+        (quit_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+classifies an omitted leading address in ERE mode
+:language(sed_ere)
+==================
+,2p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (syntax_issue
+          (undefined_syntax
+            (omitted_address)))
+        (address_separator)
+        (address
+          (line_number_address)))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+classifies blank-separated excess addresses before a label in ERE mode
+:language(sed_ere)
+==================
+1 2:x
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (address
+                (line_number_address)))))
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (syntax_issue
+                (nonconforming_syntax
+                  (missing_address_separator)))
+              (address
+                (line_number_address))))))
+      (function
+        (label_function
+          (function_verb)
+          (label))))
+    (command_separator)))
+
+==================
+keeps an address separator before an omitted trailing address
+:language(sed)
+==================
+1,p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator)
+        (syntax_issue
+          (undefined_syntax
+            (omitted_address))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+keeps an address separator after a nonconforming blank
+:language(sed)
+==================
+1 ,2p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (syntax_issue
+          (nonconforming_syntax
+            (blanks_around_address_separator
+              (blank))))
+        (address_separator)
+        (address
+          (line_number_address)))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+keeps an address separator before a nonconforming blank
+:language(sed)
+==================
+1, 2p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator)
+        (syntax_issue
+          (nonconforming_syntax
+            (blanks_around_address_separator
+              (blank))))
+        (address
+          (line_number_address)))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+keeps an address separator between nonconforming blanks
+:language(sed)
+==================
+1 , 2p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (syntax_issue
+          (nonconforming_syntax
+            (blanks_around_address_separator
+              (blank))))
+        (address_separator)
+        (syntax_issue
+          (nonconforming_syntax
+            (blanks_around_address_separator
+              (blank))))
+        (address
+          (line_number_address)))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+classifies a missing separator between line-number addresses
+:language(sed)
+==================
+1 2p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (syntax_issue
+          (nonconforming_syntax
+            (missing_address_separator)))
+        (address
+          (line_number_address)))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+classifies a missing separator before a context address
+:language(sed)
+==================
+1/ab/p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (syntax_issue
+          (nonconforming_syntax
+            (missing_address_separator)))
+        (address
+          (context_address
+            (delimiter)
+            (basic_reg_exp
+              (bre_branch
+                (bre_branch
+                  (bre_expression
+                    (simple_bre
+                      (nondupl_bre
+                        (one_char_or_coll_elem_bre
+                          (ordinary_character))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (ordinary_character)))))))
+            (delimiter))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+keeps an omitted leading address before an excess last-line address
+:language(sed)
+==================
+,1$p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (syntax_issue
+          (undefined_syntax
+            (omitted_address)))
+        (address_separator)
+        (address
+          (line_number_address))
+        (syntax_issue
+          (nonconforming_syntax
+            (excess_address
+              (syntax_issue
+                (nonconforming_syntax
+                  (missing_address_separator)))
+              (address
+                (last_line_address))))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+keeps an address separator between an omission and a nonconforming blank
+:language(sed)
+==================
+, 1p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (syntax_issue
+          (undefined_syntax
+            (omitted_address)))
+        (address_separator)
+        (syntax_issue
+          (nonconforming_syntax
+            (blanks_around_address_separator
+              (blank))))
+        (address
+          (line_number_address)))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+keeps an omitted trailing address before a function blank
+:language(sed)
+==================
+1, p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator)
+        (syntax_issue
+          (undefined_syntax
+            (omitted_address))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+keeps an address separator between a nonconforming blank and an omission
+:language(sed)
+==================
+1 , p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (syntax_issue
+          (nonconforming_syntax
+            (blanks_around_address_separator
+              (blank))))
+        (address_separator)
+        (syntax_issue
+          (undefined_syntax
+            (omitted_address))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+preserves a final address without synthesizing a function
+:language(sed)
+==================
+1
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address)))
+      (syntax_issue
+        (incomplete_syntax
+          (missing_function))))))
+
+==================
+preserves final negation without synthesizing a function
+:language(sed_ere)
+==================
+!
+---
+
+(script
+  (command_list
+    (editing_command
+      (negation
+        (negation_operator))
+      (syntax_issue
+        (incomplete_syntax
+          (missing_function))))))
+
+==================
+classifies a missing function after an address at a newline
+:language(sed)
+==================
+1
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address)))
+      (syntax_issue
+        (nonconforming_syntax
+          (missing_function))))
+    (command_separator)))

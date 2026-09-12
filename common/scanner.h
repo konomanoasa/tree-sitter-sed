@@ -634,7 +634,6 @@ static bool emit_marker(
   }
 
   lexer->mark_end(lexer);
-  // Keep the marker empty while recording its full lookahead character.
   if (!lexer->eof(lexer)) {
     advance(lexer);
   }
@@ -730,7 +729,6 @@ static enum PostBlankRecoveryScan scan_post_blank_recovery(
     *symbol = MISSING_ADDRESS_SEPARATOR_MARKER;
     return POST_BLANK_RECOVERY_TOKEN;
   }
-  // The blanks precede the marker as padding of the brace or the source end.
   *symbol = missing_command_separator_marker(lexer, valid_symbols);
   return *symbol == ERROR_SENTINEL ? POST_BLANK_RECOVERY_FAILED
                                    : POST_BLANK_RECOVERY_TOKEN;
@@ -1584,8 +1582,6 @@ static bool scan_regex_escape_after_backslash(
 }
 
 #if !SED_REGEX_EXTENDED
-// Scans the escape after a backslash whose token end is marked before it:
-// "\)" first closes an empty subexpression unless ')' is the delimiter.
 static bool scan_regex_after_backslash(
   TSLexer *lexer,
   ScannerState *state,
@@ -1696,7 +1692,6 @@ static bool scan_regex_special_token(
       lexer->lookahead ==
       '\n' ||
       lexer->lookahead == state->delimiter;
-    // Record the full lookahead character without extending the dollar token.
     if (!lexer->eof(lexer)) {
       advance(lexer);
     }
@@ -1842,8 +1837,6 @@ static bool scan_regex_token(
   const bool *valid_symbols,
   TSSymbol *symbol
 ) {
-  // The marker precedes the duplication symbol, whose interval is then
-  // scanned like any other so that malformed content keeps its structure.
   const TSSymbol marker = regex_duplication_context_marker(lexer, state);
   if (marker != ERROR_SENTINEL && valid_symbols[marker]) {
     lexer->mark_end(lexer);
@@ -1876,8 +1869,6 @@ static bool scan_regex_token(
   }
 #endif
 
-  // The delimiter never reaches this point outside a bracket expression, so
-  // the interval tokens compare only against their own characters.
   if (
     state->regex_in_interval &&
     !lexer->eof(lexer) &&
@@ -1932,8 +1923,6 @@ static bool scan_regex_token(
         symbol
       );
     }
-    // The escape is the first unit of malformed content unless it ends the
-    // content, in which case the issue is empty and the escape follows it.
     if (!interval_escape_ends_content(state, lexer->lookahead)) {
       finish_malformed_escape(lexer);
       scan_malformed_interval_content(lexer, state);
@@ -2044,7 +2033,6 @@ static enum LiteralScanResult scan_operand_literal(
       (ampersand_is_special && lexer->lookahead == '&')
     ) {
       if (consumed && lexer->lookahead == state->delimiter) {
-        // Track every byte of the delimiter as lookahead, outside the literal.
         advance(lexer);
       }
       return consumed ? LITERAL_SCAN_TOKEN : LITERAL_SCAN_NONE;
@@ -2128,7 +2116,6 @@ static bool scan_translate_escape(
     return emit_symbol(valid_symbols, TRANSLATE_NONPORTABLE_ESCAPE, symbol);
   }
 
-  // "\n" is a newline even when 'n' is the delimiter.
   TSSymbol candidate;
   if (lexer->lookahead == 'n' || lexer->lookahead == '\\') {
     candidate = TRANSLATE_ESCAPE;
@@ -2391,9 +2378,8 @@ static bool scan_command_token(
     return true;
   }
 
-  // The label separator of b and t is exactly one space. It is read before
-  // the post-blank recovery markers, which would otherwise claim the blank in
-  // front of a label that starts with a closing brace.
+  // Read label separators before recovery markers can claim the space in
+  // front of a label starting with '}'.
   if (valid_symbols[ARGUMENT_SEPARATOR] && lexer->lookahead == ' ') {
     consume(lexer);
     *symbol = ARGUMENT_SEPARATOR;
@@ -2470,7 +2456,6 @@ static bool scan_command_token(
     return true;
   }
 
-  // Preserve an address interpretation before reserved-function recovery.
   if (
     can_start_address(lexer) &&
     emit_marker(lexer, valid_symbols, MISSING_ADDRESS_SEPARATOR_MARKER, symbol)

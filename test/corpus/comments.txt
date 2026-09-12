@@ -1,0 +1,103 @@
+==================
+exposes a line-terminated comment
+:language(sed)
+==================
+# comment
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (comment_function
+          (function_verb)
+          (comment
+            (comment_text)))))
+    (command_separator)))
+
+==================
+recognizes default-output suppression only in the leading comment
+:language(sed)
+==================
+#normal
+#n
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (comment_function
+          (function_verb)
+          (comment
+            (default_output_suppression)
+            (comment_text)))))
+    (command_separator)
+    (editing_command
+      (function
+        (comment_function
+          (function_verb)
+          (comment
+            (comment_text)))))
+    (command_separator)))
+
+==================
+does not recognize output suppression after an initial blank
+:language(sed)
+==================
+ #n
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (comment_function
+          (function_verb)
+          (comment
+            (comment_text)))))
+    (command_separator)))
+
+==================
+does not recognize output suppression after an initial semicolon
+:language(sed)
+==================
+;#n
+
+---
+
+(script
+  (command_list
+    (empty_command)
+    (command_separator)
+    (editing_command
+      (function
+        (comment_function
+          (function_verb)
+          (comment
+            (comment_text)))))
+    (command_separator)))
+
+==================
+does not recognize output suppression after an initial newline
+:language(sed)
+==================
+
+#n
+
+---
+
+(script
+  (command_list
+    (empty_command)
+    (command_separator)
+    (editing_command
+      (function
+        (comment_function
+          (function_verb)
+          (comment
+            (comment_text)))))
+    (command_separator)))

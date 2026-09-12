@@ -13,12 +13,13 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { root } from "../scripts/tree-sitter.js";
 
-test("Rust rebuilds both grammars after parser or allocator header changes", () => {
+test("sed: Rust rebuilds both grammars after parser or allocator header changes", () => {
   const directory = mkdtempSync(join(tmpdir(), "tree-sitter-sed-build-"));
   const source = join(directory, "source");
   try {
     for (const path of [
       "Cargo.toml",
+      "Cargo.lock",
       "bindings/rust",
       "common/scanner.h",
       "queries",
@@ -36,6 +37,7 @@ test("Rust rebuilds both grammars after parser or allocator header changes", () 
         "cargo",
         [
           "check",
+          "--locked",
           "--lib",
           "--manifest-path",
           join(source, "Cargo.toml"),

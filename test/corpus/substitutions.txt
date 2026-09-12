@@ -1,0 +1,438 @@
+==================
+exposes replacement references and combined substitution flags
+:language(sed)
+==================
+s|a|x&\0\1\||gipw output
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character)))))))
+          (delimiter)
+          (replacement
+            (replacement_literal)
+            (matched_text_reference)
+            (replacement_backreference)
+            (replacement_backreference)
+            (replacement_escaped_delimiter))
+          (delimiter)
+          (substitution_flags
+            (global_flag)
+            (case_insensitive_flag)
+            (print_flag)
+            (write_flag
+              (substitution_flag)
+              (wfile))))))
+    (command_separator)))
+
+==================
+exposes escaped ampersands and backslashes in a replacement
+:language(sed)
+==================
+s|a|\&\\|
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character)))))))
+          (delimiter)
+          (replacement
+            (replacement_escape)
+            (replacement_escape))
+          (delimiter))))
+    (command_separator)))
+
+==================
+preserves escaped newlines in substitution replacements
+:language(sed)
+==================
+s|a|first\
+second|
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character)))))))
+          (delimiter)
+          (replacement
+            (replacement_literal)
+            (escaped_newline)
+            (replacement_literal))
+          (delimiter))))
+    (command_separator)))
+
+==================
+exposes substitution flags following a write flag before its file operand
+:language(sed)
+:language(sed_ere)
+==================
+s///wpigw2 file
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (delimiter)
+          (delimiter)
+          (substitution_flags
+            (write_flag
+              (substitution_flag)
+              (print_flag)
+              (case_insensitive_flag)
+              (global_flag)
+              (substitution_flag)
+              (occurrence_flag)
+              (wfile))))))
+    (command_separator)))
+
+==================
+keeps flag letters inside a substitution write file operand
+:language(sed)
+:language(sed_ere)
+==================
+s///w pig file
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (delimiter)
+          (delimiter)
+          (substitution_flags
+            (write_flag
+              (substitution_flag)
+              (wfile))))))
+    (command_separator)))
+
+==================
+preserves an ambiguous ampersand replacement delimiter escape
+:language(sed)
+==================
+s&a&\&&
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character)))))))
+          (delimiter)
+          (replacement
+            (syntax_issue
+              (unspecified_syntax
+                (replacement_ampersand_delimiter_escape
+                  (replacement_escaped_delimiter)))))
+          (delimiter))))
+    (command_separator)))
+
+==================
+ends a substitution write operand before a following command
+:language(sed)
+==================
+s/a/b/w file;p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character)))))))
+          (delimiter)
+          (replacement
+            (replacement_literal))
+          (delimiter)
+          (substitution_flags
+            (write_flag
+              (substitution_flag)
+              (wfile))))))
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+ends a substitution write operand before a final empty command
+:language(sed)
+==================
+s/a/b/w file;
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character)))))))
+          (delimiter)
+          (replacement
+            (replacement_literal))
+          (delimiter)
+          (substitution_flags
+            (write_flag
+              (substitution_flag)
+              (wfile))))))
+    (command_separator)
+    (empty_command)
+    (command_separator)))
+
+==================
+preserves leading zeros in a nonzero substitution occurrence
+:language(sed)
+==================
+s/a/b/001
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character)))))))
+          (delimiter)
+          (replacement
+            (replacement_literal))
+          (delimiter)
+          (substitution_flags
+            (occurrence_flag)))))
+    (command_separator)))
+
+==================
+preserves an all-zero substitution occurrence
+:language(sed)
+==================
+s/a/b/000
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character)))))))
+          (delimiter)
+          (replacement
+            (replacement_literal))
+          (delimiter)
+          (substitution_flags
+            (occurrence_flag)))))
+    (command_separator)))
+
+==================
+owns a backslash substitution delimiter inside its issue
+:language(sed)
+==================
+s\a\b\
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (syntax_issue
+            (nonconforming_syntax
+              (invalid_delimiter)))))
+      (syntax_issue
+        (nonconforming_syntax
+          (unexpected_command_text))))
+    (command_separator)))
+
+==================
+classifies replacement termination at a physical line boundary
+:language(sed)
+==================
+s/a/b
+p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character)))))))
+          (delimiter)
+          (replacement
+            (replacement_literal))
+          (syntax_issue
+            (nonconforming_syntax
+              (unterminated_replacement))))))
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+recovers a missing substitution delimiter at a newline
+:language(sed)
+==================
+s
+p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (syntax_issue
+            (nonconforming_syntax
+              (missing_opening_delimiter))))))
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+terminates a nonconforming substitution at a physical line boundary
+:language(sed)
+==================
+s/\(a
+p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (back_open_parenthesis)
+                    (basic_reg_exp
+                      (bre_branch
+                        (bre_expression
+                          (simple_bre
+                            (nondupl_bre
+                              (one_char_or_coll_elem_bre
+                                (ordinary_character)))))))
+                    (syntax_issue
+                      (undefined_syntax
+                        (unclosed_subexpression))))))))
+          (syntax_issue
+            (nonconforming_syntax
+              (unterminated_regular_expression))))))
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))

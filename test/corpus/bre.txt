@@ -1,5 +1,5 @@
 ==================
-Mirrors the POSIX BRE production hierarchy
+mirrors the POSIX BRE production hierarchy
 :language(sed)
 ==================
 s#^\(ab*\)\{2,3\}$#x#
@@ -50,10 +50,132 @@ s#^\(ab*\)\{2,3\}$#x#
     (command_separator)))
 
 ==================
-Preserves BRE interval recovery structure
+recognizes an escaped BRE delimiter in a substitution
 :language(sed)
 ==================
-/\{3\}a*\{2\}\}/p
+s|\||x|
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (escaped_delimiter)))))))
+          (delimiter)
+          (replacement
+            (replacement_literal))
+          (delimiter))))
+    (command_separator)))
+
+==================
+recognizes an escaped BRE delimiter in a context address
+:language(sed)
+==================
+\|\||p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (context_address
+            (address_escape)
+            (delimiter)
+            (basic_reg_exp
+              (bre_branch
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (escaped_delimiter)))))))
+            (delimiter))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+keeps a dollar sign literal before an escaped BRE delimiter
+:language(sed)
+==================
+s|$\||x|
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_branch
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (ordinary_character))))))
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (escaped_delimiter)))))))
+          (delimiter)
+          (replacement
+            (replacement_literal))
+          (delimiter))))
+    (command_separator)))
+
+==================
+preserves a special BRE delimiter escape without selecting its interpretation
+:language(sed)
+==================
+s.\..x.
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (syntax_issue
+                        (unspecified_syntax
+                          (special_delimiter_escape
+                            (escaped_delimiter))))))))))
+          (delimiter)
+          (replacement
+            (replacement_literal))
+          (delimiter))))
+    (command_separator)))
+
+==================
+exposes non-ASCII BRE characters atomically
+:language(sed)
+==================
+/😺犬/p
 
 ---
 
@@ -67,38 +189,16 @@ Preserves BRE interval recovery structure
             (basic_reg_exp
               (bre_branch
                 (bre_branch
-                  (bre_branch
-                    (bre_expression
-                      (simple_bre
-                        (syntax_issue
-                          (undefined_syntax
-                            (leading_duplication_symbol
-                              (bre_dupl_symbol
-                                (back_open_brace)
-                                (dup_count)
-                                (back_close_brace))))))))
                   (bre_expression
                     (simple_bre
-                      (simple_bre
-                        (nondupl_bre
-                          (one_char_or_coll_elem_bre
-                            (ordinary_character)))
-                        (bre_dupl_symbol
-                          (zero_or_more_operator)))
-                      (syntax_issue
-                        (undefined_syntax
-                          (adjacent_duplication_symbol
-                            (bre_dupl_symbol
-                              (back_open_brace)
-                              (dup_count)
-                              (back_close_brace))))))))
+                      (nondupl_bre
+                        (one_char_or_coll_elem_bre
+                          (ordinary_character))))))
                 (bre_expression
                   (simple_bre
                     (nondupl_bre
-                      (syntax_issue
-                        (undefined_syntax
-                          (unmatched_interval_close
-                            (back_close_brace)))))))))
+                      (one_char_or_coll_elem_bre
+                        (ordinary_character)))))))
             (delimiter))))
       (function
         (print_function
@@ -106,7 +206,86 @@ Preserves BRE interval recovery structure
     (command_separator)))
 
 ==================
-Rejects optional BRE anchors while preserving implementation-defined escapes
+exposes non-ASCII BRE delimiters atomically
+:language(sed)
+==================
+s😺猫😺犬😺g
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character)))))))
+          (delimiter)
+          (replacement
+            (replacement_literal))
+          (delimiter)
+          (substitution_flags
+            (global_flag)))))
+    (command_separator)))
+
+==================
+keeps a dollar sign literal before an escaped closing-parenthesis delimiter
+:language(sed)
+==================
+s)\(a$\))x)
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (back_open_parenthesis)
+                    (basic_reg_exp
+                      (bre_branch
+                        (bre_branch
+                          (bre_branch
+                            (bre_expression
+                              (simple_bre
+                                (nondupl_bre
+                                  (one_char_or_coll_elem_bre
+                                    (ordinary_character))))))
+                          (bre_expression
+                            (simple_bre
+                              (nondupl_bre
+                                (one_char_or_coll_elem_bre
+                                  (ordinary_character))))))
+                        (bre_expression
+                          (simple_bre
+                            (nondupl_bre
+                              (one_char_or_coll_elem_bre
+                                (escaped_delimiter)))))))
+                    (syntax_issue
+                      (undefined_syntax
+                        (unclosed_subexpression))))))))
+          (delimiter)
+          (replacement
+            (replacement_literal))
+          (delimiter))))
+    (command_separator)))
+
+==================
+rejects optional BRE anchors while preserving implementation-defined escapes
 :language(sed)
 ==================
 /\(^a$\)\+b\?c\|d/p
@@ -202,7 +381,188 @@ Rejects optional BRE anchors while preserving implementation-defined escapes
     (command_separator)))
 
 ==================
-Classifies malformed BRE interval recovery inside the POSIX hierarchy
+classifies empty BRE subexpressions inside the POSIX hierarchy
+:language(sed)
+==================
+/\(\)/p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (context_address
+            (delimiter)
+            (basic_reg_exp
+              (bre_branch
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (back_open_parenthesis)
+                      (syntax_issue
+                        (undefined_syntax
+                          (empty_subexpression)))
+                      (back_close_parenthesis))))))
+            (delimiter))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+ends a leading empty BRE interval before a following expression
+:language(sed)
+==================
+/\{\}a\{1\}/p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (context_address
+            (delimiter)
+            (basic_reg_exp
+              (bre_branch
+                (bre_branch
+                  (bre_expression
+                    (simple_bre
+                      (syntax_issue
+                        (undefined_syntax
+                          (leading_duplication_symbol
+                            (bre_dupl_symbol
+                              (back_open_brace)
+                              (syntax_issue
+                                (undefined_syntax
+                                  (malformed_interval)))
+                              (back_close_brace))))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (ordinary_character)))
+                    (bre_dupl_symbol
+                      (back_open_brace)
+                      (dup_count)
+                      (back_close_brace))))))
+            (delimiter))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+ends an empty BRE interval after a duplication operator
+:language(sed)
+==================
+s/x*\{\}y\{2\}/z/
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_branch
+                (bre_expression
+                  (simple_bre
+                    (simple_bre
+                      (nondupl_bre
+                        (one_char_or_coll_elem_bre
+                          (ordinary_character)))
+                      (bre_dupl_symbol
+                        (zero_or_more_operator)))
+                    (syntax_issue
+                      (undefined_syntax
+                        (adjacent_duplication_symbol
+                          (bre_dupl_symbol
+                            (back_open_brace)
+                            (syntax_issue
+                              (undefined_syntax
+                                (malformed_interval)))
+                            (back_close_brace))))))))
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character)))
+                  (bre_dupl_symbol
+                    (back_open_brace)
+                    (dup_count)
+                    (back_close_brace))))))
+          (delimiter)
+          (replacement
+            (replacement_literal))
+          (delimiter))))
+    (command_separator)))
+
+==================
+preserves BRE interval recovery structure
+:language(sed)
+==================
+/\{3\}a*\{2\}\}/p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (context_address
+            (delimiter)
+            (basic_reg_exp
+              (bre_branch
+                (bre_branch
+                  (bre_branch
+                    (bre_expression
+                      (simple_bre
+                        (syntax_issue
+                          (undefined_syntax
+                            (leading_duplication_symbol
+                              (bre_dupl_symbol
+                                (back_open_brace)
+                                (dup_count)
+                                (back_close_brace))))))))
+                  (bre_expression
+                    (simple_bre
+                      (simple_bre
+                        (nondupl_bre
+                          (one_char_or_coll_elem_bre
+                            (ordinary_character)))
+                        (bre_dupl_symbol
+                          (zero_or_more_operator)))
+                      (syntax_issue
+                        (undefined_syntax
+                          (adjacent_duplication_symbol
+                            (bre_dupl_symbol
+                              (back_open_brace)
+                              (dup_count)
+                              (back_close_brace))))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (syntax_issue
+                        (undefined_syntax
+                          (unmatched_interval_close
+                            (back_close_brace)))))))))
+            (delimiter))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+classifies malformed BRE interval recovery inside the POSIX hierarchy
 :language(sed)
 ==================
 /\(\)a\{1,2,3\}\)/p
@@ -256,11 +616,10 @@ Classifies malformed BRE interval recovery inside the POSIX hierarchy
     (command_separator)))
 
 ==================
-Keeps escape sequences inside malformed BRE intervals
+keeps a newline escape inside a malformed BRE interval
 :language(sed)
 ==================
 /a\{2,3\n}/p
-s/b\{1\//x/
 
 ---
 
@@ -290,7 +649,18 @@ s/b\{1\//x/
       (function
         (print_function
           (function_verb))))
-    (command_separator)
+    (command_separator)))
+
+==================
+keeps a delimiter escape inside a malformed BRE interval
+:language(sed)
+==================
+s/b\{1\//x/
+
+---
+
+(script
+  (command_list
     (editing_command
       (function
         (substitute_function
@@ -316,163 +686,7 @@ s/b\{1\//x/
     (command_separator)))
 
 ==================
-Recognizes BRE delimiter escapes before implementation-dependent forms
-:language(sed)
-==================
-s|\||x|
-\|\||p
-s|$\||x|
-
----
-
-(script
-  (command_list
-    (editing_command
-      (function
-        (substitute_function
-          (function_verb)
-          (delimiter)
-          (basic_reg_exp
-            (bre_branch
-              (bre_expression
-                (simple_bre
-                  (nondupl_bre
-                    (one_char_or_coll_elem_bre
-                      (escaped_delimiter)))))))
-          (delimiter)
-          (replacement
-            (replacement_literal))
-          (delimiter))))
-    (command_separator)
-    (editing_command
-      (address_clause
-        (address
-          (context_address
-            (address_escape)
-            (delimiter)
-            (basic_reg_exp
-              (bre_branch
-                (bre_expression
-                  (simple_bre
-                    (nondupl_bre
-                      (one_char_or_coll_elem_bre
-                        (escaped_delimiter)))))))
-            (delimiter))))
-      (function
-        (print_function
-          (function_verb))))
-    (command_separator)
-    (editing_command
-      (function
-        (substitute_function
-          (function_verb)
-          (delimiter)
-          (basic_reg_exp
-            (bre_branch
-              (bre_branch
-                (bre_expression
-                  (simple_bre
-                    (nondupl_bre
-                      (one_char_or_coll_elem_bre
-                        (ordinary_character))))))
-              (bre_expression
-                (simple_bre
-                  (nondupl_bre
-                    (one_char_or_coll_elem_bre
-                      (escaped_delimiter)))))))
-          (delimiter)
-          (replacement
-            (replacement_literal))
-          (delimiter))))
-    (command_separator)))
-
-==================
-Preserves a special BRE delimiter escape without selecting its interpretation
-:language(sed)
-==================
-s.\..x.
-
----
-
-(script
-  (command_list
-    (editing_command
-      (function
-        (substitute_function
-          (function_verb)
-          (delimiter)
-          (basic_reg_exp
-            (bre_branch
-              (bre_expression
-                (simple_bre
-                  (nondupl_bre
-                    (one_char_or_coll_elem_bre
-                      (syntax_issue
-                        (unspecified_syntax
-                          (special_delimiter_escape
-                            (escaped_delimiter))))))))))
-          (delimiter)
-          (replacement
-            (replacement_literal))
-          (delimiter))))
-    (command_separator)))
-
-==================
-Exposes non-ASCII BRE characters and delimiters atomically
-:language(sed)
-==================
-/😺犬/p
-s😺猫😺犬😺g
-
----
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (address
-          (context_address
-            (delimiter)
-            (basic_reg_exp
-              (bre_branch
-                (bre_branch
-                  (bre_expression
-                    (simple_bre
-                      (nondupl_bre
-                        (one_char_or_coll_elem_bre
-                          (ordinary_character))))))
-                (bre_expression
-                  (simple_bre
-                    (nondupl_bre
-                      (one_char_or_coll_elem_bre
-                        (ordinary_character)))))))
-            (delimiter))))
-      (function
-        (print_function
-          (function_verb))))
-    (command_separator)
-    (editing_command
-      (function
-        (substitute_function
-          (function_verb)
-          (delimiter)
-          (basic_reg_exp
-            (bre_branch
-              (bre_expression
-                (simple_bre
-                  (nondupl_bre
-                    (one_char_or_coll_elem_bre
-                      (ordinary_character)))))))
-          (delimiter)
-          (replacement
-            (replacement_literal))
-          (delimiter)
-          (substitution_flags
-            (global_flag)))))
-    (command_separator)))
-
-==================
-Keeps nonconforming BRE subexpression anchors structured for duplication recovery
+keeps nonconforming BRE subexpression anchors structured for duplication recovery
 :language(sed)
 ==================
 /\(^*\)\(^\{1\}\)/p
@@ -540,176 +754,10 @@ Keeps nonconforming BRE subexpression anchors structured for duplication recover
     (command_separator)))
 
 ==================
-Classifies empty BRE subexpressions inside the POSIX hierarchy
-:language(sed)
-==================
-/\(\)/p
-
----
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (address
-          (context_address
-            (delimiter)
-            (basic_reg_exp
-              (bre_branch
-                (bre_expression
-                  (simple_bre
-                    (nondupl_bre
-                      (back_open_parenthesis)
-                      (syntax_issue
-                        (undefined_syntax
-                          (empty_subexpression)))
-                      (back_close_parenthesis))))))
-            (delimiter))))
-      (function
-        (print_function
-          (function_verb))))
-    (command_separator)))
-
-==================
-Ends an empty BRE interval at its own closing brace
-:language(sed)
-==================
-/\{\}a\{1\}/p
-s/x*\{\}y\{2\}/z/
-
----
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (address
-          (context_address
-            (delimiter)
-            (basic_reg_exp
-              (bre_branch
-                (bre_branch
-                  (bre_expression
-                    (simple_bre
-                      (syntax_issue
-                        (undefined_syntax
-                          (leading_duplication_symbol
-                            (bre_dupl_symbol
-                              (back_open_brace)
-                              (syntax_issue
-                                (undefined_syntax
-                                  (malformed_interval)))
-                              (back_close_brace))))))))
-                (bre_expression
-                  (simple_bre
-                    (nondupl_bre
-                      (one_char_or_coll_elem_bre
-                        (ordinary_character)))
-                    (bre_dupl_symbol
-                      (back_open_brace)
-                      (dup_count)
-                      (back_close_brace))))))
-            (delimiter))))
-      (function
-        (print_function
-          (function_verb))))
-    (command_separator)
-    (editing_command
-      (function
-        (substitute_function
-          (function_verb)
-          (delimiter)
-          (basic_reg_exp
-            (bre_branch
-              (bre_branch
-                (bre_expression
-                  (simple_bre
-                    (simple_bre
-                      (nondupl_bre
-                        (one_char_or_coll_elem_bre
-                          (ordinary_character)))
-                      (bre_dupl_symbol
-                        (zero_or_more_operator)))
-                    (syntax_issue
-                      (undefined_syntax
-                        (adjacent_duplication_symbol
-                          (bre_dupl_symbol
-                            (back_open_brace)
-                            (syntax_issue
-                              (undefined_syntax
-                                (malformed_interval)))
-                            (back_close_brace))))))))
-              (bre_expression
-                (simple_bre
-                  (nondupl_bre
-                    (one_char_or_coll_elem_bre
-                      (ordinary_character)))
-                  (bre_dupl_symbol
-                    (back_open_brace)
-                    (dup_count)
-                    (back_close_brace))))))
-          (delimiter)
-          (replacement
-            (replacement_literal))
-          (delimiter))))
-    (command_separator)))
-
-==================
-Keeps a dollar sign literal before an escaped closing-parenthesis delimiter
-:language(sed)
-==================
-s)\(a$\))x)
-
----
-
-(script
-  (command_list
-    (editing_command
-      (function
-        (substitute_function
-          (function_verb)
-          (delimiter)
-          (basic_reg_exp
-            (bre_branch
-              (bre_expression
-                (simple_bre
-                  (nondupl_bre
-                    (back_open_parenthesis)
-                    (basic_reg_exp
-                      (bre_branch
-                        (bre_branch
-                          (bre_branch
-                            (bre_expression
-                              (simple_bre
-                                (nondupl_bre
-                                  (one_char_or_coll_elem_bre
-                                    (ordinary_character))))))
-                          (bre_expression
-                            (simple_bre
-                              (nondupl_bre
-                                (one_char_or_coll_elem_bre
-                                  (ordinary_character))))))
-                        (bre_expression
-                          (simple_bre
-                            (nondupl_bre
-                              (one_char_or_coll_elem_bre
-                                (escaped_delimiter)))))))
-                    (syntax_issue
-                      (undefined_syntax
-                        (unclosed_subexpression))))))))
-          (delimiter)
-          (replacement
-            (replacement_literal))
-          (delimiter))))
-    (command_separator)))
-
-==================
-Leaves following constructs outside a malformed BRE interval
+leaves a bracket expression outside a malformed BRE interval
 :language(sed)
 ==================
 /a\{1[bc]\}/p
-/\(a\{2\)/p
-/a\{1x\}/p
 
 ---
 
@@ -765,7 +813,18 @@ Leaves following constructs outside a malformed BRE interval
       (function
         (print_function
           (function_verb))))
-    (command_separator)
+    (command_separator)))
+
+==================
+leaves a closing subexpression outside a malformed BRE interval
+:language(sed)
+==================
+/\(a\{2\)/p
+
+---
+
+(script
+  (command_list
     (editing_command
       (address_clause
         (address
@@ -795,7 +854,18 @@ Leaves following constructs outside a malformed BRE interval
       (function
         (print_function
           (function_verb))))
-    (command_separator)
+    (command_separator)))
+
+==================
+leaves an ordinary character outside a malformed BRE interval
+:language(sed)
+==================
+/a\{1x\}/p
+
+---
+
+(script
+  (command_list
     (editing_command
       (address_clause
         (address
@@ -822,7 +892,7 @@ Leaves following constructs outside a malformed BRE interval
     (command_separator)))
 
 ==================
-Keeps the delimiter inside a bracket expression after a malformed BRE interval
+keeps the delimiter inside a bracket expression after a malformed BRE interval
 :language(sed)
 ==================
 s.a\{1[.]b.x.
@@ -875,3 +945,67 @@ s.a\{1[.]b.x.
             (replacement_literal))
           (delimiter))))
     (command_separator)))
+
+==================
+rejects a BRE interval escape before its mandatory minimum at EOF
+:language(sed)
+==================
+s/a\{\
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character)))
+                  (bre_dupl_symbol
+                    (back_open_brace)
+                    (syntax_issue
+                      (undefined_syntax
+                        (malformed_interval))))))))
+          (syntax_issue
+            (incomplete_syntax
+              (incomplete_regular_expression))))))))
+
+==================
+rejects an unclosed BRE group whose delimiter prevents completion at EOF
+:language(sed)
+==================
+s)\(a
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (back_open_parenthesis)
+                    (basic_reg_exp
+                      (bre_branch
+                        (bre_expression
+                          (simple_bre
+                            (nondupl_bre
+                              (one_char_or_coll_elem_bre
+                                (ordinary_character)))))))
+                    (syntax_issue
+                      (undefined_syntax
+                        (unclosed_subexpression))))))))
+          (syntax_issue
+            (incomplete_syntax
+              (incomplete_regular_expression))))))))

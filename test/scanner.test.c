@@ -97,9 +97,16 @@ static void serialize_state(
   ScannerState *state,
   char buffer[TREE_SITTER_SERIALIZATION_BUFFER_SIZE]
 ) {
-  const unsigned length = sed_scanner_serialize(state, buffer);
+  char guarded[TREE_SITTER_SERIALIZATION_BUFFER_SIZE + 2];
+  memset(guarded, 0x5a, sizeof(guarded));
+  const unsigned length = sed_scanner_serialize(state, guarded + 1);
   assert(length == SCANNER_SERIALIZED_STATE_SIZE);
   assert(length <= TREE_SITTER_SERIALIZATION_BUFFER_SIZE);
+  assert(guarded[0] == 0x5a);
+  for (size_t index = length + 1; index < sizeof(guarded); index++) {
+    assert(guarded[index] == 0x5a);
+  }
+  memcpy(buffer, guarded + 1, length);
 }
 
 static void assert_same_state(ScannerState *expected, ScannerState *actual) {
@@ -117,14 +124,14 @@ static void assert_reset_state(ScannerState *state) {
   assert_same_state(&reset, state);
 }
 
-static void check_lifecycle(void) {
+static void test_lifecycle(void) {
   ScannerState *state = sed_scanner_create();
   assert(state != NULL);
   assert_reset_state(state);
   sed_scanner_destroy(state);
 }
 
-static void check_serialization_round_trip(void) {
+static void test_serialization_round_trip(void) {
   static const uint32_t depths[] = {
     UINT32_C(37),
     UINT32_C(65535),
@@ -151,13 +158,13 @@ static void check_serialization_round_trip(void) {
   }
 }
 
-static void check_empty_serialization_resets_state(void) {
+static void test_empty_serialization_resets_state(void) {
   ScannerState state = make_regex_state();
   sed_scanner_deserialize(&state, NULL, 0);
   assert_reset_state(&state);
 }
 
-static void check_bracket_content_serialization_round_trip(void) {
+static void test_bracket_content_serialization_round_trip(void) {
   ScannerState source = make_regex_state();
   source.regex_state = REGEX_BRACKET_BODY;
   source.regex_position = REGEX_AFTER_ATOM;
@@ -172,25 +179,25 @@ static void check_bracket_content_serialization_round_trip(void) {
   assert_same_state(&source, &destination);
 }
 
-static void check_failed_scan_preserves_state(void) {
-  ScannerState state = {
-    .delimiter = '/',
-    .mode = MODE_REGEX_ADDRESS,
-    .regex_state = REGEX_OUTSIDE_BRACKET,
-  };
-  ScannerState expected = state;
-#if SED_REGEX_EXTENDED
-  MockLexer mock = make_mock_lexer("{");
-#else
-  MockLexer mock = make_mock_lexer("\\{");
-#endif
-  bool valid_symbols[ERROR_SENTINEL + 1] = {false};
-
-  assert(!sed_scanner_scan(&state, &mock.lexer, valid_symbols));
-  assert_same_state(&expected, &state);
+static void test_disabled_tokens_preserve_state(void) {
+  const char *inputs[] = {"{", "\\{", "/", "p", " ", "\n", ""};
+  const bool valid_symbols[ERROR_SENTINEL + 1] = {false};
+  for (enum ScannerMode mode = MODE_NONE; mode <= MODE_TEXT; mode++) {
+    for (
+      size_t index = 0; index < sizeof(inputs) / sizeof(inputs[0]); index++
+    ) {
+      ScannerState state = make_regex_state();
+      state.delimiter = '/';
+      state.mode = mode;
+      ScannerState expected = state;
+      MockLexer mock = make_mock_lexer(inputs[index]);
+      assert(!sed_scanner_scan(&state, &mock.lexer, valid_symbols));
+      assert_same_state(&expected, &state);
+    }
+  }
 }
 
-static void check_encoding_issues_preserve_construct_state(void) {
+static void test_encoding_issues_preserve_construct_state(void) {
   static const struct {
     enum ScannerMode mode;
     enum RegexState bracket_state;
@@ -292,7 +299,7 @@ static void check_encoding_issues_preserve_construct_state(void) {
   }
 }
 
-static void check_opaque_literals_split_at_encoding_issues(void) {
+static void test_opaque_literals_split_at_encoding_issues(void) {
   static const struct {
     enum ScannerMode mode;
     TSSymbol literal;
@@ -345,7 +352,7 @@ static void check_opaque_literals_split_at_encoding_issues(void) {
   }
 }
 
-static void check_escape_prefixes_stop_before_encoding_issues(void) {
+static void test_escape_prefixes_stop_before_encoding_issues(void) {
   static const enum ScannerMode modes[] = {
     MODE_REGEX_ADDRESS,
     MODE_SUBSTITUTE_REPLACEMENT,
@@ -382,7 +389,7 @@ static void check_escape_prefixes_stop_before_encoding_issues(void) {
   }
 }
 
-static void check_unexpected_text_after_failed_blank_recovery(void) {
+static void test_unexpected_text_after_failed_blank_recovery(void) {
   const int32_t source[] = {' ', 'a', -1, 'b', ';', 'q'};
   MockLexer mock = make_character_lexer(source, 6);
   ScannerState state = {0};
@@ -403,7 +410,7 @@ static void check_unexpected_text_after_failed_blank_recovery(void) {
   assert(mock.lexer.lookahead == ';');
 }
 
-static void check_substitution_flags_precede_unexpected_text(void) {
+static void test_substitution_flags_precede_unexpected_text(void) {
   static const char *const sources[] = {"g", "i", "p", "w output", "123"};
   for (
     size_t index = 0; index < sizeof(sources) / sizeof(sources[0]); index++
@@ -421,7 +428,7 @@ static void check_substitution_flags_precede_unexpected_text(void) {
   }
 }
 
-static void check_bracket_term_delimiter_leaf_ranges(void) {
+static void test_bracket_term_delimiter_leaf_ranges(void) {
   static const struct {
     const char *opening_source;
     const char *closing_source;
@@ -526,7 +533,7 @@ static void check_bracket_term_delimiter_leaf_ranges(void) {
   assert(state.regex_bracket_term_state == REGEX_BRACKET_TERM_NONE);
 }
 
-static void check_bracket_term_payload_owns_embedded_closing_brackets(void) {
+static void test_bracket_term_payload_owns_embedded_closing_brackets(void) {
   static const struct {
     const char *source;
     enum RegexBracketTermState term_state;
@@ -572,7 +579,7 @@ static void check_bracket_term_payload_owns_embedded_closing_brackets(void) {
   }
 }
 
-static void check_regex_closers_at_source_boundaries(void) {
+static void test_regex_closers_at_source_boundaries(void) {
   static const struct {
     const char *source;
     int32_t delimiter;
@@ -614,7 +621,7 @@ static void check_regex_closers_at_source_boundaries(void) {
 }
 
 static void
-check_group_body_omission_is_independent_of_closer_availability(void) {
+test_group_body_omission_is_independent_of_closer_availability(void) {
   ScannerState state = {
     .delimiter = ')',
     .mode = MODE_SUBSTITUTE_PATTERN,
@@ -644,7 +651,7 @@ check_group_body_omission_is_independent_of_closer_availability(void) {
 }
 
 #if !SED_REGEX_EXTENDED
-static void check_bre_interval_backslash_requires_a_completable_closer(void) {
+static void test_bre_interval_backslash_requires_a_completable_closer(void) {
   static const struct {
     const char *source;
     int32_t delimiter;
@@ -685,22 +692,22 @@ static void check_bre_interval_backslash_requires_a_completable_closer(void) {
 #endif
 
 int main(void) {
-  check_lifecycle();
-  check_serialization_round_trip();
-  check_empty_serialization_resets_state();
-  check_bracket_content_serialization_round_trip();
-  check_failed_scan_preserves_state();
-  check_encoding_issues_preserve_construct_state();
-  check_opaque_literals_split_at_encoding_issues();
-  check_escape_prefixes_stop_before_encoding_issues();
-  check_unexpected_text_after_failed_blank_recovery();
-  check_substitution_flags_precede_unexpected_text();
-  check_bracket_term_delimiter_leaf_ranges();
-  check_bracket_term_payload_owns_embedded_closing_brackets();
-  check_regex_closers_at_source_boundaries();
-  check_group_body_omission_is_independent_of_closer_availability();
+  test_lifecycle();
+  test_serialization_round_trip();
+  test_empty_serialization_resets_state();
+  test_bracket_content_serialization_round_trip();
+  test_disabled_tokens_preserve_state();
+  test_encoding_issues_preserve_construct_state();
+  test_opaque_literals_split_at_encoding_issues();
+  test_escape_prefixes_stop_before_encoding_issues();
+  test_unexpected_text_after_failed_blank_recovery();
+  test_substitution_flags_precede_unexpected_text();
+  test_bracket_term_delimiter_leaf_ranges();
+  test_bracket_term_payload_owns_embedded_closing_brackets();
+  test_regex_closers_at_source_boundaries();
+  test_group_body_omission_is_independent_of_closer_availability();
 #if !SED_REGEX_EXTENDED
-  check_bre_interval_backslash_requires_a_completable_closer();
+  test_bre_interval_backslash_requires_a_completable_closer();
 #endif
   return 0;
 }

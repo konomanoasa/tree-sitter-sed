@@ -7,6 +7,10 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: sh
+
 jobs:
   ci:
     uses: ./.github/workflows/ci.yml
@@ -24,9 +28,9 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
-      - run: npm ci
       - name: Verify tag matches package version
         run: |
-          package_version=$(node --print "require('./package.json').version")
+          package_version=$(node --input-type=module --eval 'import metadata from "./package.json" with { type: "json" }; console.log(metadata.version);')
           test "v${package_version}" = "${GITHUB_REF_NAME}"
+      - run: npm ci
       - run: npm publish

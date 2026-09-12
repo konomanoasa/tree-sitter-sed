@@ -3,26 +3,15 @@ name: CI
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_call:
 
 permissions:
   contents: read
 
 jobs:
-  checks:
-    name: Check source and generated parsers
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-      - run: brew install llvm
-      - run: npm ci
-      - run: npm run check
-
   parser:
-    name: Test sed and sed_ere parsers
+    name: Test parsers (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -32,31 +21,32 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
       - uses: tree-sitter/setup-action/cli@v2
+      - name: Set up check tools
+        if: runner.os == 'macOS'
+        shell: sh
+        run: |
+          brew install llvm ts_query_ls
+          {
+            printf 'CC=%s/bin/clang\n' "$(brew --prefix llvm)"
+            printf 'CFLAGS=-std=c17 -isysroot %s\n' "$(xcrun --sdk macosx --show-sdk-path)"
+          } >>"$GITHUB_ENV"
       - run: npm ci
       - uses: tree-sitter/parser-test-action@v3
         with:
           generate: false
-          test-parser-cmd: npm test
-
-  query:
-    name: Validate queries
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: tree-sitter/setup-action/cli@v2
-      - name: Build sed and sed_ere parsers
+          test-parser-cmd: ${{ runner.os == 'macOS' && 'npm run check' || 'npm test' }}
+      - name: Build parsers
+        if: runner.os == 'macOS'
+        shell: sh
         run: |
           tree-sitter build --output sed.so .
           tree-sitter build --output sed_ere.so sed_ere
-      - name: Set up ts_query_ls
+      - name: Validate queries
+        if: runner.os == 'macOS'
+        shell: sh
         run: >-
-          curl -fL
-          https://github.com/ribru17/ts_query_ls/releases/latest/download/ts_query_ls-x86_64-unknown-linux-gnu.tar.gz
-          | tar -xz
-      - name: Validate sed and sed_ere queries
-        run: >-
-          ./ts_query_ls check -f queries/ sed_ere/queries/
+          ts_query_ls check --format queries/ sed_ere/queries/
           --config
-          '{"parser_install_directories":["."],"language_retrieval_patterns":["(sed_ere)/queries/[^/]+\\.scm$"]}'
+          '{"parser_install_directories":["."],"language_retrieval_patterns":["(sed_ere)/queries/[^/]+[.]scm$"]}'

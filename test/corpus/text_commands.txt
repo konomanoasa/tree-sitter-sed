@@ -1,0 +1,86 @@
+==================
+exposes a change function and its text
+:language(sed)
+==================
+c\
+changed
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (change_function
+          (function_verb)
+          (text_introducer)
+          (text
+            (text_literal)))))
+    (command_separator)))
+
+==================
+exposes an insert function and its text
+:language(sed)
+==================
+i\
+inserted
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (insert_function
+          (function_verb)
+          (text_introducer)
+          (text
+            (text_literal)))))
+    (command_separator)))
+
+==================
+exposes backslash escapes and escaped newlines in text operands
+:language(sed)
+==================
+a\
+first\\second\
+third
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (append_function
+          (function_verb)
+          (text_introducer)
+          (text
+            (text_literal)
+            (text_backslash_escape)
+            (text_literal)
+            (text_escaped_newline)
+            (text_literal)))))
+    (command_separator)))
+
+==================
+classifies a missing append text introducer before trailing text
+:language(sed)
+==================
+a x
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (append_function
+          (function_verb)
+          (syntax_issue
+            (nonconforming_syntax
+              (missing_text_introducer)))))
+      (syntax_issue
+        (nonconforming_syntax
+          (unexpected_command_text))))
+    (command_separator)))

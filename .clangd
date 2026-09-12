@@ -1,5 +1,6 @@
 CompileFlags:
-  Add: [-std=c17]
+  Add:
+    - -std=c17
 
 ---
 If:
@@ -7,16 +8,22 @@ If:
     - sed_ere/src/.*
     - src/.*
 CompileFlags:
-  Add: [-I.]
+  Add:
+    - -I.
 
 ---
 If:
   PathMatch: common/scanner\.h
 CompileFlags:
-  Add: [-xc, -DSED_REGEX_EXTENDED=0, -I../src]
+  Add:
+    - -xc
+    - -DSED_REGEX_EXTENDED=0
+    - -I../src
 
 ---
 If:
   PathMatch: test/scanner\.test\.c
 CompileFlags:
-  Add: [-DSED_REGEX_EXTENDED=0, -I../src]
+  Add:
+    - -DSED_REGEX_EXTENDED=0
+    - -I../src

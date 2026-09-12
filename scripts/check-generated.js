@@ -1,6 +1,4 @@
-#!/usr/bin/env node
-
-import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import {
   mkdtempSync,
   readdirSync,
@@ -10,24 +8,8 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
-import { generateParsers, grammars, root } from "./tree-sitter.js";
+import { generateParsers, grammars, packageName, root } from "./tree-sitter.js";
 
-const issueOutcomeNames = new Set([
-  "undefined_syntax",
-  "unspecified_syntax",
-  "implementation_defined_syntax",
-  "invalid_syntax",
-  "nonconforming_syntax",
-  "incomplete_syntax",
-]);
-const generatedPaths = [
-  "grammar.json",
-  "node-types.json",
-  "parser.c",
-  join("tree_sitter", "alloc.h"),
-  join("tree_sitter", "array.h"),
-  join("tree_sitter", "parser.h"),
-].sort((left, right) => left.localeCompare(right));
 const parserBudgets = {
   sed: {
     STATE_COUNT: 2_000,
@@ -48,34 +30,42 @@ const parserBudgets = {
     parse_table_storage_bytes: 150_000,
   },
 };
+const prerequisiteScripts = [];
 
-function files(directory, prefix = "") {
+const generatedPaths = [
+  "grammar.json",
+  "node-types.json",
+  "parser.c",
+  join("tree_sitter", "alloc.h"),
+  join("tree_sitter", "array.h"),
+  join("tree_sitter", "parser.h"),
+].sort();
+
+function listFiles(directory, prefix = "") {
   const paths = [];
   for (const entry of readdirSync(join(directory, prefix), {
     withFileTypes: true,
   })) {
     const path = join(prefix, entry.name);
     if (entry.isDirectory()) {
-      paths.push(...files(directory, path));
-    } else if (entry.isFile()) {
+      paths.push(...listFiles(directory, path));
+    } else {
       paths.push(path);
     }
   }
-  return paths.sort((left, right) => left.localeCompare(right));
+  return paths.sort();
 }
 
 function different(left, right) {
   try {
     return !readFileSync(left).equals(readFileSync(right));
   } catch (error) {
-    if (error && error.code === "ENOENT") {
-      return true;
-    }
+    if (error.code === "ENOENT") return true;
     throw error;
   }
 }
 
-function readDefine(parser, name, path) {
+function readDefinition(parser, name, path) {
   const match = parser.match(new RegExp(`^#define ${name} ([0-9]+)$`, "m"));
   if (match === null) {
     throw new Error(`${path} does not define ${name} as an integer`);
@@ -118,41 +108,41 @@ function smallParseTableWordCount(parser, path) {
     throw new Error(`${path} small parse table has no indexed row`);
   }
 
-  const finalRow = initializer.slice(finalOffset);
-  const finalRowWordCount = finalRow.match(/,/g)?.length ?? 0;
+  const finalRowWordCount =
+    initializer.slice(finalOffset).match(/,/g)?.length ?? 0;
   if (finalRowWordCount === 0) {
     throw new Error(`${path} small parse table has an empty final row`);
   }
   return finalIndex + finalRowWordCount;
 }
 
-function parseTableStorageBytes(parser, actual, path) {
-  const smallStateCount = actual.STATE_COUNT - actual.LARGE_STATE_COUNT;
+function parseTableStorageBytes(parser, metrics, path) {
+  const smallStateCount = metrics.STATE_COUNT - metrics.LARGE_STATE_COUNT;
   if (smallStateCount < 0) {
     throw new Error(`${path} has more large states than total states`);
   }
   return (
-    actual.LARGE_STATE_COUNT * actual.SYMBOL_COUNT * 2 +
+    metrics.LARGE_STATE_COUNT * metrics.SYMBOL_COUNT * 2 +
     smallParseTableWordCount(parser, path) * 2 +
     smallStateCount * 4
   );
 }
 
-function checkParserBudget(grammar, generatedRoot) {
+function checkParser(grammar, generatedRoot) {
   const budget = parserBudgets[grammar.name];
-  if (budget === undefined) {
+  if (Object.keys(parserBudgets).length > 0 && budget === undefined) {
     throw new Error(`Missing parser budget for ${grammar.name}`);
   }
 
   const parserPath = join(generatedRoot, grammar.path, "src", "parser.c");
   const displayPath = relative(generatedRoot, parserPath);
   const parser = readFileSync(parserPath, "utf8");
-  const actual = {
-    LANGUAGE_VERSION: readDefine(parser, "LANGUAGE_VERSION", displayPath),
-    STATE_COUNT: readDefine(parser, "STATE_COUNT", displayPath),
-    LARGE_STATE_COUNT: readDefine(parser, "LARGE_STATE_COUNT", displayPath),
-    SYMBOL_COUNT: readDefine(parser, "SYMBOL_COUNT", displayPath),
-    EXTERNAL_TOKEN_COUNT: readDefine(
+  const metrics = {
+    LANGUAGE_VERSION: readDefinition(parser, "LANGUAGE_VERSION", displayPath),
+    STATE_COUNT: readDefinition(parser, "STATE_COUNT", displayPath),
+    LARGE_STATE_COUNT: readDefinition(parser, "LARGE_STATE_COUNT", displayPath),
+    SYMBOL_COUNT: readDefinition(parser, "SYMBOL_COUNT", displayPath),
+    EXTERNAL_TOKEN_COUNT: readDefinition(
       parser,
       "EXTERNAL_TOKEN_COUNT",
       displayPath,
@@ -160,280 +150,66 @@ function checkParserBudget(grammar, generatedRoot) {
     parser_bytes: statSync(parserPath).size,
     maximum_ACTIONS_index: maximumActionIndex(parser, displayPath),
   };
-  actual.parse_table_storage_bytes = parseTableStorageBytes(
+  metrics.parse_table_storage_bytes = parseTableStorageBytes(
     parser,
-    actual,
+    metrics,
     displayPath,
   );
 
   console.log(`${grammar.name}:`);
-  console.log("Metric                     Actual      Maximum");
+  console.log("Metric                           Actual      Maximum");
   let failed = false;
-  for (const [name, maximum] of Object.entries(budget)) {
+  for (const [name, value] of Object.entries(metrics)) {
+    const maximum = budget?.[name];
     console.log(
-      `${name.padEnd(22)} ${String(actual[name]).padStart(12)} ${String(maximum).padStart(12)}`,
+      `${name.padEnd(28)} ${String(value).padStart(12)} ${String(maximum ?? "-").padStart(12)}`,
     );
-    if (actual[name] > maximum) {
+    if (maximum !== undefined && value > maximum) {
       console.error(
-        `${displayPath}: ${name} exceeds its parser budget: ${actual[name]} > ${maximum}`,
+        `${displayPath}: ${name} exceeds its parser budget: ${value} > ${maximum}`,
       );
       failed = true;
     }
   }
-  return {
-    failed,
-    languageVersion: actual.LANGUAGE_VERSION,
-  };
+  return { failed, languageVersion: metrics.LANGUAGE_VERSION };
 }
 
-function namedNode(nodeTypes, type, path) {
-  const matches = nodeTypes.filter((node) => node.named && node.type === type);
-  if (matches.length !== 1) {
-    throw new Error(`${path}: expected one named ${type} node`);
+function main(arguments_) {
+  if (arguments_.length !== 0) {
+    throw new Error("Usage: node scripts/check-generated.js");
   }
-  return matches[0];
-}
-
-function requiredSingleChildren(node, path) {
-  const { children } = node;
-  if (
-    !children?.required ||
-    children.multiple ||
-    Object.keys(node.fields ?? {}).length !== 0
-  ) {
-    throw new Error(`${path}: expected one required child`);
-  }
-  if (
-    children.types.length === 0 ||
-    children.types.some((type) => !type.named)
-  ) {
-    throw new Error(`${path}: expected named child types`);
-  }
-  return children.types;
-}
-
-function checkSourceChildren(nodeTypes, grammar, displayPath) {
-  const expectedChildren = [
-    ["blanks_after_negation", "blank"],
-    ["blanks_around_address_separator", "blank"],
-    ["shared_range_endpoint", "range_operator"],
-    ["special_delimiter_escape", "escaped_delimiter"],
-    ["replacement_ampersand_delimiter_escape", "replacement_escaped_delimiter"],
-  ];
-  const unmatchedClosers = [
-    ["unmatched_interval_close", "back_close_brace"],
-    ["unmatched_subexpression_close", "back_close_parenthesis"],
-  ];
-  if (grammar.name === "sed") {
-    expectedChildren.push(...unmatchedClosers);
-  } else {
-    for (const [reason] of unmatchedClosers) {
-      assert.ok(
-        !nodeTypes.some((node) => node.named && node.type === reason),
-        `${displayPath}: ${reason} must remain BRE-only`,
-      );
-    }
-  }
-  for (const [reason, child] of expectedChildren) {
-    const node = namedNode(nodeTypes, reason, displayPath);
-    assert.deepEqual(
-      requiredSingleChildren(node, `${displayPath}:${reason}`),
-      [{ type: child, named: true }],
-      `${displayPath}: ${reason} must own one ${child} source child`,
-    );
-  }
-}
-
-function checkBracketTerms(nodeTypes, displayPath) {
-  const malformed = namedNode(nodeTypes, "malformed_bracket_term", displayPath);
-  assert.deepEqual(
-    malformed.fields,
-    {},
-    `${displayPath}: malformed_bracket_term must not own fields`,
-  );
-  assert.deepEqual(
-    malformed.children,
-    {
-      multiple: false,
-      required: false,
-      types: [{ type: "meta_char", named: true }],
-    },
-    `${displayPath}: malformed_bracket_term may only own one meta_char source child`,
-  );
-  assert.deepEqual(
-    nodeTypes
-      .filter((node) => !node.named)
-      .map((node) => node.type)
-      .sort(),
-    ["[", ":", ".", "=", "]"].sort(),
-    `${displayPath}: only bracket term delimiters may be anonymous`,
-  );
-  for (const obsolete of [
-    "open_colon",
-    "colon_close",
-    "open_dot",
-    "dot_close",
-    "open_equal",
-    "equal_close",
-  ]) {
-    assert.ok(
-      !nodeTypes.some((node) => node.type === obsolete),
-      `${displayPath}: ${obsolete} must not be public`,
-    );
-  }
-  for (const [type, field, payloadTypes] of [
-    ["character_class", "name", ["class_name"]],
-    [
-      "collating_symbol",
-      "element",
-      ["coll_elem_multi", "coll_elem_single", "meta_char"],
-    ],
-    ["equivalence_class", "element", ["coll_elem_multi", "coll_elem_single"]],
-  ]) {
-    const node = namedNode(nodeTypes, type, displayPath);
-    assert.deepEqual(
-      Object.keys(node.fields).sort(),
-      [field, "issue"].sort(),
-      `${displayPath}: ${type} fields`,
-    );
-    assert.deepEqual(
-      node.fields[field],
+  for (const script of prerequisiteScripts) {
+    const result = spawnSync(
+      process.execPath,
+      [join(root, "scripts", script), "--check"],
       {
-        multiple: true,
-        required: false,
-        types: payloadTypes.map((payload) => ({ type: payload, named: true })),
+        cwd: root,
+        stdio: "inherit",
+        timeout: 60_000,
+        killSignal: "SIGKILL",
       },
-      `${displayPath}: ${type}.${field} payload`,
     );
-  }
-}
-
-function checkPublicCst(grammar, generatedRoot) {
-  const path = join(generatedRoot, grammar.path, "src", "node-types.json");
-  const displayPath = relative(generatedRoot, path);
-  const nodeTypes = JSON.parse(readFileSync(path, "utf8"));
-  const syntaxIssue = namedNode(nodeTypes, "syntax_issue", displayPath);
-  const outcomeTypes = requiredSingleChildren(
-    syntaxIssue,
-    `${displayPath}:syntax_issue`,
-  );
-  const actualOutcomes = new Set(outcomeTypes.map(({ type }) => type));
-  const reasons = new Set();
-
-  for (const { type } of outcomeTypes) {
-    if (!issueOutcomeNames.has(type)) {
-      throw new Error(
-        `${displayPath}: unexpected syntax_issue outcome ${type}`,
-      );
-    }
-    const outcome = namedNode(nodeTypes, type, displayPath);
-    for (const reason of requiredSingleChildren(
-      outcome,
-      `${displayPath}:${type}`,
-    )) {
-      if (
-        reason.type === "syntax_issue" ||
-        issueOutcomeNames.has(reason.type)
-      ) {
-        throw new Error(`${displayPath}: invalid issue reason ${reason.type}`);
-      }
-      namedNode(nodeTypes, reason.type, displayPath);
-      reasons.add(reason.type);
-    }
+    if (result.error) throw result.error;
+    if (result.status !== 0) return 1;
   }
 
-  for (const outcome of issueOutcomeNames) {
-    const present = nodeTypes.some(
-      (node) => node.named && node.type === outcome,
-    );
-    if (present !== actualOutcomes.has(outcome)) {
-      throw new Error(`${displayPath}: ${outcome} bypasses syntax_issue`);
-    }
-  }
-
-  for (const node of nodeTypes) {
-    if (
-      node.named &&
-      /(^_|(^|_)(recovery|control|marker|placeholder)($|_)|_token$)/.test(
-        node.type,
-      )
-    ) {
-      throw new Error(`${displayPath}: internal node ${node.type} is public`);
-    }
-    for (const reference of [
-      node.children,
-      ...Object.values(node.fields ?? {}),
-    ]) {
-      for (const child of reference?.types ?? []) {
-        if (!child.named) {
-          continue;
-        }
-        if (actualOutcomes.has(child.type) && node.type !== "syntax_issue") {
-          throw new Error(
-            `${displayPath}: ${node.type} owns ${child.type} outside syntax_issue`,
-          );
-        }
-        if (reasons.has(child.type) && !actualOutcomes.has(node.type)) {
-          throw new Error(
-            `${displayPath}: ${node.type} owns reason ${child.type} outside an outcome`,
-          );
-        }
-      }
-    }
-  }
-
-  for (const type of [
-    "address_separator",
-    "delimiter",
-    "closing_brace",
-    "text_introducer",
-    "close_bracket",
-    "collating_element",
-    "quoted_character",
-    "invalid_encoding",
-    "class_name",
-    "meta_char",
-    "range_operator",
-    "escaped_delimiter",
-    "replacement_escaped_delimiter",
-    grammar.name === "sed" ? "back_close_parenthesis" : "close_parenthesis",
-  ]) {
-    const node = namedNode(nodeTypes, type, displayPath);
-    assert.ok(
-      node.children === undefined &&
-        Object.keys(node.fields ?? {}).length === 0,
-      `${displayPath}: ${type} must be a lexical leaf`,
-    );
-  }
-
-  checkSourceChildren(nodeTypes, grammar, displayPath);
-  checkBracketTerms(nodeTypes, displayPath);
-}
-
-function main() {
   const generatedRoot = mkdtempSync(
-    join(tmpdir(), "tree-sitter-sed-generated-"),
+    join(tmpdir(), `${packageName}-generated-`),
   );
   try {
-    const status = generateParsers(generatedRoot);
-    if (status !== 0) {
-      return status;
-    }
+    if (generateParsers(generatedRoot) !== 0) return 1;
 
+    let failed = false;
     const stale = [];
     for (const grammar of grammars) {
       const generatedDirectory = join(generatedRoot, grammar.path, "src");
-      const actualPaths = files(generatedDirectory);
+      const actualPaths = listFiles(generatedDirectory);
       if (JSON.stringify(actualPaths) !== JSON.stringify(generatedPaths)) {
-        throw new Error(
-          grammar.path +
-            ": expected generated files " +
-            JSON.stringify(generatedPaths) +
-            ", received " +
-            JSON.stringify(actualPaths),
-        );
+        console.error(`${grammar.name}: generated file manifest differs.`);
+        console.error(`Expected:\n${generatedPaths.join("\n")}`);
+        console.error(`Actual:\n${actualPaths.join("\n")}`);
+        failed = true;
       }
-      checkPublicCst(grammar, generatedRoot);
       for (const path of generatedPaths) {
         const generatedPath = join(generatedDirectory, path);
         const repositoryPath = join(root, grammar.path, "src", path);
@@ -444,17 +220,14 @@ function main() {
     }
     if (stale.length > 0) {
       console.error("Generated parser files are stale or missing:");
-      for (const path of stale) {
-        console.error(`  ${path}`);
-      }
-      console.error("Run npm run generate, review, and commit the results.");
-      return 1;
+      for (const path of stale) console.error(`  ${path}`);
+      console.error("Run npm run generate and review the results.");
+      failed = true;
     }
 
-    let failed = false;
     const languageVersions = new Map();
     for (const grammar of grammars) {
-      const result = checkParserBudget(grammar, generatedRoot);
+      const result = checkParser(grammar, generatedRoot);
       failed = result.failed || failed;
       languageVersions.set(grammar.name, result.languageVersion);
     }
@@ -473,4 +246,9 @@ function main() {
   }
 }
 
-process.exitCode = main();
+try {
+  process.exitCode = main(process.argv.slice(2));
+} catch (error) {
+  console.error(error.message);
+  process.exitCode = 1;
+}

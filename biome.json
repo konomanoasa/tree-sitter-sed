@@ -1,26 +1,14 @@
 {
   "files": {
-    "includes": ["**", "!target"]
-  },
-  "formatter": {
     "includes": [
       "**",
-      "!src/grammar.json",
-      "!src/node-types.json",
-      "!sed_ere/src/grammar.json",
-      "!sed_ere/src/node-types.json"
+      "!**/src/grammar.json",
+      "!**/src/node-types.json",
+      "!!target"
     ]
   },
-  "javascript": {
-    "formatter": {
-      "indentStyle": "space",
-      "indentWidth": 2
-    }
-  },
-  "json": {
-    "formatter": {
-      "indentStyle": "space",
-      "indentWidth": 2
-    }
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2
   }
 }

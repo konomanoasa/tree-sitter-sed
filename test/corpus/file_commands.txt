@@ -1,0 +1,108 @@
+==================
+exposes a write function and its file operand
+:language(sed)
+==================
+w output
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (write_function
+          (function_verb)
+          (wfile))))
+    (command_separator)))
+
+==================
+keeps blanks inside a read function file operand
+:language(sed)
+==================
+r input file
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (read_function
+          (function_verb)
+          (rfile))))
+    (command_separator)))
+
+==================
+keeps a semicolon inside a write function file operand
+:language(sed)
+==================
+w file;p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (write_function
+          (function_verb)
+          (wfile))))
+    (command_separator)))
+
+==================
+rejects an omitted file separator without flattening the read function
+:language(sed)
+==================
+rfile
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (read_function
+          (function_verb)
+          (syntax_issue
+            (nonconforming_syntax
+              (omitted_file_separator)))
+          (rfile))))
+    (command_separator)))
+
+==================
+classifies a missing read file operand at a newline
+:language(sed)
+==================
+r
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (read_function
+          (function_verb)
+          (syntax_issue
+            (nonconforming_syntax
+              (missing_rfile))))))
+    (command_separator)))
+
+==================
+classifies a missing write file operand at a newline
+:language(sed)
+==================
+w
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (write_function
+          (function_verb)
+          (syntax_issue
+            (nonconforming_syntax
+              (missing_wfile))))))
+    (command_separator)))

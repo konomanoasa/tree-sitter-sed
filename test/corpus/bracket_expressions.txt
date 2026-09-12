@@ -1,5 +1,5 @@
 ==================
-Mirrors the POSIX bracket expression production hierarchy
+mirrors the POSIX bracket expression production hierarchy
 :language(sed)
 ==================
 /[^]a-c[:alpha:][.].][=a=]-]/p
@@ -63,7 +63,7 @@ Mirrors the POSIX bracket expression production hierarchy
     (command_separator)))
 
 ==================
-Distinguishes POSIX collating tokens with embedded closing brackets and range endings
+distinguishes POSIX collating tokens with embedded closing brackets and range endings
 :language(sed_ere)
 ==================
 /[[.a.]][[.c]h.]][[.-.]][[=a=]][[=c]h=]][%--][--@][a-]/p
@@ -200,7 +200,7 @@ Distinguishes POSIX collating tokens with embedded closing brackets and range en
     (command_separator)))
 
 ==================
-Exposes the POSIX ambiguous outer-bracket form
+exposes the POSIX ambiguous outer-bracket form
 :language(sed)
 ==================
 /[.a.]/p
@@ -250,7 +250,304 @@ Exposes the POSIX ambiguous outer-bracket form
     (command_separator)))
 
 ==================
-Recovers malformed terms and non-portable ranges
+rejects meta characters inside equivalence classes
+:language(sed)
+==================
+/[[=-=]][[=]=]][[=^=]][[.^.]][[.-.]]/p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (context_address
+            (delimiter)
+            (basic_reg_exp
+              (bre_branch
+                (bre_branch
+                  (bre_branch
+                    (bre_branch
+                      (bre_branch
+                        (bre_expression
+                          (simple_bre
+                            (nondupl_bre
+                              (one_char_or_coll_elem_bre
+                                (bracket_expression
+                                  (open_bracket)
+                                  (matching_list
+                                    (bracket_list
+                                      (follow_list
+                                        (expression_term
+                                          (single_expression
+                                            (equivalence_class
+                                              (syntax_issue
+                                                (undefined_syntax
+                                                  (malformed_bracket_term
+                                                    (meta_char))))))))))
+                                  (close_bracket)))))))
+                      (bre_expression
+                        (simple_bre
+                          (nondupl_bre
+                            (one_char_or_coll_elem_bre
+                              (bracket_expression
+                                (open_bracket)
+                                (matching_list
+                                  (bracket_list
+                                    (follow_list
+                                      (expression_term
+                                        (single_expression
+                                          (equivalence_class
+                                            (syntax_issue
+                                              (undefined_syntax
+                                                (malformed_bracket_term
+                                                  (meta_char))))))))))
+                                (close_bracket)))))))
+                    (bre_expression
+                      (simple_bre
+                        (nondupl_bre
+                          (one_char_or_coll_elem_bre
+                            (bracket_expression
+                              (open_bracket)
+                              (matching_list
+                                (bracket_list
+                                  (follow_list
+                                    (expression_term
+                                      (single_expression
+                                        (equivalence_class
+                                          (coll_elem_single)))))))
+                              (close_bracket)))))))
+                  (bre_expression
+                    (simple_bre
+                      (nondupl_bre
+                        (one_char_or_coll_elem_bre
+                          (bracket_expression
+                            (open_bracket)
+                            (matching_list
+                              (bracket_list
+                                (follow_list
+                                  (expression_term
+                                    (single_expression
+                                      (end_range
+                                        (collating_symbol
+                                          (coll_elem_single))))))))
+                            (close_bracket)))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (bracket_expression
+                          (open_bracket)
+                          (matching_list
+                            (bracket_list
+                              (follow_list
+                                (expression_term
+                                  (single_expression
+                                    (end_range
+                                      (collating_symbol
+                                        (meta_char))))))))
+                          (close_bracket))))))))
+            (delimiter))))
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+owns an invalid character class name inside its syntax issue in BRE
+:language(sed)
+==================
+s/[[:1:]]/x/
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (bracket_expression
+                        (open_bracket)
+                        (matching_list
+                          (bracket_list
+                            (follow_list
+                              (expression_term
+                                (single_expression
+                                  (character_class
+                                    (syntax_issue
+                                      (undefined_syntax
+                                        (malformed_bracket_term)))))))))
+                        (close_bracket))))))))
+          (delimiter)
+          (replacement
+            (replacement_literal))
+          (delimiter))))
+    (command_separator)))
+
+==================
+owns an invalid character class name inside its syntax issue in ERE
+:language(sed_ere)
+==================
+s/[[:1:]]/x/
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (extended_reg_exp
+            (ere_branch
+              (ere_expression
+                (one_char_or_coll_elem_ere
+                  (bracket_expression
+                    (open_bracket)
+                    (matching_list
+                      (bracket_list
+                        (follow_list
+                          (expression_term
+                            (single_expression
+                              (character_class
+                                (syntax_issue
+                                  (undefined_syntax
+                                    (malformed_bracket_term)))))))))
+                    (close_bracket))))))
+          (delimiter)
+          (replacement
+            (replacement_literal))
+          (delimiter))))
+    (command_separator)))
+
+==================
+keeps a partial character class closer outside its name
+:language(sed)
+==================
+s/[[:alpha:
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (bracket_expression
+                        (open_bracket)
+                        (matching_list
+                          (bracket_list
+                            (follow_list
+                              (expression_term
+                                (single_expression
+                                  (character_class
+                                    (class_name)
+                                    (syntax_issue
+                                      (incomplete_syntax
+                                        (incomplete_bracket_term)))))))))
+                        (syntax_issue
+                          (incomplete_syntax
+                            (unclosed_bracket_expression))))))))))
+          (syntax_issue
+            (incomplete_syntax
+              (incomplete_regular_expression))))))))
+
+==================
+keeps a partial collating symbol closer outside its element
+:language(sed_ere)
+==================
+s/[[.a.
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (extended_reg_exp
+            (ere_branch
+              (ere_expression
+                (one_char_or_coll_elem_ere
+                  (bracket_expression
+                    (open_bracket)
+                    (matching_list
+                      (bracket_list
+                        (follow_list
+                          (expression_term
+                            (single_expression
+                              (end_range
+                                (collating_symbol
+                                  (coll_elem_single)
+                                  (syntax_issue
+                                    (incomplete_syntax
+                                      (incomplete_bracket_term))))))))))
+                    (syntax_issue
+                      (incomplete_syntax
+                        (unclosed_bracket_expression))))))))
+          (syntax_issue
+            (incomplete_syntax
+              (incomplete_regular_expression))))))))
+
+==================
+keeps a partial equivalence class closer outside its element
+:language(sed)
+==================
+s/[[=a=
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (bracket_expression
+                        (open_bracket)
+                        (matching_list
+                          (bracket_list
+                            (follow_list
+                              (expression_term
+                                (single_expression
+                                  (equivalence_class
+                                    (coll_elem_single)
+                                    (syntax_issue
+                                      (incomplete_syntax
+                                        (incomplete_bracket_term)))))))))
+                        (syntax_issue
+                          (incomplete_syntax
+                            (unclosed_bracket_expression))))))))))
+          (syntax_issue
+            (incomplete_syntax
+              (incomplete_regular_expression))))))))
+
+==================
+recovers malformed terms and non-portable ranges
 :language(sed_ere)
 ==================
 /[a-m-o][a-[:alpha:]][[=a=]-z][a-[=b=]][[.x]/p
@@ -381,300 +678,3 @@ Recovers malformed terms and non-portable ranges
         (nonconforming_syntax
           (missing_function))))
     (command_separator)))
-
-==================
-Rejects meta characters inside equivalence classes
-:language(sed)
-==================
-/[[=-=]][[=]=]][[=^=]][[.^.]][[.-.]]/p
-
----
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (address
-          (context_address
-            (delimiter)
-            (basic_reg_exp
-              (bre_branch
-                (bre_branch
-                  (bre_branch
-                    (bre_branch
-                      (bre_branch
-                        (bre_expression
-                          (simple_bre
-                            (nondupl_bre
-                              (one_char_or_coll_elem_bre
-                                (bracket_expression
-                                  (open_bracket)
-                                  (matching_list
-                                    (bracket_list
-                                      (follow_list
-                                        (expression_term
-                                          (single_expression
-                                            (equivalence_class
-                                              (syntax_issue
-                                                (undefined_syntax
-                                                  (malformed_bracket_term
-                                                    (meta_char))))))))))
-                                  (close_bracket)))))))
-                      (bre_expression
-                        (simple_bre
-                          (nondupl_bre
-                            (one_char_or_coll_elem_bre
-                              (bracket_expression
-                                (open_bracket)
-                                (matching_list
-                                  (bracket_list
-                                    (follow_list
-                                      (expression_term
-                                        (single_expression
-                                          (equivalence_class
-                                            (syntax_issue
-                                              (undefined_syntax
-                                                (malformed_bracket_term
-                                                  (meta_char))))))))))
-                                (close_bracket)))))))
-                    (bre_expression
-                      (simple_bre
-                        (nondupl_bre
-                          (one_char_or_coll_elem_bre
-                            (bracket_expression
-                              (open_bracket)
-                              (matching_list
-                                (bracket_list
-                                  (follow_list
-                                    (expression_term
-                                      (single_expression
-                                        (equivalence_class
-                                          (coll_elem_single)))))))
-                              (close_bracket)))))))
-                  (bre_expression
-                    (simple_bre
-                      (nondupl_bre
-                        (one_char_or_coll_elem_bre
-                          (bracket_expression
-                            (open_bracket)
-                            (matching_list
-                              (bracket_list
-                                (follow_list
-                                  (expression_term
-                                    (single_expression
-                                      (end_range
-                                        (collating_symbol
-                                          (coll_elem_single))))))))
-                            (close_bracket)))))))
-                (bre_expression
-                  (simple_bre
-                    (nondupl_bre
-                      (one_char_or_coll_elem_bre
-                        (bracket_expression
-                          (open_bracket)
-                          (matching_list
-                            (bracket_list
-                              (follow_list
-                                (expression_term
-                                  (single_expression
-                                    (end_range
-                                      (collating_symbol
-                                        (meta_char))))))))
-                          (close_bracket))))))))
-            (delimiter))))
-      (function
-        (print_function
-          (function_verb))))
-    (command_separator)))
-
-==================
-Owns an invalid character class name inside its syntax issue in BRE
-:language(sed)
-==================
-s/[[:1:]]/x/
-
----
-
-(script
-  (command_list
-    (editing_command
-      (function
-        (substitute_function
-          (function_verb)
-          (delimiter)
-          (basic_reg_exp
-            (bre_branch
-              (bre_expression
-                (simple_bre
-                  (nondupl_bre
-                    (one_char_or_coll_elem_bre
-                      (bracket_expression
-                        (open_bracket)
-                        (matching_list
-                          (bracket_list
-                            (follow_list
-                              (expression_term
-                                (single_expression
-                                  (character_class
-                                    (syntax_issue
-                                      (undefined_syntax
-                                        (malformed_bracket_term)))))))))
-                        (close_bracket))))))))
-          (delimiter)
-          (replacement
-            (replacement_literal))
-          (delimiter))))
-    (command_separator)))
-
-==================
-Owns an invalid character class name inside its syntax issue in ERE
-:language(sed_ere)
-==================
-s/[[:1:]]/x/
-
----
-
-(script
-  (command_list
-    (editing_command
-      (function
-        (substitute_function
-          (function_verb)
-          (delimiter)
-          (extended_reg_exp
-            (ere_branch
-              (ere_expression
-                (one_char_or_coll_elem_ere
-                  (bracket_expression
-                    (open_bracket)
-                    (matching_list
-                      (bracket_list
-                        (follow_list
-                          (expression_term
-                            (single_expression
-                              (character_class
-                                (syntax_issue
-                                  (undefined_syntax
-                                    (malformed_bracket_term)))))))))
-                    (close_bracket))))))
-          (delimiter)
-          (replacement
-            (replacement_literal))
-          (delimiter))))
-    (command_separator)))
-
-==================
-Keeps a partial character class closer outside its name
-:language(sed)
-==================
-s/[[:alpha:
----
-
-(script
-  (command_list
-    (editing_command
-      (function
-        (substitute_function
-          (function_verb)
-          (delimiter)
-          (basic_reg_exp
-            (bre_branch
-              (bre_expression
-                (simple_bre
-                  (nondupl_bre
-                    (one_char_or_coll_elem_bre
-                      (bracket_expression
-                        (open_bracket)
-                        (matching_list
-                          (bracket_list
-                            (follow_list
-                              (expression_term
-                                (single_expression
-                                  (character_class
-                                    (class_name)
-                                    (syntax_issue
-                                      (incomplete_syntax
-                                        (incomplete_bracket_term)))))))))
-                        (syntax_issue
-                          (incomplete_syntax
-                            (unclosed_bracket_expression))))))))))
-          (syntax_issue
-            (incomplete_syntax
-              (incomplete_regular_expression))))))))
-
-==================
-Keeps a partial collating symbol closer outside its element
-:language(sed_ere)
-==================
-s/[[.a.
----
-
-(script
-  (command_list
-    (editing_command
-      (function
-        (substitute_function
-          (function_verb)
-          (delimiter)
-          (extended_reg_exp
-            (ere_branch
-              (ere_expression
-                (one_char_or_coll_elem_ere
-                  (bracket_expression
-                    (open_bracket)
-                    (matching_list
-                      (bracket_list
-                        (follow_list
-                          (expression_term
-                            (single_expression
-                              (end_range
-                                (collating_symbol
-                                  (coll_elem_single)
-                                  (syntax_issue
-                                    (incomplete_syntax
-                                      (incomplete_bracket_term))))))))))
-                    (syntax_issue
-                      (incomplete_syntax
-                        (unclosed_bracket_expression))))))))
-          (syntax_issue
-            (incomplete_syntax
-              (incomplete_regular_expression))))))))
-
-==================
-Keeps a partial equivalence class closer outside its element
-:language(sed)
-==================
-s/[[=a=
----
-
-(script
-  (command_list
-    (editing_command
-      (function
-        (substitute_function
-          (function_verb)
-          (delimiter)
-          (basic_reg_exp
-            (bre_branch
-              (bre_expression
-                (simple_bre
-                  (nondupl_bre
-                    (one_char_or_coll_elem_bre
-                      (bracket_expression
-                        (open_bracket)
-                        (matching_list
-                          (bracket_list
-                            (follow_list
-                              (expression_term
-                                (single_expression
-                                  (equivalence_class
-                                    (coll_elem_single)
-                                    (syntax_issue
-                                      (incomplete_syntax
-                                        (incomplete_bracket_term)))))))))
-                        (syntax_issue
-                          (incomplete_syntax
-                            (unclosed_bracket_expression))))))))))
-          (syntax_issue
-            (incomplete_syntax
-              (incomplete_regular_expression))))))))

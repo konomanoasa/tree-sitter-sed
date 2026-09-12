@@ -1,9 +1,157 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
 import { createTreeSitter, grammars, root } from "../scripts/tree-sitter.js";
+
+function decodeEntities(text) {
+  return text
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&#39;", "'")
+    .replaceAll("&amp;", "&");
+}
+
+function renderedCaptures(html, source) {
+  const start = html.indexOf("<pre><code>");
+  const end = html.indexOf("</code></pre>");
+  assert.ok(start >= 0 && end >= start, html);
+  const content = html.slice(start + "<pre><code>".length, end);
+  const stack = [];
+  const captures = [];
+  let text = "";
+  for (const part of content.matchAll(
+    /<span class='([^']*)'>|<\/span>|([^<]+)/g,
+  )) {
+    if (part[1] !== undefined) stack.push(part[1].replaceAll(" ", "."));
+    else if (part[0] === "</span>") assert.notEqual(stack.pop(), undefined);
+    else {
+      const decoded = decodeEntities(part[2]);
+      text += decoded;
+      captures.push(
+        ...Array(Buffer.byteLength(decoded)).fill(stack.at(-1) ?? ""),
+      );
+    }
+  }
+  assert.equal(stack.length, 0, "unclosed highlight span");
+  assert.equal(
+    text.replace(/\n$/, ""),
+    source.replace(/\n$/, ""),
+    "rendered source differs from the input",
+  );
+  return captures;
+}
+
+function createHighlighter({ directory, root, run, captureNames }) {
+  const parserDirectory = join(directory, "parsers");
+  mkdirSync(parserDirectory);
+  // CLI discovery requires a tree-sitter-* entry even when the checkout is renamed.
+  symlinkSync(root, join(parserDirectory, "tree-sitter-test"), "junction");
+  const configPath = join(directory, "highlight.json");
+  const capturePath = join(directory, "captures.txt");
+  writeFileSync(
+    configPath,
+    JSON.stringify({
+      "parser-directories": [parserDirectory],
+      theme: Object.fromEntries(
+        captureNames.map((name, index) => [name, index + 17]),
+      ),
+    }),
+  );
+  writeFileSync(capturePath, `${captureNames.join("\n")}\n`);
+
+  return (scope, source, valid = true) => {
+    const path = join(directory, "highlight.txt");
+    writeFileSync(path, source);
+    if (valid) {
+      const parsed = run(["parse", "--cst", "--scope", scope, path]);
+      assert.doesNotMatch(parsed, /^[0-9: \t-]+•/m, parsed);
+    }
+    const captures = renderedCaptures(
+      run([
+        "highlight",
+        "--check",
+        "--captures-path",
+        capturePath,
+        "--config-path",
+        configPath,
+        "--html",
+        "--layout",
+        "fragment",
+        "--style",
+        "classes",
+        "--scope",
+        scope,
+        path,
+      ]),
+      source,
+    );
+    for (const capture of captures) {
+      assert.ok(
+        capture === "" || captureNames.includes(capture),
+        `unexpected final capture: ${capture}`,
+      );
+    }
+    return captures;
+  };
+}
+
+function assertCaptures(source, actual, ranges) {
+  const bytes = Buffer.from(source);
+  const expected = Array(bytes.length).fill("");
+  let previousEnd = 0;
+  for (const [start, end, capture] of ranges) {
+    assert.ok(
+      Number.isSafeInteger(start) && start >= previousEnd,
+      "expected ranges must be ordered and disjoint",
+    );
+    assert.ok(
+      Number.isSafeInteger(end) && end > start && end <= bytes.length,
+      "expected range exceeds source bytes",
+    );
+    expected.fill(capture, start, end);
+    previousEnd = end;
+  }
+  // HTML emits line breaks outside spans; compare colors on source characters.
+  for (const [index, byte] of bytes.entries()) {
+    if (byte !== 10)
+      assert.equal(
+        actual[index],
+        expected[index],
+        `byte ${index} in ${JSON.stringify(source)}`,
+      );
+  }
+}
+
+const captureNames = [
+  "character.special",
+  "comment",
+  "constant.builtin",
+  "keyword",
+  "keyword.directive",
+  "keyword.modifier",
+  "label",
+  "number",
+  "operator",
+  "punctuation.bracket",
+  "punctuation.delimiter",
+  "punctuation.special",
+  "string",
+  "string.escape",
+  "string.regexp",
+  "string.special.path",
+  "string.special.symbol",
+];
+let highlight;
 
 let temporaryDirectory;
 let treeSitter;
@@ -14,6 +162,12 @@ before(() => {
   );
   try {
     treeSitter = createTreeSitter();
+    highlight = createHighlighter({
+      directory: temporaryDirectory,
+      root,
+      run: checked,
+      captureNames,
+    });
     for (const grammar of grammars) {
       const query = grammar.highlights
         .map((path) => readFileSync(join(root, path), "utf8"))
@@ -35,54 +189,8 @@ after(() => {
   }
 });
 
-for (const grammar of grammars) {
-  test(`${grammar.name} highlight query`, () => {
-    assert.ok(grammar.highlights.length > 0, "missing highlight queries");
-    const fixture = join(root, "test", "highlight", `${grammar.name}.sed`);
-    const highlightResult = treeSitter.run(
-      ["highlight", "--check", "--quiet", "--scope", grammar.scope, fixture],
-      {
-        encoding: "utf8",
-        env: { NO_COLOR: "1" },
-        maxBuffer: 1024 * 1024,
-      },
-    );
-    if (highlightResult.error) {
-      throw highlightResult.error;
-    }
-    assert.equal(
-      highlightResult.status,
-      0,
-      highlightResult.stdout + highlightResult.stderr,
-    );
-
-    const queryResult = treeSitter.run(
-      [
-        "query",
-        "--test",
-        "--scope",
-        grammar.scope,
-        join(temporaryDirectory, `${grammar.name}.scm`),
-        fixture,
-      ],
-      {
-        encoding: "utf8",
-        env: { NO_COLOR: "1" },
-        maxBuffer: 1024 * 1024,
-      },
-    );
-    if (queryResult.error) {
-      throw queryResult.error;
-    }
-    assert.equal(
-      queryResult.status,
-      0,
-      queryResult.stdout + queryResult.stderr,
-    );
-  });
-}
-
-const lexicalCaptureCases = [
+// HTML replaces malformed UTF-8, so these cases inspect original byte ranges.
+const invalidEncodingCases = [
   {
     name: "invalid encoding splits comment text",
     source: Buffer.from([35, 97, 255, 98, 10]),
@@ -93,78 +201,48 @@ const lexicalCaptureCases = [
       [0, 3, 0, 4],
     ],
   },
-  ...[
-    [
-      "replacement",
-      [115, 47, 97, 47, 120, 255, 121, 47, 10],
-      [
-        [0, 4, 0, 5],
-        [0, 6, 0, 7],
-      ],
-    ],
-    [
-      "translation",
-      [121, 47, 120, 255, 121, 47, 47, 10],
-      [
-        [0, 2, 0, 3],
-        [0, 4, 0, 5],
-      ],
-    ],
-    [
-      "text",
-      [97, 92, 10, 120, 255, 121, 10],
-      [
-        [1, 0, 1, 1],
-        [1, 2, 1, 3],
-      ],
-    ],
-  ].map(([name, bytes, ranges]) => ({
-    name: `invalid encoding splits ${name} literals`,
-    source: Buffer.from(bytes),
-    capture: "string",
-    ranges,
-  })),
-  ...[
-    ["replacement", [115, 47, 97, 47, 92, 255, 47, 10]],
-    ["translation", [121, 47, 92, 255, 47, 47, 10]],
-    ["text", [97, 92, 10, 92, 255, 10]],
-  ].map(([name, bytes]) => ({
-    name: `invalid encoding does not become a ${name} escape`,
-    source: Buffer.from(bytes),
-    capture: "string.escape",
-    ranges: [],
-  })),
-  ...[
-    ["character class", "s/[[:alpha:", 10],
-    ["collating symbol", "s/[[.a.", 6],
-    ["equivalence class", "s/[[=a=", 6],
-  ].flatMap(([name, source, closing]) =>
-    ["", "]]/x/"].map((suffix) => ({
-      name: `${name} ${suffix === "" ? "partial" : "complete"} closing delimiter`,
-      source: source + suffix,
-      capture: "punctuation.delimiter",
-      ranges: [
-        [0, 1, 0, 2],
-        [0, 4, 0, 5],
-        [0, closing, 0, closing + 1],
-        ...(suffix === ""
-          ? []
-          : [
-              [0, closing + 3, 0, closing + 4],
-              [0, closing + 5, 0, closing + 6],
-            ]),
-      ],
-    })),
-  ),
   {
-    name: "complete quoted escape",
-    source: Buffer.from("/\\*/p\n"),
-    capture: "string.escape",
-    ranges: [[0, 1, 0, 3]],
+    name: "invalid encoding splits replacement literals",
+    source: Buffer.from([115, 47, 97, 47, 120, 255, 121, 47, 10]),
+    capture: "string",
+    ranges: [
+      [0, 4, 0, 5],
+      [0, 6, 0, 7],
+    ],
   },
   {
-    name: "NUL after a backslash",
-    source: Buffer.from([47, 92, 0, 47, 112, 10]),
+    name: "invalid encoding splits translation literals",
+    source: Buffer.from([121, 47, 120, 255, 121, 47, 47, 10]),
+    capture: "string",
+    ranges: [
+      [0, 2, 0, 3],
+      [0, 4, 0, 5],
+    ],
+  },
+  {
+    name: "invalid encoding splits text literals",
+    source: Buffer.from([97, 92, 10, 120, 255, 121, 10]),
+    capture: "string",
+    ranges: [
+      [1, 0, 1, 1],
+      [1, 2, 1, 3],
+    ],
+  },
+  {
+    name: "invalid encoding does not become a replacement escape",
+    source: Buffer.from([115, 47, 97, 47, 92, 255, 47, 10]),
+    capture: "string.escape",
+    ranges: [],
+  },
+  {
+    name: "invalid encoding does not become a translation escape",
+    source: Buffer.from([121, 47, 92, 255, 47, 47, 10]),
+    capture: "string.escape",
+    ranges: [],
+  },
+  {
+    name: "invalid encoding does not become a text escape",
+    source: Buffer.from([97, 92, 10, 92, 255, 10]),
     capture: "string.escape",
     ranges: [],
   },
@@ -174,84 +252,22 @@ const lexicalCaptureCases = [
     capture: "string.escape",
     ranges: [],
   },
-  {
-    name: "special regular expression delimiter escape",
-    source: "s.\\..x.",
-    capture: "string.escape",
-    ranges: [[0, 2, 0, 4]],
-  },
-  {
-    name: "replacement ampersand delimiter escape",
-    source: "s&a&\\&&",
-    capture: "string.escape",
-    ranges: [[0, 4, 0, 6]],
-  },
-  {
-    name: "equivalence class meta characters",
-    source: "/[[=-=]][[=]=]]/p\n",
-    capture: "character.special",
-    ranges: [
-      [0, 4, 0, 5],
-      [0, 11, 0, 12],
-    ],
-  },
-  {
-    name: "closing brackets inside multi-character collating elements",
-    source: "/[[.a]b.]][[=c]d=]]/p\n",
-    capture: "character.special",
-    ranges: [
-      [0, 4, 0, 7],
-      [0, 13, 0, 16],
-    ],
-  },
-  {
-    name: "shared range endpoint operator",
-    source: "/[a-b-c]/p\n",
-    capture: "operator",
-    ranges: [
-      [0, 3, 0, 4],
-      [0, 5, 0, 6],
-    ],
-  },
-  ...["1", "a-b", "α", "\0" + "1"].map((name) => ({
-    name: `invalid class name ${JSON.stringify(name)}`,
-    source: `s/[[:${name}:]]/x/\n`,
-    capture: "character.special",
-    ranges: [],
-  })),
-  {
-    name: "valid class name prefix before NUL and a digit",
-    source: "s/[[:a\0" + "1:]]/x/\n",
-    capture: "character.special",
-    ranges: [[0, 5, 0, 6]],
-  },
-  {
-    name: "valid class name",
-    source: "s/[[:Alpha:]]/x/\n",
-    capture: "character.special",
-    ranges: [[0, 5, 0, 10]],
-  },
 ];
 
 for (const grammar of grammars) {
-  test(`${grammar.name} highlights only identified lexical source`, () => {
+  test(`${grammar.name}: invalid encoding leaves only identified source bytes highlighted`, () => {
     const path = join(temporaryDirectory, `${grammar.name}-lexical.sed`);
-    for (const testCase of lexicalCaptureCases) {
+    for (const testCase of invalidEncodingCases) {
       writeFileSync(path, testCase.source);
-      const result = treeSitter.run(
-        [
-          "query",
-          "--captures",
-          "--scope",
-          grammar.scope,
-          join(temporaryDirectory, `${grammar.name}.scm`),
-          path,
-        ],
-        { encoding: "utf8", env: { NO_COLOR: "1" } },
-      );
-      assert.ifError(result.error);
-      assert.equal(result.status, 0, result.stdout + result.stderr);
-      const captures = result.stdout
+      const output = checked([
+        "query",
+        "--captures",
+        "--scope",
+        grammar.scope,
+        join(temporaryDirectory, `${grammar.name}.scm`),
+        path,
+      ]);
+      const captures = output
         .split("\n")
         .filter(
           (line) =>
@@ -267,6 +283,668 @@ for (const grammar of grammars) {
           return range.slice(1).map(Number);
         });
       assert.deepEqual(captures, testCase.ranges, testCase.name);
+    }
+  });
+}
+
+function checked(arguments_) {
+  const result = treeSitter.run(arguments_, {
+    encoding: "utf8",
+    env: { NO_COLOR: "1" },
+    timeout: 60_000,
+  });
+  assert.ifError(result.error);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.doesNotMatch(result.stderr, /Non-standard highlight captures/);
+  return result.stdout;
+}
+
+const finalCaptureCases = [
+  {
+    name: "HTML-sensitive Unicode literals retain source bytes and captures",
+    source: `s/é😀<&>"'/x/\n`,
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 13, "string.regexp"],
+      [13, 14, "punctuation.delimiter"],
+      [14, 15, "string"],
+      [15, 16, "punctuation.delimiter"],
+    ],
+  },
+  {
+    name: "empty input has no captures",
+    source: "",
+    captures: [],
+  },
+  {
+    name: "the initial output-suppression directive overrides comment captures",
+    source: "#n é\n",
+    captures: [
+      [0, 2, "keyword.directive"],
+      [2, 5, "comment"],
+    ],
+  },
+  {
+    name: "ordinary UTF-8 comments retain comment captures",
+    source: "# é😀\n",
+    captures: [[0, 8, "comment"]],
+  },
+  {
+    name: "block braces override function captures beside addresses and negation",
+    source: "1,$!{p;d}\n",
+    captures: [
+      [0, 1, "number"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 3, "constant.builtin"],
+      [3, 4, "operator"],
+      [4, 5, "punctuation.bracket"],
+      [5, 6, "keyword"],
+      [6, 7, "punctuation.delimiter"],
+      [7, 8, "keyword"],
+      [8, 9, "punctuation.bracket"],
+    ],
+  },
+  {
+    name: "branch targets and declarations retain label captures",
+    source: "b end\n:end\n",
+    captures: [
+      [0, 1, "keyword"],
+      [2, 5, "label"],
+      [6, 7, "keyword"],
+      [7, 10, "label"],
+    ],
+  },
+  {
+    name: "substitutions separate patterns, UTF-8 replacements, references and flags",
+    source: "s/a/é😀&/gp\n",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 3, "string.regexp"],
+      [3, 4, "punctuation.delimiter"],
+      [4, 10, "string"],
+      [10, 11, "string.special.symbol"],
+      [11, 12, "punctuation.delimiter"],
+      [12, 14, "keyword.modifier"],
+    ],
+  },
+  {
+    name: "file operands keep path captures after the function verb",
+    source: "r file\nw out\n",
+    captures: [
+      [0, 1, "keyword"],
+      [2, 6, "string.special.path"],
+      [7, 8, "keyword"],
+      [9, 12, "string.special.path"],
+    ],
+  },
+  {
+    name: "ERE groups and intervals retain punctuation and replacement references",
+    languages: ["sed_ere"],
+    source: "s/(a){2,3}/\\1/\n",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 3, "punctuation.bracket"],
+      [3, 4, "string.regexp"],
+      [4, 6, "punctuation.bracket"],
+      [6, 7, "number"],
+      [7, 8, "punctuation.delimiter"],
+      [8, 9, "number"],
+      [9, 10, "punctuation.bracket"],
+      [10, 11, "punctuation.delimiter"],
+      [11, 13, "string.special.symbol"],
+      [13, 14, "punctuation.delimiter"],
+    ],
+  },
+  {
+    name: "multibyte delimiters retain complete byte ranges",
+    source: "sλaλbλ\n",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 3, "punctuation.delimiter"],
+      [3, 4, "string.regexp"],
+      [4, 6, "punctuation.delimiter"],
+      [6, 7, "string"],
+      [7, 9, "punctuation.delimiter"],
+    ],
+  },
+  {
+    name: "escaped ampersand delimiters keep escape captures in replacements",
+    source: "s&x&\\&&\n",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 3, "string.regexp"],
+      [3, 4, "punctuation.delimiter"],
+      [4, 6, "string.escape"],
+      [6, 7, "punctuation.delimiter"],
+    ],
+  },
+  {
+    name: "output suppression also precedes comment text without a blank",
+    source: "#note\n",
+    captures: [
+      [0, 2, "keyword.directive"],
+      [2, 5, "comment"],
+    ],
+  },
+  {
+    name: "addresses and negation precede a simple command",
+    source: "1,$!p;\n",
+    captures: [
+      [0, 1, "number"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 3, "constant.builtin"],
+      [3, 4, "operator"],
+      [4, 5, "keyword"],
+      [5, 6, "punctuation.delimiter"],
+    ],
+  },
+  {
+    name: "alternate address delimiters separate the introducer and escaped delimiter",
+    source: "\\%a\\%%p\n",
+    captures: [
+      [0, 1, "string.escape"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 3, "string.regexp"],
+      [3, 5, "string.escape"],
+      [5, 6, "punctuation.delimiter"],
+      [6, 7, "keyword"],
+    ],
+  },
+  {
+    name: "BRE groups, wildcards, intervals and anchors precede references and write flags",
+    source: "s/\\(a.\\)\\{2,3\\}$/\\1&x/gipw output\n",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 4, "punctuation.bracket"],
+      [4, 5, "string.regexp"],
+      [5, 6, "character.special"],
+      [6, 10, "punctuation.bracket"],
+      [10, 11, "number"],
+      [11, 12, "punctuation.delimiter"],
+      [12, 13, "number"],
+      [13, 15, "punctuation.bracket"],
+      [15, 16, "operator"],
+      [16, 17, "punctuation.delimiter"],
+      [17, 20, "string.special.symbol"],
+      [20, 21, "string"],
+      [21, 22, "punctuation.delimiter"],
+      [22, 26, "keyword.modifier"],
+      [27, 33, "string.special.path"],
+    ],
+    languages: ["sed"],
+  },
+  {
+    name: "quoted metacharacters retain escape captures",
+    source: "/a\\./p\n",
+    captures: [
+      [0, 1, "punctuation.delimiter"],
+      [1, 2, "string.regexp"],
+      [2, 4, "string.escape"],
+      [4, 5, "punctuation.delimiter"],
+      [5, 6, "keyword"],
+    ],
+  },
+  {
+    name: "replacement ampersands and backslashes retain escape captures",
+    source: "s|a|\\&\\\\|\n",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 3, "string.regexp"],
+      [3, 4, "punctuation.delimiter"],
+      [4, 8, "string.escape"],
+      [8, 9, "punctuation.delimiter"],
+    ],
+  },
+  {
+    name: "substitution occurrences retain number captures",
+    source: "s/a/b/2\n",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 3, "string.regexp"],
+      [3, 4, "punctuation.delimiter"],
+      [4, 5, "string"],
+      [5, 6, "punctuation.delimiter"],
+      [6, 7, "number"],
+    ],
+  },
+  {
+    name: "translations separate literal characters and escapes",
+    source: "y|a\\n\\||b\\\\c|\n",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 3, "string"],
+      [3, 7, "string.escape"],
+      [7, 8, "punctuation.delimiter"],
+      [8, 9, "string"],
+      [9, 11, "string.escape"],
+      [11, 12, "string"],
+      [12, 13, "punctuation.delimiter"],
+    ],
+  },
+  {
+    name: "bracket terms distinguish initial brackets, ranges and trailing hyphens",
+    source: "/[^]a-c[:alpha:][.].][=a=]-]/p\n",
+    captures: [
+      [0, 1, "punctuation.delimiter"],
+      [1, 2, "punctuation.bracket"],
+      [2, 3, "operator"],
+      [3, 5, "character.special"],
+      [5, 6, "operator"],
+      [6, 7, "character.special"],
+      [7, 8, "punctuation.bracket"],
+      [8, 9, "punctuation.delimiter"],
+      [9, 14, "character.special"],
+      [14, 15, "punctuation.delimiter"],
+      [15, 17, "punctuation.bracket"],
+      [17, 18, "punctuation.delimiter"],
+      [18, 19, "character.special"],
+      [19, 20, "punctuation.delimiter"],
+      [20, 22, "punctuation.bracket"],
+      [22, 23, "punctuation.delimiter"],
+      [23, 24, "character.special"],
+      [24, 25, "punctuation.delimiter"],
+      [25, 26, "punctuation.bracket"],
+      [26, 27, "string.regexp"],
+      [27, 28, "punctuation.bracket"],
+      [28, 29, "punctuation.delimiter"],
+      [29, 30, "keyword"],
+    ],
+  },
+  {
+    name: "a range-ending hyphen keeps its literal capture",
+    source: "/[%--]/p\n",
+    captures: [
+      [0, 1, "punctuation.delimiter"],
+      [1, 2, "punctuation.bracket"],
+      [2, 3, "character.special"],
+      [3, 4, "operator"],
+      [4, 5, "string.regexp"],
+      [5, 6, "punctuation.bracket"],
+      [6, 7, "punctuation.delimiter"],
+      [7, 8, "keyword"],
+    ],
+  },
+  {
+    name: "ERE groups, alternation, quantifiers and write flags retain their lexical roles",
+    source: "s/^(ab|c)+d{2,3}e?f*/x/gipw output\n",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 3, "operator"],
+      [3, 4, "punctuation.bracket"],
+      [4, 6, "string.regexp"],
+      [6, 7, "operator"],
+      [7, 8, "string.regexp"],
+      [8, 9, "punctuation.bracket"],
+      [9, 10, "operator"],
+      [10, 11, "string.regexp"],
+      [11, 12, "punctuation.bracket"],
+      [12, 13, "number"],
+      [13, 14, "punctuation.delimiter"],
+      [14, 15, "number"],
+      [15, 16, "punctuation.bracket"],
+      [16, 17, "string.regexp"],
+      [17, 18, "operator"],
+      [18, 19, "string.regexp"],
+      [19, 20, "operator"],
+      [20, 21, "punctuation.delimiter"],
+      [21, 22, "string"],
+      [22, 23, "punctuation.delimiter"],
+      [23, 27, "keyword.modifier"],
+      [28, 34, "string.special.path"],
+    ],
+    languages: ["sed_ere"],
+  },
+  {
+    name: "newline separated commands retain only keyword captures",
+    source: "p\np\n",
+    captures: [
+      [0, 1, "keyword"],
+      [2, 3, "keyword"],
+    ],
+  },
+  {
+    name: "text introducers separate line continuations from literal text",
+    source: "a\\\ntext\n",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 3, "punctuation.special"],
+      [3, 7, "string"],
+    ],
+  },
+  {
+    name: "character class complete closing delimiter",
+    source: "s/[[:alpha:]]/x/",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 4, "punctuation.bracket"],
+      [4, 5, "punctuation.delimiter"],
+      [5, 10, "character.special"],
+      [10, 11, "punctuation.delimiter"],
+      [11, 13, "punctuation.bracket"],
+      [13, 14, "punctuation.delimiter"],
+      [14, 15, "string"],
+      [15, 16, "punctuation.delimiter"],
+    ],
+  },
+  {
+    name: "collating symbol complete closing delimiter",
+    source: "s/[[.a.]]/x/",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 4, "punctuation.bracket"],
+      [4, 5, "punctuation.delimiter"],
+      [5, 6, "character.special"],
+      [6, 7, "punctuation.delimiter"],
+      [7, 9, "punctuation.bracket"],
+      [9, 10, "punctuation.delimiter"],
+      [10, 11, "string"],
+      [11, 12, "punctuation.delimiter"],
+    ],
+  },
+  {
+    name: "equivalence class complete closing delimiter",
+    source: "s/[[=a=]]/x/",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 4, "punctuation.bracket"],
+      [4, 5, "punctuation.delimiter"],
+      [5, 6, "character.special"],
+      [6, 7, "punctuation.delimiter"],
+      [7, 9, "punctuation.bracket"],
+      [9, 10, "punctuation.delimiter"],
+      [10, 11, "string"],
+      [11, 12, "punctuation.delimiter"],
+    ],
+  },
+  {
+    name: "closing brackets inside multi-character collating elements keep element captures",
+    source: "/[[.a]b.]][[=c]d=]]/p\n",
+    captures: [
+      [0, 1, "punctuation.delimiter"],
+      [1, 3, "punctuation.bracket"],
+      [3, 4, "punctuation.delimiter"],
+      [4, 7, "character.special"],
+      [7, 8, "punctuation.delimiter"],
+      [8, 12, "punctuation.bracket"],
+      [12, 13, "punctuation.delimiter"],
+      [13, 16, "character.special"],
+      [16, 17, "punctuation.delimiter"],
+      [17, 19, "punctuation.bracket"],
+      [19, 20, "punctuation.delimiter"],
+      [20, 21, "keyword"],
+    ],
+  },
+  {
+    name: "class names retain their source spelling and captures",
+    source: "s/[[:Alpha:]]/x/\n",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 4, "punctuation.bracket"],
+      [4, 5, "punctuation.delimiter"],
+      [5, 10, "character.special"],
+      [10, 11, "punctuation.delimiter"],
+      [11, 13, "punctuation.bracket"],
+      [13, 14, "punctuation.delimiter"],
+      [14, 15, "string"],
+      [15, 16, "punctuation.delimiter"],
+    ],
+  },
+  {
+    name: "BRE extension operators retain their identified lexical roles",
+    source: "/a*\\|b\\+c\\?\\n/p\n",
+    captures: [
+      [0, 1, "punctuation.delimiter"],
+      [1, 2, "string.regexp"],
+      [2, 5, "operator"],
+      [5, 6, "string.regexp"],
+      [6, 8, "operator"],
+      [8, 9, "string.regexp"],
+      [9, 11, "operator"],
+      [11, 13, "string.escape"],
+      [13, 14, "punctuation.delimiter"],
+      [14, 15, "keyword"],
+    ],
+    languages: ["sed"],
+    valid: false,
+  },
+  {
+    name: "unmatched BRE closers retain bracket captures",
+    source: "/\\)\\}/p\n",
+    captures: [
+      [0, 1, "punctuation.delimiter"],
+      [1, 5, "punctuation.bracket"],
+      [5, 6, "punctuation.delimiter"],
+      [6, 7, "keyword"],
+    ],
+    languages: ["sed"],
+    valid: false,
+  },
+  {
+    name: "flags after write retain their identified lexical roles",
+    source: "s/a/b/wg2 output\n",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 3, "string.regexp"],
+      [3, 4, "punctuation.delimiter"],
+      [4, 5, "string"],
+      [5, 6, "punctuation.delimiter"],
+      [6, 8, "keyword.modifier"],
+      [8, 9, "number"],
+      [10, 16, "string.special.path"],
+    ],
+    valid: false,
+  },
+  {
+    name: "character class partial closing delimiter",
+    source: "s/[[:alpha:",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 4, "punctuation.bracket"],
+      [4, 5, "punctuation.delimiter"],
+      [5, 10, "character.special"],
+      [10, 11, "punctuation.delimiter"],
+    ],
+    valid: false,
+  },
+  {
+    name: "collating symbol partial closing delimiter",
+    source: "s/[[.a.",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 4, "punctuation.bracket"],
+      [4, 5, "punctuation.delimiter"],
+      [5, 6, "character.special"],
+      [6, 7, "punctuation.delimiter"],
+    ],
+    valid: false,
+  },
+  {
+    name: "equivalence class partial closing delimiter",
+    source: "s/[[=a=",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 4, "punctuation.bracket"],
+      [4, 5, "punctuation.delimiter"],
+      [5, 6, "character.special"],
+      [6, 7, "punctuation.delimiter"],
+    ],
+    valid: false,
+  },
+  {
+    name: "NUL after a backslash does not become a regular expression escape",
+    source: "/\\\u0000/p\n",
+    captures: [
+      [0, 1, "punctuation.delimiter"],
+      [3, 4, "punctuation.delimiter"],
+      [4, 5, "keyword"],
+    ],
+    valid: false,
+  },
+  {
+    name: "special regular expression delimiters retain escape captures",
+    source: "s.\\..x.",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 4, "string.escape"],
+      [4, 5, "punctuation.delimiter"],
+      [5, 6, "string"],
+      [6, 7, "punctuation.delimiter"],
+    ],
+    valid: false,
+  },
+  {
+    name: "equivalence class meta characters retain their identified lexical roles",
+    source: "/[[=-=]][[=]=]]/p\n",
+    captures: [
+      [0, 1, "punctuation.delimiter"],
+      [1, 3, "punctuation.bracket"],
+      [3, 4, "punctuation.delimiter"],
+      [4, 5, "character.special"],
+      [5, 6, "punctuation.delimiter"],
+      [6, 10, "punctuation.bracket"],
+      [10, 11, "punctuation.delimiter"],
+      [11, 12, "character.special"],
+      [12, 13, "punctuation.delimiter"],
+      [13, 15, "punctuation.bracket"],
+      [15, 16, "punctuation.delimiter"],
+      [16, 17, "keyword"],
+    ],
+    valid: false,
+  },
+  {
+    name: "shared range endpoints retain both operator captures",
+    source: "/[a-b-c]/p\n",
+    captures: [
+      [0, 1, "punctuation.delimiter"],
+      [1, 2, "punctuation.bracket"],
+      [2, 3, "character.special"],
+      [3, 4, "operator"],
+      [4, 5, "character.special"],
+      [5, 6, "operator"],
+      [6, 7, "character.special"],
+      [7, 8, "punctuation.bracket"],
+      [8, 9, "punctuation.delimiter"],
+      [9, 10, "keyword"],
+    ],
+    valid: false,
+  },
+  {
+    name: 'invalid class name "1" has no character capture',
+    source: "s/[[:1:]]/x/\n",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 4, "punctuation.bracket"],
+      [4, 5, "punctuation.delimiter"],
+      [6, 7, "punctuation.delimiter"],
+      [7, 9, "punctuation.bracket"],
+      [9, 10, "punctuation.delimiter"],
+      [10, 11, "string"],
+      [11, 12, "punctuation.delimiter"],
+    ],
+    valid: false,
+  },
+  {
+    name: 'invalid class name "a-b" has no character capture',
+    source: "s/[[:a-b:]]/x/\n",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 4, "punctuation.bracket"],
+      [4, 5, "punctuation.delimiter"],
+      [8, 9, "punctuation.delimiter"],
+      [9, 11, "punctuation.bracket"],
+      [11, 12, "punctuation.delimiter"],
+      [12, 13, "string"],
+      [13, 14, "punctuation.delimiter"],
+    ],
+    valid: false,
+  },
+  {
+    name: 'invalid class name "α" has no character capture',
+    source: "s/[[:α:]]/x/\n",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 4, "punctuation.bracket"],
+      [4, 5, "punctuation.delimiter"],
+      [7, 8, "punctuation.delimiter"],
+      [8, 10, "punctuation.bracket"],
+      [10, 11, "punctuation.delimiter"],
+      [11, 12, "string"],
+      [12, 13, "punctuation.delimiter"],
+    ],
+    valid: false,
+  },
+  {
+    name: 'invalid class name "\\u00001" has no character capture',
+    source: "s/[[:\u00001:]]/x/\n",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 4, "punctuation.bracket"],
+      [4, 5, "punctuation.delimiter"],
+      [7, 8, "punctuation.delimiter"],
+      [8, 10, "punctuation.bracket"],
+      [10, 11, "punctuation.delimiter"],
+      [11, 12, "string"],
+      [12, 13, "punctuation.delimiter"],
+    ],
+    valid: false,
+  },
+  {
+    name: "a valid class-name prefix before NUL retains its capture",
+    source: "s/[[:a\u00001:]]/x/\n",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 4, "punctuation.bracket"],
+      [4, 5, "punctuation.delimiter"],
+      [5, 6, "character.special"],
+      [8, 9, "punctuation.delimiter"],
+      [9, 11, "punctuation.bracket"],
+      [11, 12, "punctuation.delimiter"],
+      [12, 13, "string"],
+      [13, 14, "punctuation.delimiter"],
+    ],
+    valid: false,
+  },
+];
+
+for (const grammar of grammars) {
+  for (const {
+    name,
+    languages,
+    source,
+    captures,
+    valid = true,
+  } of finalCaptureCases) {
+    if (languages && !languages.includes(grammar.name)) continue;
+    test(`${grammar.name}: ${name}`, () => {
+      assertCaptures(source, highlight(grammar.scope, source, valid), captures);
+    });
+  }
+  test(`${grammar.name}: incomplete input preserves source without error colors`, () => {
+    for (const source of ["s/a", "/[a", "{p", "s/a/\\"]) {
+      highlight(grammar.scope, source, false);
     }
   });
 }

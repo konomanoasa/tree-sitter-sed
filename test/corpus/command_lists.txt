@@ -1,0 +1,210 @@
+==================
+exposes every chainable function
+:language(sed)
+==================
+d;D;g;G;h;H;l;n;N;p;P;q;s/a/b/;x;y/a/b/;=
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (delete_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (delete_first_line_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (get_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (get_append_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (hold_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (hold_append_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (list_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (next_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (next_append_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (print_first_line_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (quit_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character)))))))
+          (delimiter)
+          (replacement
+            (replacement_literal))
+          (delimiter))))
+    (command_separator)
+    (editing_command
+      (function
+        (exchange_function
+          (function_verb))))
+    (command_separator)
+    (editing_command
+      (function
+        (translate_function
+          (function_verb)
+          (delimiter)
+          (translation_string
+            (translation_literal))
+          (delimiter)
+          (translation_string
+            (translation_literal))
+          (delimiter))))
+    (command_separator)
+    (editing_command
+      (function
+        (line_number_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+terminates empty commands before a print function
+:language(sed)
+==================
+;;p
+
+---
+
+(script
+  (command_list
+    (empty_command)
+    (command_separator)
+    (empty_command)
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+terminates empty commands after a print function
+:language(sed)
+==================
+p;;
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)
+    (empty_command)
+    (command_separator)
+    (empty_command)
+    (command_separator)))
+
+==================
+terminates a blank empty command before a semicolon
+:language(sed)
+==================
+ ;
+
+---
+
+(script
+  (command_list
+    (empty_command)
+    (command_separator)
+    (empty_command)
+    (command_separator)))
+
+==================
+owns an unknown function and its trailing command text
+:language(sed)
+==================
+k tail
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (syntax_issue
+        (nonconforming_syntax
+          (unknown_function)))
+      (syntax_issue
+        (nonconforming_syntax
+          (unexpected_command_text))))
+    (command_separator)))
+
+==================
+recovers an unknown function after address negation at a newline
+:language(sed)
+==================
+1!/
+p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address)))
+      (negation
+        (negation_operator))
+      (syntax_issue
+        (nonconforming_syntax
+          (unknown_function))))
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))

@@ -1,0 +1,157 @@
+==================
+exposes a test function and its label
+:language(sed)
+==================
+t target
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (test_function
+          (function_verb)
+          (argument_separator)
+          (label))))
+    (command_separator)))
+
+==================
+exposes a label declaration
+:language(sed)
+==================
+:loop
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (label_function
+          (function_verb)
+          (label))))
+    (command_separator)))
+
+==================
+exposes a branch function and its label
+:language(sed)
+==================
+b loop
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (branch_function
+          (function_verb)
+          (argument_separator)
+          (label))))
+    (command_separator)))
+
+==================
+keeps a closing brace at the start of a branch label
+:language(sed)
+==================
+b }x
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (branch_function
+          (function_verb)
+          (argument_separator)
+          (label))))
+    (command_separator)))
+
+==================
+keeps a closing brace as a test label
+:language(sed)
+==================
+t }
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (test_function
+          (function_verb)
+          (argument_separator)
+          (label))))
+    (command_separator)))
+
+==================
+keeps a closing brace as a branch label inside a block
+:language(sed)
+==================
+{b }
+}
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (block_function
+          (function_verb)
+          (command_list
+            (editing_command
+              (function
+                (branch_function
+                  (function_verb)
+                  (argument_separator)
+                  (label))))
+            (command_separator))
+          (closing_brace))))
+    (command_separator)))
+
+==================
+owns a forbidden semicolon inside a branch command issue
+:language(sed)
+==================
+b;p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (branch_function
+          (function_verb)))
+      (syntax_issue
+        (nonconforming_syntax
+          (forbidden_command_separator
+            (command_separator)))))
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+classifies a missing label at a newline
+:language(sed)
+==================
+:
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (label_function
+          (function_verb)
+          (syntax_issue
+            (nonconforming_syntax
+              (missing_label))))))
+    (command_separator)))

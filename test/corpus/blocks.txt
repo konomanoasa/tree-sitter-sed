@@ -1,0 +1,234 @@
+==================
+nests a command list inside a block function
+:language(sed)
+==================
+1,2 {
+  p
+  d;
+}
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (address_clause
+        (address
+          (line_number_address))
+        (address_separator)
+        (address
+          (line_number_address)))
+      (function
+        (block_function
+          (function_verb)
+          (command_list
+            (empty_command)
+            (command_separator)
+            (editing_command
+              (function
+                (print_function
+                  (function_verb))))
+            (command_separator)
+            (editing_command
+              (function
+                (delete_function
+                  (function_verb))))
+            (command_separator)
+            (empty_command)
+            (command_separator))
+          (closing_brace))))
+    (command_separator)))
+
+==================
+terminates an empty block command before a closing brace
+:language(sed)
+==================
+{;}
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (block_function
+          (function_verb)
+          (command_list
+            (empty_command)
+            (command_separator))
+          (closing_brace))))
+    (command_separator)))
+
+==================
+recovers a block whose leading empty command precedes a missing separator
+:language(sed)
+==================
+{;p}
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (block_function
+          (function_verb)
+          (command_list
+            (empty_command)
+            (command_separator)
+            (editing_command
+              (function
+                (print_function
+                  (function_verb))))
+            (syntax_issue
+              (nonconforming_syntax
+                (missing_command_separator))))
+          (closing_brace))))
+    (command_separator)))
+
+==================
+classifies a missing command separator before a closing brace
+:language(sed)
+==================
+{p}
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (block_function
+          (function_verb)
+          (command_list
+            (editing_command
+              (function
+                (print_function
+                  (function_verb))))
+            (syntax_issue
+              (nonconforming_syntax
+                (missing_command_separator))))
+          (closing_brace))))
+    (command_separator)))
+
+==================
+classifies a missing closing brace after a command newline
+:language(sed)
+==================
+{p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (block_function
+          (function_verb)
+          (command_list
+            (editing_command
+              (function
+                (print_function
+                  (function_verb))))
+            (command_separator))
+          (syntax_issue
+            (incomplete_syntax
+              (missing_closing_brace))))))))
+
+==================
+classifies a blank-separated closing brace inside a block
+:language(sed)
+==================
+{ }
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (block_function
+          (function_verb)
+          (command_list
+            (syntax_issue
+              (nonconforming_syntax
+                (missing_command_separator))))
+          (closing_brace))))
+    (command_separator)))
+
+==================
+recovers an unmatched closing brace before a top-level command
+:language(sed)
+==================
+}p
+
+---
+
+(script
+  (command_list
+    (syntax_issue
+      (nonconforming_syntax
+        (unmatched_closing_brace
+          (closing_brace))))
+    (syntax_issue
+      (nonconforming_syntax
+        (missing_command_separator)))
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
+
+==================
+recovers an unmatched closing brace after a missing text introducer
+:language(sed)
+==================
+a}
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (append_function
+          (function_verb)
+          (syntax_issue
+            (nonconforming_syntax
+              (missing_text_introducer))))))
+    (syntax_issue
+      (nonconforming_syntax
+        (missing_command_separator)))
+    (syntax_issue
+      (nonconforming_syntax
+        (unmatched_closing_brace
+          (closing_brace))))
+    (command_separator)))
+
+==================
+recovers an unmatched closing brace before a following separated command
+:language(sed)
+==================
+p};p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (syntax_issue
+      (nonconforming_syntax
+        (missing_command_separator)))
+    (syntax_issue
+      (nonconforming_syntax
+        (unmatched_closing_brace
+          (closing_brace))))
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))
