@@ -832,6 +832,7 @@ static void begin_compound_bracket_element(ScannerState *state) {
 }
 
 static void finish_compound_bracket_element(ScannerState *state) {
+  state->regex_bracket_term_state = REGEX_BRACKET_TERM_NONE;
   state->regex_bracket_term_has_content = false;
   if (state->regex_bracket_range_pending) {
     record_bracket_element(state, REGEX_BRACKET_PENDING_OTHER);
@@ -1038,6 +1039,21 @@ static TSSymbol regex_bracket_term_content_symbol(
     : REGEX_MALFORMED_BRACKET_TERM;
 }
 
+static bool emit_regex_bracket_term_close(
+  TSLexer *lexer,
+  ScannerState *state,
+  const bool *valid_symbols,
+  TSSymbol *symbol
+) {
+  const TSSymbol closing =
+    bracket_terms[state->regex_bracket_term_state].close_symbol;
+  lexer->mark_end(lexer);
+  if (!lexer->eof(lexer)) {
+    finish_compound_bracket_element(state);
+  }
+  return emit_symbol(valid_symbols, closing, symbol);
+}
+
 static bool scan_regex_bracket_term_content(
   TSLexer *lexer,
   ScannerState *state,
@@ -1073,7 +1089,15 @@ static bool scan_regex_bracket_term_content(
 
     if (lexer->lookahead == close_marker) {
       advance(lexer);
-      if (lexer->lookahead == ']') {
+      if (
+        lexer->lookahead ==
+        ']' ||
+        (lexer->eof(lexer) &&
+          (character_count >
+            0 ||
+            state->regex_bracket_term_has_content ||
+            state->regex_bracket_term_state == REGEX_BRACKET_TERM_COLON))
+      ) {
         stopped_at_close = true;
         break;
       }
@@ -1104,13 +1128,9 @@ static bool scan_regex_bracket_term_content(
     const TSSymbol closing =
       bracket_terms[state->regex_bracket_term_state].close_symbol;
     if (stopped_at_close && valid_symbols[closing]) {
-      lexer->mark_end(lexer);
-      state->regex_bracket_term_state = REGEX_BRACKET_TERM_NONE;
-      finish_compound_bracket_element(state);
-      return emit_symbol(valid_symbols, closing, symbol);
+      return emit_regex_bracket_term_close(lexer, state, valid_symbols, symbol);
     }
     if (!stopped_at_close) {
-      state->regex_bracket_term_state = REGEX_BRACKET_TERM_NONE;
       finish_compound_bracket_element(state);
     }
     return emit_symbol(valid_symbols, REGEX_MALFORMED_BRACKET_TERM, symbol);
@@ -1134,15 +1154,11 @@ static bool scan_regex_bracket_term_close(
   const bool *valid_symbols,
   TSSymbol *symbol
 ) {
-  consume(lexer);
-  if (lexer->lookahead != ']') {
+  advance(lexer);
+  if (lexer->lookahead != ']' && !lexer->eof(lexer)) {
     return false;
   }
-  const TSSymbol candidate =
-    bracket_terms[state->regex_bracket_term_state].close_symbol;
-  state->regex_bracket_term_state = REGEX_BRACKET_TERM_NONE;
-  finish_compound_bracket_element(state);
-  return emit_symbol(valid_symbols, candidate, symbol);
+  return emit_regex_bracket_term_close(lexer, state, valid_symbols, symbol);
 }
 
 static bool scan_regex_interval_open(
@@ -1643,6 +1659,10 @@ static bool scan_regex_special_token(
       lexer->lookahead ==
       '\n' ||
       lexer->lookahead == state->delimiter;
+    // Record the full lookahead character without extending the dollar token.
+    if (!lexer->eof(lexer)) {
+      advance(lexer);
+    }
     if (!at_branch_end) {
       return emit_symbol(valid_symbols, REGEX_LITERAL, symbol);
     }
@@ -1904,7 +1924,6 @@ static bool scan_regex_token(
       valid_symbols[REGEX_MALFORMED_BRACKET_TERM]
     ) {
       lexer->mark_end(lexer);
-      state->regex_bracket_term_state = REGEX_BRACKET_TERM_NONE;
       finish_compound_bracket_element(state);
       *symbol = REGEX_MALFORMED_BRACKET_TERM;
       return true;
@@ -2173,7 +2192,6 @@ static bool scan_regex_recovery_marker(
       symbol
     )
   ) {
-    state->regex_bracket_term_state = REGEX_BRACKET_TERM_NONE;
     finish_compound_bracket_element(state);
     return true;
   }
@@ -2614,80 +2632,93 @@ update_regex_position_after_symbol(ScannerState *state, TSSymbol symbol) {
     return;
   }
 
-  if (
-    symbol ==
-    REGEX_LEADING_DUPLICATION_MARKER ||
-    symbol == REGEX_ADJACENT_DUPLICATION_MARKER
-  ) {
-    return;
-  }
-
-  const bool is_regex_token =
-    symbol >= REGEX_LITERAL && symbol <= REGEX_MALFORMED_BRACKET_TERM;
-  if (!is_regex_token) {
-    return;
-  }
-
-  if (symbol == REGEX_GROUP_OPEN) {
+  switch (symbol) {
+  case REGEX_GROUP_OPEN:
     state->regex_group_depth++;
     state->regex_position = REGEX_AT_BRANCH_START;
     return;
-  }
-
-  if (symbol == REGEX_GROUP_CLOSE) {
+  case REGEX_GROUP_CLOSE:
     state->regex_group_depth--;
     state->regex_position = REGEX_AFTER_ATOM;
     return;
-  }
-
 #if SED_REGEX_EXTENDED
-  if (symbol == REGEX_ALTERNATION_OPERATOR) {
+  case REGEX_ALTERNATION_OPERATOR:
     state->regex_position = REGEX_AFTER_ALTERNATION;
     return;
-  }
 #endif
-
-  bool is_anchor =
-    symbol == REGEX_BEGINNING_ANCHOR || symbol == REGEX_END_ANCHOR;
+  case REGEX_BEGINNING_ANCHOR:
+  case REGEX_END_ANCHOR:
 #if !SED_REGEX_EXTENDED
-  is_anchor = is_anchor ||
-    symbol ==
-    REGEX_BRE_SUBEXPRESSION_CARET ||
-    symbol == REGEX_BRE_SUBEXPRESSION_DOLLAR;
+  case REGEX_BRE_SUBEXPRESSION_CARET:
+  case REGEX_BRE_SUBEXPRESSION_DOLLAR:
 #endif
-  if (is_anchor) {
 #if SED_REGEX_EXTENDED
     state->regex_position = REGEX_AT_BRANCH_START;
 #else
     state->regex_position = REGEX_AFTER_ANCHOR;
 #endif
     return;
-  }
-
-  bool is_duplication = symbol ==
-    REGEX_ZERO_OR_MORE ||
-    symbol ==
-    REGEX_INTERVAL_CLOSE ||
-    symbol == REGEX_INVALID_INTERVAL;
+  case REGEX_ZERO_OR_MORE:
+  case REGEX_INTERVAL_CLOSE:
+  case REGEX_INVALID_INTERVAL:
 #if SED_REGEX_EXTENDED
-  is_duplication = is_duplication ||
-    symbol ==
-    REGEX_ONE_OR_MORE ||
-    symbol == REGEX_ZERO_OR_ONE;
+  case REGEX_ONE_OR_MORE:
+  case REGEX_ZERO_OR_ONE:
 #endif
-  if (is_duplication) {
     state->regex_position = REGEX_AFTER_DUPLICATION_SYMBOL;
     return;
-  }
-
 #if SED_REGEX_EXTENDED
-  if (symbol == REGEX_REPETITION_MODIFIER) {
+  case REGEX_REPETITION_MODIFIER:
     state->regex_position = REGEX_AFTER_REPETITION_MODIFIER;
     return;
-  }
 #endif
-
-  state->regex_position = REGEX_AFTER_ATOM;
+  case REGEX_LITERAL:
+  case INVALID_CHARACTER:
+  case NUL_CHARACTER:
+  case REGEX_PERIOD:
+  case REGEX_QUOTED_ESCAPE:
+  case ESCAPE_PREFIX:
+  case REGEX_NEWLINE_ESCAPE:
+  case REGEX_ESCAPED_DELIMITER:
+  case REGEX_SPECIAL_ESCAPED_DELIMITER:
+  case REGEX_UNCLOSED_GROUP:
+#if !SED_REGEX_EXTENDED
+  case REGEX_UNMATCHED_GROUP_CLOSE:
+  case REGEX_BRE_VERTICAL_LINE_ESCAPE:
+  case REGEX_BRE_QUESTION_MARK_ESCAPE:
+  case REGEX_BRE_PLUS_ESCAPE:
+  case REGEX_UNMATCHED_INTERVAL_CLOSE:
+  case REGEX_BACKREFERENCE:
+#endif
+  case REGEX_INTERVAL_OPEN:
+  case REGEX_DUP_COUNT:
+  case REGEX_INTERVAL_SEPARATOR:
+  case REGEX_NONPORTABLE_ESCAPE:
+  case REGEX_INCOMPLETE_ESCAPE:
+  case REGEX_BRACKET_OPEN:
+  case REGEX_BRACKET_CLOSE:
+  case REGEX_BRACKET_LITERAL:
+  case REGEX_BRACKET_NEGATION:
+  case REGEX_BRACKET_HYPHEN:
+  case REGEX_BRACKET_RANGE_END_HYPHEN:
+  case REGEX_BRACKET_TRAILING_HYPHEN:
+  case REGEX_OPEN_COLON:
+  case REGEX_CLASS_NAME:
+  case REGEX_INVALID_CLASS_NAME:
+  case REGEX_COLON_CLOSE:
+  case REGEX_OPEN_DOT:
+  case REGEX_COLL_ELEM_SINGLE:
+  case REGEX_COLL_ELEM_MULTI:
+  case REGEX_META_CHAR:
+  case REGEX_DOT_CLOSE:
+  case REGEX_OPEN_EQUAL:
+  case REGEX_EQUAL_CLOSE:
+  case REGEX_MALFORMED_BRACKET_TERM:
+    state->regex_position = REGEX_AFTER_ATOM;
+    return;
+  default:
+    return;
+  }
 }
 
 static bool

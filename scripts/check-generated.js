@@ -35,7 +35,7 @@ const parserBudgets = {
     SYMBOL_COUNT: 650,
     EXTERNAL_TOKEN_COUNT: 144,
     parser_bytes: 2_100_000,
-    maximum_ACTIONS_index: 3_300,
+    maximum_ACTIONS_index: 3_310,
     parse_table_storage_bytes: 160_000,
   },
   sed_ere: {
@@ -44,7 +44,7 @@ const parserBudgets = {
     SYMBOL_COUNT: 625,
     EXTERNAL_TOKEN_COUNT: 142,
     parser_bytes: 2_000_000,
-    maximum_ACTIONS_index: 3_250,
+    maximum_ACTIONS_index: 3_260,
     parse_table_storage_bytes: 150_000,
   },
 };

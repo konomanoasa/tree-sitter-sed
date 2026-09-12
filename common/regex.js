@@ -57,33 +57,30 @@ function compoundBracketExpression(
   content,
   closingExternal,
 ) {
-  const closing = seq(alias(closingExternal, marker), "]");
+  const closing = seq(
+    alias(closingExternal, marker),
+    choice("]", issueField($, "incomplete_bracket_term")),
+  );
+  const payload = repeat1(
+    choice(
+      field(contentField, content),
+      issueField($, "invalid_regular_expression_character"),
+      ...(marker === ":"
+        ? [issueField($, "invalid_character_class_name")]
+        : []),
+    ),
+  );
   return seq(
     alias(openingExternal, "["),
     marker,
     choice(
+      seq(payload, closing),
       seq(
-        repeat1(
-          choice(
-            field(contentField, content),
-            issueField($, "invalid_regular_expression_character"),
-            ...(marker === ":"
-              ? [issueField($, "invalid_character_class_name")]
-              : []),
-          ),
-        ),
+        optional(payload),
         choice(
-          closing,
           seq(issueField($, "malformed_bracket_term"), optional(closing)),
           issueField($, "incomplete_bracket_term"),
         ),
-      ),
-      seq(
-        choice(
-          issueField($, "malformed_bracket_term"),
-          issueField($, "incomplete_bracket_term"),
-        ),
-        optional(closing),
       ),
     ),
   );
