@@ -316,6 +316,20 @@ function regularExpressionEscape($) {
   );
 }
 
+function oneCharOrCollElem($, ...additional) {
+  return choice(
+    issueField($, "invalid_regular_expression_character"),
+    issueField($, "invalid_encoding"),
+    $.ordinary_character,
+    regularExpressionEscape($),
+    $.sed_newline_escape,
+    $.period,
+    $._bracket_expression,
+    issueField($, "special_delimiter_escape"),
+    ...additional,
+  );
+}
+
 function commonRegularExpressionRules() {
   return {
     dup_count: ($) => $._regex_dup_count,
@@ -432,15 +446,8 @@ function breRules() {
     backreference: ($) => $._regex_backreference,
 
     one_char_or_coll_elem_bre: ($) =>
-      choice(
-        issueField($, "invalid_regular_expression_character"),
-        issueField($, "invalid_encoding"),
-        $.ordinary_character,
-        regularExpressionEscape($),
-        $.sed_newline_escape,
-        $.period,
-        $._bracket_expression,
-        issueField($, "special_delimiter_escape"),
+      oneCharOrCollElem(
+        $,
         issueField($, "bre_vertical_line_escape"),
         issueField($, "bre_question_mark_escape"),
         issueField($, "bre_plus_escape"),
@@ -524,17 +531,7 @@ function ereRules() {
         field("operator", issueNode($, "leading_duplication_symbol")),
       ),
 
-    one_char_or_coll_elem_ere: ($) =>
-      choice(
-        issueField($, "invalid_regular_expression_character"),
-        issueField($, "invalid_encoding"),
-        $.ordinary_character,
-        regularExpressionEscape($),
-        $.sed_newline_escape,
-        $.period,
-        $._bracket_expression,
-        issueField($, "special_delimiter_escape"),
-      ),
+    one_char_or_coll_elem_ere: ($) => oneCharOrCollElem($),
 
     ere_dupl_symbol: ($) =>
       seq(

@@ -2339,6 +2339,129 @@ scan_right_brace(TSLexer *lexer, const bool *valid_symbols, TSSymbol *symbol) {
   return false;
 }
 
+static bool scan_command_recovery(
+  TSLexer *lexer,
+  const bool *valid_symbols,
+  TSSymbol *symbol
+) {
+  if (
+    lexer->lookahead ==
+    ',' &&
+    emit_marker(lexer, valid_symbols, OMITTED_FIRST_ADDRESS_MARKER, symbol)
+  ) {
+    return true;
+  }
+
+  if (
+    (valid_symbols[OMITTED_ADDRESS_MARKER] ||
+      valid_symbols[INCOMPLETE_OMITTED_ADDRESS_MARKER]) &&
+    !can_start_address(lexer) &&
+    !is_blank(lexer->lookahead)
+  ) {
+    return emit_marker(
+      lexer,
+      valid_symbols,
+      lexer->eof(lexer) ? INCOMPLETE_OMITTED_ADDRESS_MARKER
+                        : OMITTED_ADDRESS_MARKER,
+      symbol
+    );
+  }
+
+  if (is_blank(lexer->lookahead)) {
+    switch (scan_post_blank_recovery(lexer, valid_symbols, symbol)) {
+    case POST_BLANK_RECOVERY_TOKEN:
+      return true;
+    case POST_BLANK_RECOVERY_FAILED:
+      return scan_unexpected_command_text(lexer, valid_symbols, symbol, true);
+    case POST_BLANK_RECOVERY_SKIPPED:
+      break;
+    }
+  }
+
+  if (
+    !at_command_boundary(lexer) &&
+    !is_blank(lexer->lookahead) &&
+    emit_marker(lexer, valid_symbols, OMITTED_FILE_SEPARATOR_MARKER, symbol)
+  ) {
+    return true;
+  }
+
+  if (at_command_boundary(lexer)) {
+    static const TSSymbol boundary_markers[][2] = {
+      {MISSING_FUNCTION_MARKER, NONCONFORMING_MISSING_FUNCTION_MARKER},
+      {MISSING_LABEL_MARKER, NONCONFORMING_MISSING_LABEL_MARKER},
+      {MISSING_RFILE_MARKER, NONCONFORMING_MISSING_RFILE_MARKER},
+      {MISSING_WFILE_MARKER, NONCONFORMING_MISSING_WFILE_MARKER},
+    };
+    const unsigned variant = lexer->eof(lexer) ? 0 : 1;
+    for (
+      unsigned index = 0;
+      index < sizeof(boundary_markers) / sizeof(boundary_markers[0]);
+      index++
+    ) {
+      if (
+        emit_marker(
+          lexer,
+          valid_symbols,
+          boundary_markers[index][variant],
+          symbol
+        )
+      ) {
+        return true;
+      }
+    }
+  }
+
+  if (
+    emit_marker(
+      lexer,
+      valid_symbols,
+      missing_text_introducer_symbol(lexer),
+      symbol
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    lexer->eof(lexer) &&
+    emit_marker(lexer, valid_symbols, MISSING_CLOSING_BRACE_MARKER, symbol)
+  ) {
+    return true;
+  }
+
+  if (
+    !at_command_boundary(lexer) &&
+    !is_blank(lexer->lookahead) &&
+    emit_marker(
+      lexer,
+      valid_symbols,
+      MISSING_SEPARATOR_AFTER_UNMATCHED_BRACE_MARKER,
+      symbol
+    )
+  ) {
+    return true;
+  }
+
+  const TSSymbol separator_marker =
+    missing_command_separator_marker(lexer, valid_symbols);
+  if (separator_marker != ERROR_SENTINEL) {
+    return emit_marker(lexer, valid_symbols, separator_marker, symbol);
+  }
+
+  const TSSymbol missing_opening_delimiter = lexer->eof(lexer)
+    ? MISSING_OPENING_DELIMITER_MARKER
+    : NONCONFORMING_MISSING_OPENING_DELIMITER_MARKER;
+  if (
+    delimiter_is_missing(lexer) &&
+    emit_marker(lexer, valid_symbols, missing_opening_delimiter, symbol)
+  ) {
+    return true;
+  }
+
+  return scan_unexpected_command_text(lexer, valid_symbols, symbol, false);
+}
+
 static bool scan_command_token(
   TSLexer *lexer,
   ScannerState *state,
@@ -2512,122 +2635,7 @@ static bool scan_command_token(
     return scan_right_brace(lexer, valid_symbols, symbol);
   }
 
-  if (
-    lexer->lookahead ==
-    ',' &&
-    emit_marker(lexer, valid_symbols, OMITTED_FIRST_ADDRESS_MARKER, symbol)
-  ) {
-    return true;
-  }
-
-  if (
-    (valid_symbols[OMITTED_ADDRESS_MARKER] ||
-      valid_symbols[INCOMPLETE_OMITTED_ADDRESS_MARKER]) &&
-    !can_start_address(lexer) &&
-    !is_blank(lexer->lookahead)
-  ) {
-    return emit_marker(
-      lexer,
-      valid_symbols,
-      lexer->eof(lexer) ? INCOMPLETE_OMITTED_ADDRESS_MARKER
-                        : OMITTED_ADDRESS_MARKER,
-      symbol
-    );
-  }
-
-  if (is_blank(lexer->lookahead)) {
-    switch (scan_post_blank_recovery(lexer, valid_symbols, symbol)) {
-    case POST_BLANK_RECOVERY_TOKEN:
-      return true;
-    case POST_BLANK_RECOVERY_FAILED:
-      return scan_unexpected_command_text(lexer, valid_symbols, symbol, true);
-    case POST_BLANK_RECOVERY_SKIPPED:
-      break;
-    }
-  }
-
-  if (
-    !at_command_boundary(lexer) &&
-    !is_blank(lexer->lookahead) &&
-    emit_marker(lexer, valid_symbols, OMITTED_FILE_SEPARATOR_MARKER, symbol)
-  ) {
-    return true;
-  }
-
-  if (at_command_boundary(lexer)) {
-    static const TSSymbol boundary_markers[][2] = {
-      {MISSING_FUNCTION_MARKER, NONCONFORMING_MISSING_FUNCTION_MARKER},
-      {MISSING_LABEL_MARKER, NONCONFORMING_MISSING_LABEL_MARKER},
-      {MISSING_RFILE_MARKER, NONCONFORMING_MISSING_RFILE_MARKER},
-      {MISSING_WFILE_MARKER, NONCONFORMING_MISSING_WFILE_MARKER},
-    };
-    const unsigned variant = lexer->eof(lexer) ? 0 : 1;
-    for (
-      unsigned index = 0;
-      index < sizeof(boundary_markers) / sizeof(boundary_markers[0]);
-      index++
-    ) {
-      if (
-        emit_marker(
-          lexer,
-          valid_symbols,
-          boundary_markers[index][variant],
-          symbol
-        )
-      ) {
-        return true;
-      }
-    }
-  }
-
-  if (
-    emit_marker(
-      lexer,
-      valid_symbols,
-      missing_text_introducer_symbol(lexer),
-      symbol
-    )
-  ) {
-    return true;
-  }
-
-  if (
-    lexer->eof(lexer) &&
-    emit_marker(lexer, valid_symbols, MISSING_CLOSING_BRACE_MARKER, symbol)
-  ) {
-    return true;
-  }
-
-  if (
-    !at_command_boundary(lexer) &&
-    !is_blank(lexer->lookahead) &&
-    emit_marker(
-      lexer,
-      valid_symbols,
-      MISSING_SEPARATOR_AFTER_UNMATCHED_BRACE_MARKER,
-      symbol
-    )
-  ) {
-    return true;
-  }
-
-  const TSSymbol separator_marker =
-    missing_command_separator_marker(lexer, valid_symbols);
-  if (separator_marker != ERROR_SENTINEL) {
-    return emit_marker(lexer, valid_symbols, separator_marker, symbol);
-  }
-
-  const TSSymbol missing_opening_delimiter = lexer->eof(lexer)
-    ? MISSING_OPENING_DELIMITER_MARKER
-    : NONCONFORMING_MISSING_OPENING_DELIMITER_MARKER;
-  if (
-    delimiter_is_missing(lexer) &&
-    emit_marker(lexer, valid_symbols, missing_opening_delimiter, symbol)
-  ) {
-    return true;
-  }
-
-  return scan_unexpected_command_text(lexer, valid_symbols, symbol, false);
+  return scan_command_recovery(lexer, valid_symbols, symbol);
 }
 
 static bool sed_scanner_scan_impl(

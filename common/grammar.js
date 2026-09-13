@@ -935,6 +935,25 @@ function sedRules(mode) {
   };
 }
 
+const missingCommandDefinitions = [
+  { reason: "missing_function", atBoundary: true },
+  { reason: "missing_label", atBoundary: true },
+  { reason: "missing_rfile", atBoundary: true },
+  { reason: "missing_wfile", atBoundary: true },
+  { reason: "missing_text_introducer", atBoundary: true },
+  {
+    reason: "incomplete_text_introducer",
+    rule: ($) => $._text_incomplete_introducer,
+  },
+  { reason: "missing_text" },
+  { reason: "missing_closing_brace" },
+  { reason: "missing_opening_delimiter", atBoundary: true },
+];
+
+const boundaryMissingReasons = missingCommandDefinitions
+  .filter(({ atBoundary }) => atBoundary)
+  .map(({ reason }) => reason);
+
 function missingMarkerNames(mode) {
   return [
     "omitted_address",
@@ -956,12 +975,7 @@ function missingMarkerNames(mode) {
     "missing_opening_delimiter",
     "missing_separator_before_unmatched_brace",
     "missing_separator_after_unmatched_brace",
-    "nonconforming_missing_function",
-    "nonconforming_missing_label",
-    "nonconforming_missing_rfile",
-    "nonconforming_missing_wfile",
-    "nonconforming_missing_text_introducer",
-    "nonconforming_missing_opening_delimiter",
+    ...boundaryMissingReasons.map((reason) => `nonconforming_${reason}`),
     "missing_subexpression_placeholder",
     "incomplete_bracket_list",
     "incomplete_bracket_expression",
@@ -974,15 +988,6 @@ function issueDefinitions(mode) {
   function missing(reason) {
     return ($) => $[`_${reason}_marker`];
   }
-
-  const boundaryMissingReasons = [
-    "missing_function",
-    "missing_label",
-    "missing_rfile",
-    "missing_wfile",
-    "missing_text_introducer",
-    "missing_opening_delimiter",
-  ];
 
   return [
     {
@@ -1403,51 +1408,11 @@ function issueDefinitions(mode) {
       outcome: "nonconforming_syntax",
       rule: missing(`nonconforming_${reason}`),
     })),
-    {
-      reason: "missing_function",
+    ...missingCommandDefinitions.map(({ reason, rule }) => ({
+      reason,
       outcome: "incomplete_syntax",
-      rule: missing("missing_function"),
-    },
-    {
-      reason: "missing_label",
-      outcome: "incomplete_syntax",
-      rule: missing("missing_label"),
-    },
-    {
-      reason: "missing_rfile",
-      outcome: "incomplete_syntax",
-      rule: missing("missing_rfile"),
-    },
-    {
-      reason: "missing_wfile",
-      outcome: "incomplete_syntax",
-      rule: missing("missing_wfile"),
-    },
-    {
-      reason: "missing_text_introducer",
-      outcome: "incomplete_syntax",
-      rule: missing("missing_text_introducer"),
-    },
-    {
-      reason: "incomplete_text_introducer",
-      outcome: "incomplete_syntax",
-      rule: ($) => $._text_incomplete_introducer,
-    },
-    {
-      reason: "missing_text",
-      outcome: "incomplete_syntax",
-      rule: missing("missing_text"),
-    },
-    {
-      reason: "missing_closing_brace",
-      outcome: "incomplete_syntax",
-      rule: missing("missing_closing_brace"),
-    },
-    {
-      reason: "missing_opening_delimiter",
-      outcome: "incomplete_syntax",
-      rule: missing("missing_opening_delimiter"),
-    },
+      rule: rule ?? missing(reason),
+    })),
     {
       reason: "missing_subexpression",
       outcome: "incomplete_syntax",
