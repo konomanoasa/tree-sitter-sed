@@ -10,8 +10,9 @@ fn compile_parser(
   let mut c_config = cc::Build::new();
   c_config.std("c17").include(source_dir);
 
-  #[cfg(target_env = "msvc")]
-  c_config.flag("-utf-8");
+  if c_config.get_compiler().is_like_msvc() {
+    c_config.flag("-utf-8");
+  }
 
   if let Some(headers) = wasm_headers {
     c_config.include(headers);

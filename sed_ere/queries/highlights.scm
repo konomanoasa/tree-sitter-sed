@@ -42,7 +42,7 @@
   (text_escaped_newline)
 ] @punctuation.special
 
-(label) @label
+(label_literal) @label
 
 (last_line_address) @constant.builtin
 
@@ -57,10 +57,7 @@
   (replacement_backreference)
 ] @string.special.symbol
 
-[
-  (rfile)
-  (wfile)
-] @string.special.path
+(file_literal) @string.special.path
 
 [
   (close_brace)

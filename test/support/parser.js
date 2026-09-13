@@ -122,14 +122,14 @@ function readCst(tree, source) {
   const nodes = [];
   const ancestors = [];
   for (const line of tree.split("\n")) {
-    const row = /^([0-9]+):([0-9]+) +- +([0-9]+):([0-9]+)( +)(.*)$/.exec(line);
+    const row = /^([0-9]+):([0-9]+) +- +([0-9]+):([0-9]+) +/.exec(line);
     if (row === null) continue;
     const match =
       /^(([a-z_][a-z_0-9]*): )?([a-z_][a-z_0-9]*|ERROR|MISSING|"[^"]+")/.exec(
-        row[6],
+        line.slice(row[0].length),
       );
     if (match === null) continue;
-    const indentation = line.length - row[6].length;
+    const indentation = row[0].length;
     while (ancestors.length && ancestors.at(-1).indentation >= indentation) {
       ancestors.pop();
     }

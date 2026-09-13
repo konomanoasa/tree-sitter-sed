@@ -426,27 +426,86 @@ mod tests {
     {
       let mut parser = tree_sitter::Parser::new();
       parser.set_language(&language.into()).unwrap();
-      for (name, source, start, row, column, normal_kind, allow_replacement) in [
+      for (name, source, start, row, column, normal_nodes, allow_replacement) in [
         (
           "initial comment text",
           &b"#xn\np\n"[..],
           1,
           0,
           1,
-          "comment_text",
+          ("comment_text", None),
           true,
         ),
-        ("label", &b": axb\np\n"[..], 3, 0, 3, "label", true),
-        ("rfile", &b"r axb\np\n"[..], 3, 0, 3, "rfile", true),
-        ("wfile", &b"w axb\np\n"[..], 3, 0, 3, "wfile", true),
-        ("text", &b"a\\\naxb\np\n"[..], 4, 1, 1, "text_literal", true),
+        (
+          "label definition",
+          &b":axb\np\n"[..],
+          2,
+          0,
+          2,
+          ("label_literal", Some("label")),
+          true,
+        ),
+        (
+          "branch label",
+          &b"b axb\np\n"[..],
+          3,
+          0,
+          3,
+          ("label_literal", Some("label")),
+          true,
+        ),
+        (
+          "test label",
+          &b"t axb\np\n"[..],
+          3,
+          0,
+          3,
+          ("label_literal", Some("label")),
+          true,
+        ),
+        (
+          "rfile",
+          &b"r axb\np\n"[..],
+          3,
+          0,
+          3,
+          ("file_literal", Some("rfile")),
+          true,
+        ),
+        (
+          "wfile",
+          &b"w axb\np\n"[..],
+          3,
+          0,
+          3,
+          ("file_literal", Some("wfile")),
+          true,
+        ),
+        (
+          "substitution wfile",
+          &b"s/a/b/w axb\np\n"[..],
+          9,
+          0,
+          9,
+          ("file_literal", Some("wfile")),
+          true,
+        ),
+        (
+          "text",
+          &b"a\\\naxb\np\n"[..],
+          4,
+          1,
+          1,
+          ("text_literal", None),
+          true,
+        ),
         (
           "replacement",
           &b"s/a/axb/\np\n"[..],
           5,
           0,
           5,
-          "replacement_literal",
+          ("replacement_literal", None),
           true,
         ),
         (
@@ -455,7 +514,7 @@ mod tests {
           3,
           0,
           3,
-          "translation_literal",
+          ("translation_literal", None),
           true,
         ),
         (
@@ -464,7 +523,7 @@ mod tests {
           7,
           0,
           7,
-          "translation_literal",
+          ("translation_literal", None),
           true,
         ),
         (
@@ -473,7 +532,7 @@ mod tests {
           5,
           1,
           2,
-          "text_backslash_escape",
+          ("text_backslash_escape", None),
           false,
         ),
         (
@@ -482,7 +541,7 @@ mod tests {
           6,
           0,
           6,
-          "replacement_escape",
+          ("replacement_escape", None),
           false,
         ),
         (
@@ -491,7 +550,7 @@ mod tests {
           4,
           0,
           4,
-          "translation_escape",
+          ("translation_escape", None),
           false,
         ),
         (
@@ -500,7 +559,7 @@ mod tests {
           8,
           0,
           8,
-          "translation_escape",
+          ("translation_escape", None),
           false,
         ),
         (
@@ -509,7 +568,7 @@ mod tests {
           2,
           0,
           2,
-          "ordinary_character",
+          ("ordinary_character", None),
           true,
         ),
         (
@@ -518,7 +577,7 @@ mod tests {
           3,
           0,
           3,
-          "collating_element",
+          ("collating_element", None),
           true,
         ),
         (
@@ -527,7 +586,7 @@ mod tests {
           5,
           0,
           5,
-          "coll_elem_multi",
+          ("coll_elem_multi", None),
           true,
         ),
         (
@@ -536,7 +595,7 @@ mod tests {
           5,
           0,
           5,
-          "coll_elem_multi",
+          ("coll_elem_multi", None),
           true,
         ),
         (
@@ -545,16 +604,25 @@ mod tests {
           5,
           0,
           5,
-          "class_name",
+          ("class_name", None),
           false,
         ),
       ] {
-        for invalid in [&b"\xff"[..], &b"\xff\xfe"[..]] {
+        let (normal_kind, owner_kind) = normal_nodes;
+        let mut invalid_inputs = vec![&b"\xff"[..], &b"\xff\xfe"[..]];
+        if owner_kind.is_some() {
+          invalid_inputs.extend([&b"\0"[..], &b"\xff\0\xfe"[..]]);
+        }
+        for invalid in invalid_inputs {
           let mut tree = parser.parse(source, None).unwrap();
           assert!(!tree.root_node().has_error(), "{mode}, {name}");
           assert!(issue_signatures(&tree).is_empty(), "{mode}, {name}");
           let mut old_length = 1;
-          let mut replacements = vec![invalid, &source[start..start + 1]];
+          let mut replacements = vec![invalid];
+          if owner_kind.is_some() {
+            replacements.push(&b""[..]);
+          }
+          replacements.push(&source[start..start + 1]);
           if allow_replacement {
             replacements.push("\u{fffd}".as_bytes());
           }
@@ -585,23 +653,83 @@ mod tests {
             };
             let expected: Vec<_> = ranges
               .iter()
-              .map(|range| {
-                (
-                  "invalid_syntax".to_owned(),
-                  "invalid_encoding".to_owned(),
-                  *range,
-                )
+              .zip(invalid)
+              .map(|(range, byte)| {
+                let (outcome, reason) = if *byte == 0 {
+                  ("nonconforming_syntax", "nul_character")
+                } else {
+                  ("invalid_syntax", "invalid_encoding")
+                };
+                (outcome.to_owned(), reason.to_owned(), *range)
               })
+              .collect();
+            let encoding_ranges: Vec<_> = expected
+              .iter()
+              .filter(|(_, reason, _)| reason == "invalid_encoding")
+              .map(|(_, _, range)| *range)
               .collect();
             let context =
               format!("{mode}, {name}, invalid {invalid:?}, step {step}");
             for parsed in [&fresh, &incremental] {
               assert!(!parsed.root_node().has_error(), "{context}");
               assert_eq!(issue_signatures(parsed), expected, "{context}");
-              assert_invalid_encoding_leaves(parsed, &ranges, &context);
+              assert_invalid_encoding_leaves(
+                parsed,
+                &encoding_ranges,
+                &context,
+              );
               let mut nodes = vec![parsed.root_node()];
               let mut repaired_leaf = false;
+              let mut owners = 0;
               while let Some(node) = nodes.pop() {
+                if Some(node.kind()) == owner_kind {
+                  owners += 1;
+                  let owner_range = Range {
+                    start_byte: start - 1,
+                    end_byte: start + replacement.len() + 1,
+                    start_point: Point::new(row, column - 1),
+                    end_point: Point::new(row, column + replacement.len() + 1),
+                  };
+                  assert_eq!(node.range(), owner_range, "{context}");
+                  let expected_children = if step == 0 {
+                    let mut children = vec![(
+                      normal_kind,
+                      Range {
+                        end_byte: start,
+                        end_point: Point::new(row, column),
+                        ..owner_range
+                      },
+                    )];
+                    children.extend(
+                      ranges.iter().map(|range| ("syntax_issue", *range)),
+                    );
+                    children.push((
+                      normal_kind,
+                      Range {
+                        start_byte: start + replacement.len(),
+                        start_point: Point::new(
+                          row,
+                          column + replacement.len(),
+                        ),
+                        ..owner_range
+                      },
+                    ));
+                    children
+                  } else {
+                    vec![(normal_kind, owner_range)]
+                  };
+                  let children: Vec<_> = (0..node.child_count())
+                    .map(|index| {
+                      let child = node.child(index).unwrap();
+                      assert!(child.is_named(), "{context}");
+                      if child.kind() == normal_kind {
+                        assert_eq!(child.child_count(), 0, "{context}");
+                      }
+                      (child.kind(), child.range())
+                    })
+                    .collect();
+                  assert_eq!(children, expected_children, "{context}");
+                }
                 if name == "initial comment text" {
                   assert_ne!(
                     node.kind(),
@@ -623,6 +751,9 @@ mod tests {
               }
               if step > 0 {
                 assert!(repaired_leaf, "{context}: normal leaf must return");
+              }
+              if owner_kind.is_some() {
+                assert_eq!(owners, 1, "{context}: operand must have one owner");
               }
             }
             assert_eq!(

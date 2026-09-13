@@ -1,6 +1,7 @@
 ==================
 exposes a test function and its label
 :language(sed)
+:language(sed_ere)
 ==================
 t target
 
@@ -13,12 +14,14 @@ t target
         (test_function
           (function_verb)
           (argument_separator)
-          (label))))
+          (label
+            (label_literal)))))
     (command_separator)))
 
 ==================
 exposes a label declaration
 :language(sed)
+:language(sed_ere)
 ==================
 :loop
 
@@ -30,12 +33,14 @@ exposes a label declaration
       (function
         (label_function
           (function_verb)
-          (label))))
+          (label
+            (label_literal)))))
     (command_separator)))
 
 ==================
 exposes a branch function and its label
 :language(sed)
+:language(sed_ere)
 ==================
 b loop
 
@@ -48,12 +53,14 @@ b loop
         (branch_function
           (function_verb)
           (argument_separator)
-          (label))))
+          (label
+            (label_literal)))))
     (command_separator)))
 
 ==================
 keeps a closing brace at the start of a branch label
 :language(sed)
+:language(sed_ere)
 ==================
 b }x
 
@@ -66,12 +73,14 @@ b }x
         (branch_function
           (function_verb)
           (argument_separator)
-          (label))))
+          (label
+            (label_literal)))))
     (command_separator)))
 
 ==================
 keeps a closing brace as a test label
 :language(sed)
+:language(sed_ere)
 ==================
 t }
 
@@ -84,12 +93,14 @@ t }
         (test_function
           (function_verb)
           (argument_separator)
-          (label))))
+          (label
+            (label_literal)))))
     (command_separator)))
 
 ==================
 keeps a closing brace as a branch label inside a block
 :language(sed)
+:language(sed_ere)
 ==================
 {b }
 }
@@ -108,7 +119,8 @@ keeps a closing brace as a branch label inside a block
                 (branch_function
                   (function_verb)
                   (argument_separator)
-                  (label))))
+                  (label
+                    (label_literal)))))
             (command_separator))
           (closing_brace))))
     (command_separator)))
@@ -116,6 +128,7 @@ keeps a closing brace as a branch label inside a block
 ==================
 owns a forbidden semicolon inside a branch command issue
 :language(sed)
+:language(sed_ere)
 ==================
 b;p
 
@@ -140,6 +153,7 @@ b;p
 ==================
 classifies a missing label at a newline
 :language(sed)
+:language(sed_ere)
 ==================
 :
 

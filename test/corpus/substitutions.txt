@@ -34,7 +34,8 @@ s|a|x&\0\1\||gipw output
             (print_flag)
             (write_flag
               (substitution_flag)
-              (wfile))))))
+              (wfile
+                (file_literal)))))))
     (command_separator)))
 
 ==================
@@ -123,7 +124,8 @@ s///wpigw2 file
               (global_flag)
               (substitution_flag)
               (occurrence_flag)
-              (wfile))))))
+              (wfile
+                (file_literal)))))))
     (command_separator)))
 
 ==================
@@ -147,7 +149,8 @@ s///w pig file
           (substitution_flags
             (write_flag
               (substitution_flag)
-              (wfile))))))
+              (wfile
+                (file_literal)))))))
     (command_separator)))
 
 ==================
@@ -210,7 +213,8 @@ s/a/b/w file;p
           (substitution_flags
             (write_flag
               (substitution_flag)
-              (wfile))))))
+              (wfile
+                (file_literal)))))))
     (command_separator)
     (editing_command
       (function
@@ -247,7 +251,8 @@ s/a/b/w file;
           (substitution_flags
             (write_flag
               (substitution_flag)
-              (wfile))))))
+              (wfile
+                (file_literal)))))))
     (command_separator)
     (empty_command)
     (command_separator)))

@@ -159,10 +159,7 @@ function checkExternalTokenOrder(clang, compilerArguments, variant, directory) {
     `typedef char external_count[(${variant.externalCount}) == ${grammar.externals.length} ? 1 : -1];`,
   );
   const source = join(directory, `scanner-indices-${variant.name}.c`);
-  writeFileSync(
-    source,
-    `#include ${JSON.stringify(variant.source.replaceAll("\\", "/"))}\n${assertions.join("\n")}\n`,
-  );
+  writeFileSync(source, `#include "scanner.c"\n${assertions.join("\n")}\n`);
   run(clang, [...compilerArguments, "-fsyntax-only", source]);
 }
 

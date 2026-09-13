@@ -32,13 +32,13 @@ function lineOperand($, first, rest) {
   return prec.right(
     seq(
       choice(
-        first,
+        namedExternal($, first, "file_literal"),
         issueField($, "nul_character"),
         issueField($, "invalid_encoding"),
       ),
       repeat(
         choice(
-          rest,
+          namedExternal($, rest, "file_literal"),
           issueField($, "nul_character"),
           issueField($, "invalid_encoding"),
         ),
@@ -718,7 +718,7 @@ function functionRules() {
       prec.right(
         repeat1(
           choice(
-            $._line_word,
+            namedExternal($, $._line_word, "label_literal"),
             issueField($, "nul_character"),
             issueField($, "invalid_encoding"),
           ),
@@ -746,7 +746,7 @@ function functionRules() {
         field("closing", $.closing_brace),
         issueField($, "missing_closing_brace"),
       ),
-      optional($._blanks),
+      optional($._block_trailing_blanks),
     ],
     text: ($) => [
       choice(
@@ -1651,6 +1651,7 @@ function externalTokens($, mode) {
     $._line_word,
     $._argument_separator,
     $._right_brace,
+    $._block_trailing_blanks,
     $._empty_command_marker,
     $._reserved_unknown_function_token,
     $._regex_incomplete_group,

@@ -748,11 +748,6 @@ test("sed: fixed-seed generated histories converge", (context) => {
 
 for (const grammar of grammars) {
   test(`${grammar.name}: every byte inside a Unicode payload can be deleted and repaired through an edit history`, () => {
-    const prefix = "s/a/";
-    const suffix = "/p\np\n";
-    const source = "s/a/é😀/p\np\n";
-    const changed = "s/a/x/p\np\n";
-    const payloadByte = 4;
     const brokenPayloads = [
       [0xa9, 0xf0, 0x9f, 0x98, 0x80],
       [0xc3, 0xf0, 0x9f, 0x98, 0x80],
@@ -761,54 +756,76 @@ for (const grammar of grammars) {
       [0xc3, 0xa9, 0xf0, 0x9f, 0x80],
       [0xc3, 0xa9, 0xf0, 0x9f, 0x98],
     ];
-    for (const [removedByte, brokenPayload] of brokenPayloads.entries()) {
-      const edits = [
-        { byte: payloadByte + removedByte, deleteBytes: 1, insert: "" },
-        { byte: payloadByte, deleteBytes: 5, insert: "é😀" },
-        { byte: payloadByte, deleteBytes: 6, insert: "x" },
-        { byte: payloadByte, deleteBytes: 1, insert: "é😀" },
-      ];
-      const expected = [
-        Buffer.concat([
-          Buffer.from(prefix),
-          Buffer.from(brokenPayload),
-          Buffer.from(suffix),
-        ]),
-        Buffer.from(source),
-        Buffer.from(changed),
-        Buffer.from(source),
-      ];
-      for (const [step, expectedSource] of expected.entries()) {
-        const history = edits.slice(0, step + 1);
-        const label = `UTF-8 byte ${removedByte}, edit ${step + 1}`;
-        assert.deepEqual(applyEdits(source, history), expectedSource, label);
-        const fresh = parse(grammar.scope, expectedSource);
-        const incremental = parse(grammar.scope, source, history);
-        assertIncrementalContract(fresh, incremental, label);
-        for (const result of [fresh, incremental]) {
-          const issues = issueSignatures(result.nodes);
-          if (step === 0) {
-            assert.ok(issues.length > 0, label);
-            for (const issue of issues) {
-              assert.equal(issue.outcome, "invalid_syntax", label);
-              assert.equal(issue.reason, "invalid_encoding", label);
+    for (const [source, changed, payloadByte, owner, literal, suffix] of [
+      [
+        "s/a/é😀/p\np\n",
+        "s/a/x/p\np\n",
+        4,
+        "replacement",
+        "replacement_literal",
+        "/p\np\n",
+      ],
+      [":é😀\np\n", ":x\np\n", 1, "label", "label_literal", "\np\n"],
+      ["b é😀\np\n", "b x\np\n", 2, "label", "label_literal", "\np\n"],
+      ["t é😀\np\n", "t x\np\n", 2, "label", "label_literal", "\np\n"],
+      ["r é😀\np\n", "r x\np\n", 2, "rfile", "file_literal", "\np\n"],
+      ["w é😀\np\n", "w x\np\n", 2, "wfile", "file_literal", "\np\n"],
+      [
+        "s/a/b/w é😀\np\n",
+        "s/a/b/w x\np\n",
+        8,
+        "wfile",
+        "file_literal",
+        "\np\n",
+      ],
+    ]) {
+      const prefix = Buffer.from(source).subarray(0, payloadByte);
+      for (const [removedByte, brokenPayload] of brokenPayloads.entries()) {
+        const edits = [
+          { byte: payloadByte + removedByte, deleteBytes: 1, insert: "" },
+          { byte: payloadByte, deleteBytes: 5, insert: "é😀" },
+          { byte: payloadByte, deleteBytes: 6, insert: "x" },
+          { byte: payloadByte, deleteBytes: 1, insert: "é😀" },
+        ];
+        const expected = [
+          Buffer.concat([
+            Buffer.from(prefix),
+            Buffer.from(brokenPayload),
+            Buffer.from(suffix),
+          ]),
+          Buffer.from(source),
+          Buffer.from(changed),
+          Buffer.from(source),
+        ];
+        for (const [step, expectedSource] of expected.entries()) {
+          const history = edits.slice(0, step + 1);
+          const label = `${JSON.stringify(source)}: UTF-8 byte ${removedByte}, edit ${step + 1}`;
+          assert.deepEqual(applyEdits(source, history), expectedSource, label);
+          const fresh = parse(grammar.scope, expectedSource);
+          const incremental = parse(grammar.scope, source, history);
+          assertIncrementalContract(fresh, incremental, label);
+          for (const result of [fresh, incremental]) {
+            const issues = issueSignatures(result.nodes);
+            if (step === 0) {
+              assert.ok(issues.length > 0, label);
+              for (const issue of issues) {
+                assert.equal(issue.outcome, "invalid_syntax", label);
+                assert.equal(issue.reason, "invalid_encoding", label);
+              }
+              continue;
             }
-            continue;
+            assert.equal(result.status, 0, label);
+            assertNoNodes(result.nodes, "syntax_issue", "ERROR", "MISSING");
+            const end = payloadByte + (step === 2 ? 1 : 6);
+            assert.deepEqual(
+              syntaxSignatures(result.nodes, [owner, literal]),
+              [
+                `${owner}: ${owner} [0, ${payloadByte}] - [0, ${end}]`,
+                `  ${literal} [0, ${payloadByte}] - [0, ${end}]`,
+              ],
+              label,
+            );
           }
-          assert.equal(result.status, 0, label);
-          assertNoNodes(result.nodes, "syntax_issue", "ERROR", "MISSING");
-          const end = step === 2 ? 5 : 10;
-          assert.deepEqual(
-            syntaxSignatures(result.nodes, [
-              "replacement",
-              "replacement_literal",
-            ]),
-            [
-              `replacement: replacement [0, 4] - [0, ${end}]`,
-              `  replacement_literal [0, 4] - [0, ${end}]`,
-            ],
-            label,
-          );
         }
       }
     }

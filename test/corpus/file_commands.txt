@@ -1,6 +1,7 @@
 ==================
 exposes a write function and its file operand
 :language(sed)
+:language(sed_ere)
 ==================
 w output
 
@@ -12,12 +13,14 @@ w output
       (function
         (write_function
           (function_verb)
-          (wfile))))
+          (wfile
+            (file_literal)))))
     (command_separator)))
 
 ==================
 keeps blanks inside a read function file operand
 :language(sed)
+:language(sed_ere)
 ==================
 r input file
 
@@ -29,12 +32,14 @@ r input file
       (function
         (read_function
           (function_verb)
-          (rfile))))
+          (rfile
+            (file_literal)))))
     (command_separator)))
 
 ==================
 keeps a semicolon inside a write function file operand
 :language(sed)
+:language(sed_ere)
 ==================
 w file;p
 
@@ -46,12 +51,14 @@ w file;p
       (function
         (write_function
           (function_verb)
-          (wfile))))
+          (wfile
+            (file_literal)))))
     (command_separator)))
 
 ==================
 rejects an omitted file separator without flattening the read function
 :language(sed)
+:language(sed_ere)
 ==================
 rfile
 
@@ -66,12 +73,14 @@ rfile
           (syntax_issue
             (nonconforming_syntax
               (omitted_file_separator)))
-          (rfile))))
+          (rfile
+            (file_literal)))))
     (command_separator)))
 
 ==================
 classifies a missing read file operand at a newline
 :language(sed)
+:language(sed_ere)
 ==================
 r
 
@@ -91,6 +100,7 @@ r
 ==================
 classifies a missing write file operand at a newline
 :language(sed)
+:language(sed_ere)
 ==================
 w
 

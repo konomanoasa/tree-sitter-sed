@@ -189,6 +189,122 @@ after(() => {
   }
 });
 
+const lineOperandContexts = [
+  {
+    name: "branch label",
+    prefix: "b ",
+    capture: "label",
+    prefixCaptures: [[0, 1, "keyword"]],
+  },
+  {
+    name: "test label",
+    prefix: "t ",
+    capture: "label",
+    prefixCaptures: [[0, 1, "keyword"]],
+  },
+  {
+    name: "label declaration",
+    prefix: ":",
+    capture: "label",
+    prefixCaptures: [[0, 1, "keyword"]],
+  },
+  {
+    name: "read file",
+    prefix: "r ",
+    capture: "string.special.path",
+    prefixCaptures: [[0, 1, "keyword"]],
+  },
+  {
+    name: "write file",
+    prefix: "w ",
+    capture: "string.special.path",
+    prefixCaptures: [[0, 1, "keyword"]],
+  },
+  {
+    name: "substitution write file",
+    prefix: "s/a/b/w ",
+    capture: "string.special.path",
+    prefixCaptures: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 3, "string.regexp"],
+      [3, 4, "punctuation.delimiter"],
+      [4, 5, "string"],
+      [5, 6, "punctuation.delimiter"],
+      [6, 7, "keyword.modifier"],
+    ],
+  },
+];
+
+const lineOperandFragments = [
+  {
+    name: "middle issue",
+    nulSource: "a\u0000b",
+    invalidSource: [97, 255, 98],
+    ranges: [
+      [0, 1],
+      [2, 3],
+    ],
+  },
+  {
+    name: "leading issue",
+    nulSource: "\u0000ab",
+    invalidSource: [255, 97, 98],
+    ranges: [[1, 3]],
+  },
+  {
+    name: "trailing issue",
+    nulSource: "ab\u0000",
+    invalidSource: [97, 98, 255],
+    ranges: [[0, 2]],
+  },
+  {
+    name: "consecutive issues",
+    nulSource: "a\u0000\u0000b",
+    invalidSource: [97, 255, 255, 98],
+    ranges: [
+      [0, 1],
+      [3, 4],
+    ],
+  },
+  {
+    name: "separated issues",
+    nulSource: "a\u0000b\u0000c",
+    invalidSource: [97, 255, 98, 255, 99],
+    ranges: [
+      [0, 1],
+      [2, 3],
+      [4, 5],
+    ],
+  },
+  {
+    name: "only issues",
+    nulSource: "\u0000\u0000",
+    invalidSource: [255, 255],
+    ranges: [],
+  },
+  {
+    name: "whitespace beside an issue",
+    nulSource: "a \u0000\t b",
+    invalidSource: [97, 32, 255, 9, 32, 98],
+    ranges: [
+      [0, 2],
+      [3, 6],
+    ],
+  },
+  {
+    name: "Unicode and literal replacement characters beside an issue",
+    nulSource: "é\ufffd\u0000\ufffd😀",
+    invalidSource: [
+      195, 169, 239, 191, 189, 255, 239, 191, 189, 240, 159, 152, 128,
+    ],
+    ranges: [
+      [0, 5],
+      [6, 13],
+    ],
+  },
+];
+
 // HTML replaces malformed UTF-8, so these cases inspect original byte ranges.
 const invalidEncodingCases = [
   {
@@ -252,6 +368,31 @@ const invalidEncodingCases = [
     capture: "string.escape",
     ranges: [],
   },
+  ...lineOperandContexts.flatMap((context) =>
+    lineOperandFragments.map((fragment) => ({
+      name: `${context.name}: invalid encoding: ${fragment.name}`,
+      source: Buffer.concat([
+        Buffer.from(context.prefix),
+        Buffer.from(fragment.invalidSource),
+        Buffer.from("\n"),
+      ]),
+      capture: context.capture,
+      ranges: fragment.ranges.map(([start, end]) => [
+        0,
+        context.prefix.length + start,
+        0,
+        context.prefix.length + end,
+      ]),
+      preservedCaptures: Object.fromEntries(
+        ["keyword", "keyword.modifier"].map((capture) => [
+          capture,
+          context.prefixCaptures
+            .filter(([, , name]) => name === capture)
+            .map(([start, end]) => [0, start, 0, end]),
+        ]),
+      ),
+    })),
+  ),
 ];
 
 for (const grammar of grammars) {
@@ -267,22 +408,26 @@ for (const grammar of grammars) {
         join(temporaryDirectory, `${grammar.name}.scm`),
         path,
       ]);
-      const captures = output
-        .split("\n")
-        .filter(
-          (line) =>
-            /capture: [0-9]+ - ([a-z_.]+),/.exec(line)?.[1] ===
-            testCase.capture,
-        )
-        .map((line) => {
-          const range =
-            /start: \(([0-9]+), ([0-9]+)\), end: \(([0-9]+), ([0-9]+)\)/.exec(
-              line,
-            );
-          assert.notEqual(range, null, line);
-          return range.slice(1).map(Number);
-        });
-      assert.deepEqual(captures, testCase.ranges, testCase.name);
+      for (const [capture, ranges] of [
+        [testCase.capture, testCase.ranges],
+        ...Object.entries(testCase.preservedCaptures ?? {}),
+      ]) {
+        const captures = output
+          .split("\n")
+          .filter(
+            (line) =>
+              /capture: [0-9]+ - ([a-z_.]+),/.exec(line)?.[1] === capture,
+          )
+          .map((line) => {
+            const range =
+              /start: \(([0-9]+), ([0-9]+)\), end: \(([0-9]+), ([0-9]+)\)/.exec(
+                line,
+              );
+            assert.notEqual(range, null, line);
+            return range.slice(1).map(Number);
+          });
+        assert.deepEqual(captures, ranges, `${testCase.name}: ${capture}`);
+      }
     }
   });
 }
@@ -347,14 +492,30 @@ const finalCaptureCases = [
   },
   {
     name: "branch targets and declarations retain label captures",
-    source: "b end\n:end\n",
+    source: "b end\nt end\n:end\n",
     captures: [
       [0, 1, "keyword"],
       [2, 5, "label"],
       [6, 7, "keyword"],
-      [7, 10, "label"],
+      [8, 11, "label"],
+      [12, 13, "keyword"],
+      [13, 16, "label"],
     ],
   },
+  ...lineOperandContexts.flatMap((context) =>
+    lineOperandFragments.map((fragment) => ({
+      name: `${context.name}: NUL: ${fragment.name}`,
+      source: `${context.prefix}${fragment.nulSource}\n`,
+      captures: [
+        ...context.prefixCaptures,
+        ...fragment.ranges.map(([start, end]) => [
+          context.prefix.length + start,
+          context.prefix.length + end,
+          context.capture,
+        ]),
+      ],
+    })),
+  ),
   {
     name: "substitutions separate patterns, UTF-8 replacements, references and flags",
     source: "s/a/é😀&/gp\n",
@@ -377,6 +538,26 @@ const finalCaptureCases = [
       [2, 6, "string.special.path"],
       [7, 8, "keyword"],
       [9, 12, "string.special.path"],
+    ],
+  },
+  {
+    name: "write file fragments preserve ordinary and substitution semicolon boundaries",
+    source: "w a\u0000b;p\ns/a/b/w c\u0000d;p\n",
+    captures: [
+      [0, 1, "keyword"],
+      [2, 3, "string.special.path"],
+      [4, 7, "string.special.path"],
+      [8, 9, "keyword"],
+      [9, 10, "punctuation.delimiter"],
+      [10, 11, "string.regexp"],
+      [11, 12, "punctuation.delimiter"],
+      [12, 13, "string"],
+      [13, 14, "punctuation.delimiter"],
+      [14, 15, "keyword.modifier"],
+      [16, 17, "string.special.path"],
+      [18, 19, "string.special.path"],
+      [19, 20, "punctuation.delimiter"],
+      [20, 21, "keyword"],
     ],
   },
   {

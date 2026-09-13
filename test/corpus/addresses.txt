@@ -103,7 +103,8 @@ keeps a read function after address blanks and negation
       (function
         (read_function
           (function_verb)
-          (rfile))))
+          (rfile
+            (file_literal)))))
     (command_separator)))
 
 ==================
@@ -337,7 +338,8 @@ classifies one excess address before a label function
       (function
         (label_function
           (function_verb)
-          (label))))
+          (label
+            (label_literal)))))
     (command_separator)))
 
 ==================
@@ -366,7 +368,8 @@ classifies an excess address range before a label function
       (function
         (label_function
           (function_verb)
-          (label))))
+          (label
+            (label_literal)))))
     (command_separator)))
 
 ==================
@@ -454,7 +457,8 @@ classifies two excess addresses before a write function
       (function
         (write_function
           (function_verb)
-          (wfile))))
+          (wfile
+            (file_literal)))))
     (command_separator)))
 
 ==================
@@ -485,7 +489,8 @@ classifies blank-separated excess addresses before a label function
       (function
         (label_function
           (function_verb)
-          (label))))
+          (label
+            (label_literal)))))
     (command_separator)))
 
 ==================
@@ -829,7 +834,8 @@ classifies blank-separated excess addresses before a label in ERE mode
       (function
         (label_function
           (function_verb)
-          (label))))
+          (label
+            (label_literal)))))
     (command_separator)))
 
 ==================

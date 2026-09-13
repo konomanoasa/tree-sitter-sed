@@ -126,6 +126,7 @@ enum TokenType {
   LINE_WORD,
   ARGUMENT_SEPARATOR,
   RIGHT_BRACE,
+  BLOCK_TRAILING_BLANKS,
   EMPTY_COMMAND_MARKER,
   RESERVED_UNKNOWN_FUNCTION_TOKEN,
   REGEX_INCOMPLETE_GROUP,
@@ -2344,6 +2345,13 @@ static bool scan_command_token(
   const bool *valid_symbols,
   TSSymbol *symbol
 ) {
+  if (valid_symbols[BLOCK_TRAILING_BLANKS] && is_blank(lexer->lookahead)) {
+    advance_past_blanks(lexer);
+    lexer->mark_end(lexer);
+    *symbol = BLOCK_TRAILING_BLANKS;
+    return true;
+  }
+
   if (
     valid_symbols[EMPTY_COMMAND_MARKER] &&
     (lexer->lookahead == ';' || lexer->lookahead == '\n')

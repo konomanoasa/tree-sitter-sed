@@ -60,6 +60,41 @@ terminates an empty block command before a closing brace
     (command_separator)))
 
 ==================
+accepts blanks after nested closing braces before separators
+:language(sed)
+==================
+{{p;}	 ;} 	;q
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (block_function
+          (function_verb)
+          (command_list
+            (editing_command
+              (function
+                (block_function
+                  (function_verb)
+                  (command_list
+                    (editing_command
+                      (function
+                        (print_function
+                          (function_verb))))
+                    (command_separator))
+                  (closing_brace))))
+            (command_separator))
+          (closing_brace))))
+    (command_separator)
+    (editing_command
+      (function
+        (quit_function
+          (function_verb))))
+    (command_separator)))
+
+==================
 recovers a block whose leading empty command precedes a missing separator
 :language(sed)
 ==================

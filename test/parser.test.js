@@ -55,6 +55,103 @@ const verbOperands = {
 const addressPrefixes = ["1 ", "1\t", "1!", "1 !", "$ ", "/x/ ", "\\,x, "];
 
 for (const grammar of grammars) {
+  test(`${grammar.name}: CST reader retains Unicode line separators in ordinary and issue leaves`, () => {
+    const cases = [
+      ["/\u2028/p\n", "ordinary_character", 1, "\u2028"],
+      ["/\u2029/p\n", "ordinary_character", 1, "\u2029"],
+      [
+        grammar.name === "sed" ? "/a\\{\u2028/p\n" : "/a{\u2028/p\n",
+        "malformed_interval",
+        grammar.name === "sed" ? 4 : 3,
+        "\u2028",
+      ],
+      [
+        grammar.name === "sed" ? "/a\\{\u2029/p\n" : "/a{\u2029/p\n",
+        "malformed_interval",
+        grammar.name === "sed" ? 4 : 3,
+        "\u2029",
+      ],
+    ];
+    for (const [source, kind, byte, character] of cases) {
+      const fresh = parseSuccessfully(grammar.scope, source);
+      const range = `[0, ${byte}] - [0, ${byte + 3}]`;
+      assert.deepEqual(
+        fresh.nodes.filter((node) => node.kind === kind).map(nodeRange),
+        [range],
+        JSON.stringify(source),
+      );
+      assert.deepEqual(
+        issueSignatures(fresh.nodes),
+        kind === "ordinary_character"
+          ? []
+          : [{ outcome: "undefined_syntax", reason: kind, range }],
+      );
+      const incremental = parse(grammar.scope, source, [
+        { byte, deleteBytes: 3, insert: "" },
+        { byte, deleteBytes: 0, insert: character },
+      ]);
+      assertIncrementalContract(fresh, incremental, JSON.stringify(source));
+    }
+  });
+}
+
+for (const grammar of grammars) {
+  test(`${grammar.name}: block functions own permitted trailing blanks at every boundary`, () => {
+    const cases = [
+      ["source end", "{p;} \t", [[0, 6]], 4, " \t"],
+      ["newline", "{p;}\t \n", [[0, 6]], 4, "\t "],
+      ["semicolon", "{p;} \t;q\n", [[0, 6]], 4, " \t"],
+      [
+        "nested block",
+        "{{p;}\t ;} \n",
+        [
+          [0, 10],
+          [1, 7],
+        ],
+        5,
+        "\t ",
+      ],
+    ];
+    for (const [name, source, ranges, byte, blanks] of cases) {
+      const fresh = parseSuccessfully(grammar.scope, source);
+      assertNoNodes(fresh.nodes, "syntax_issue", "ERROR", "MISSING");
+      assert.deepEqual(
+        fresh.nodes
+          .filter(({ kind }) => kind === "block_function")
+          .map(({ startByte, endByte }) => [startByte, endByte]),
+        ranges,
+        `${name}: ${JSON.stringify(source)}\n${fresh.stdout}`,
+      );
+      const incremental = parse(grammar.scope, source, [
+        { byte, deleteBytes: blanks.length, insert: "" },
+        { byte, deleteBytes: 0, insert: blanks },
+      ]);
+      assertIncrementalContract(fresh, incremental, name);
+    }
+  });
+
+  test(`${grammar.name}: unexpected text after a block excludes permitted trailing blanks`, () => {
+    const source = "{p;} \tq\n";
+    const fresh = parseSuccessfully(grammar.scope, source);
+    assert.deepEqual(issueSignatures(fresh.nodes), [
+      {
+        outcome: "nonconforming_syntax",
+        reason: "unexpected_command_text",
+        range: "[0, 6] - [0, 7]",
+      },
+    ]);
+    assert.equal(
+      nodeRange(fresh.nodes.find(({ kind }) => kind === "block_function")),
+      "[0, 0] - [0, 6]",
+    );
+    const incremental = parse(grammar.scope, "{p;};q\n", [
+      { byte: 4, deleteBytes: 1, insert: " \t" },
+    ]);
+    assertIncrementalContract(fresh, incremental, source);
+  });
+}
+
+for (const grammar of grammars) {
   test(`${grammar.name}: known verbs stay functions after address blanks and negation`, () => {
     for (const [verb, operand] of Object.entries(verbOperands)) {
       for (const prefix of addressPrefixes) {
@@ -951,6 +1048,58 @@ const omittedFileSeparatorCases = [
 ];
 
 for (const grammar of grammars) {
+  test(`${grammar.name}: healthy line operands expose one literal with their exact source range`, () => {
+    const cases = [
+      [":é\uFFFD \\x;\t}", "label", "label_literal", 1, 12],
+      ["b é\uFFFD \\x;\t}", "label", "label_literal", 2, 13],
+      ["t é\uFFFD \\x;\t}", "label", "label_literal", 2, 13],
+      ["r \té\uFFFD \\x;\t}", "rfile", "file_literal", 3, 14],
+      ["w   é\uFFFD \\x;\t}", "wfile", "file_literal", 4, 15],
+      ["s/a/b/w é\uFFFD \\x\t}", "wfile", "file_literal", 8, 18],
+      ["s/a/b/w é\uFFFD \\x\t};q", "wfile", "file_literal", 8, 18],
+    ];
+    for (const [command, ownerKind, literalKind, start, end] of cases) {
+      for (const suffix of ["", "\n"]) {
+        const source = command + suffix;
+        const result = parseSuccessfully(grammar.scope, source);
+        assertNoNodes(result.nodes, "syntax_issue", "ERROR", "MISSING");
+        const owner = result.nodes.findIndex(({ kind }) => kind === ownerKind);
+        assert.notEqual(owner, -1, source);
+        const owned = subtree(result.nodes, owner);
+        assert.deepEqual(
+          owned.map(({ kind, field, startByte, endByte }) => [
+            kind,
+            field,
+            startByte,
+            endByte,
+          ]),
+          [
+            [ownerKind, ownerKind, start, end],
+            [literalKind, null, start, end],
+          ],
+          JSON.stringify(source),
+        );
+        assert.equal(owned[1].parent, owner, source);
+      }
+    }
+  });
+
+  test(`${grammar.name}: absent line operands do not invent literal leaves`, () => {
+    for (const source of ["b\n", "t\n", ":\n", "r \n", "w \n", "s/a/b/w \n"]) {
+      const result = parseSuccessfully(grammar.scope, source);
+      assertNoNodes(
+        result.nodes,
+        "label",
+        "rfile",
+        "wfile",
+        "label_literal",
+        "file_literal",
+      );
+    }
+  });
+}
+
+for (const grammar of grammars) {
   for (const testCase of omittedFileSeparatorCases) {
     test(`${grammar.name}: omitted file separator: ${testCase.name}`, () => {
       const result = parseSuccessfully(grammar.scope, testCase.source);
@@ -966,9 +1115,10 @@ for (const grammar of grammars) {
         `missing ${testCase.owner}\n${result.stdout}`,
       );
       assert.deepEqual(
-        syntaxSignatures(result.nodes, [testCase.operand]),
+        syntaxSignatures(result.nodes, [testCase.operand, "file_literal"]),
         [
           `${testCase.operand}: ${testCase.operand} [0, ${testCase.operandStart}] - [0, ${testCase.operandEnd}]`,
+          `  file_literal [0, ${testCase.operandStart}] - [0, ${testCase.operandEnd}]`,
         ],
         `missing ${testCase.operand} operand\n${result.stdout}`,
       );
@@ -3049,29 +3199,33 @@ const nulPayloadCases = [
     name: "label definition keeps one owner around NUL",
     source: ":a\0b\nq\n",
     nulRanges: ["[0, 2] - [0, 3]"],
-    types: ["label", "nul_character"],
+    types: ["label", "label_literal", "nul_character"],
     structure: [
       "label: label [0, 1] - [0, 4]",
+      "  label_literal [0, 1] - [0, 2]",
       "  nul_character [0, 2] - [0, 3]",
+      "  label_literal [0, 3] - [0, 4]",
     ],
   },
   {
     name: "branch label begins with NUL",
     source: "b \0ab\nq\n",
     nulRanges: ["[0, 2] - [0, 3]"],
-    types: ["label", "nul_character"],
+    types: ["label", "label_literal", "nul_character"],
     structure: [
       "label: label [0, 2] - [0, 5]",
       "  nul_character [0, 2] - [0, 3]",
+      "  label_literal [0, 3] - [0, 5]",
     ],
   },
   {
     name: "test label ends with NUL",
     source: "t ab\0\nq\n",
     nulRanges: ["[0, 4] - [0, 5]"],
-    types: ["label", "nul_character"],
+    types: ["label", "label_literal", "nul_character"],
     structure: [
       "label: label [0, 2] - [0, 5]",
+      "  label_literal [0, 2] - [0, 4]",
       "  nul_character [0, 4] - [0, 5]",
     ],
   },
@@ -3079,10 +3233,11 @@ const nulPayloadCases = [
     name: "read file keeps whitespace and semicolon after NUL",
     source: "r \0 a;\0\nq\n",
     nulRanges: ["[0, 2] - [0, 3]", "[0, 6] - [0, 7]"],
-    types: ["rfile", "nul_character"],
+    types: ["rfile", "file_literal", "nul_character"],
     structure: [
       "rfile: rfile [0, 2] - [0, 7]",
       "  nul_character [0, 2] - [0, 3]",
+      "  file_literal [0, 3] - [0, 6]",
       "  nul_character [0, 6] - [0, 7]",
     ],
   },
@@ -3090,20 +3245,23 @@ const nulPayloadCases = [
     name: "write file keeps its semicolon after NUL",
     source: "w a\0;b\nq\n",
     nulRanges: ["[0, 3] - [0, 4]"],
-    types: ["wfile", "nul_character"],
+    types: ["wfile", "file_literal", "nul_character"],
     structure: [
       "wfile: wfile [0, 2] - [0, 6]",
+      "  file_literal [0, 2] - [0, 3]",
       "  nul_character [0, 3] - [0, 4]",
+      "  file_literal [0, 4] - [0, 6]",
     ],
   },
   {
     name: "substitution write file ends before its semicolon",
     source: "s/a/b/w \0 a;q\n",
     nulRanges: ["[0, 8] - [0, 9]"],
-    types: ["wfile", "nul_character"],
+    types: ["wfile", "file_literal", "nul_character"],
     structure: [
       "wfile: wfile [0, 8] - [0, 11]",
       "  nul_character [0, 8] - [0, 9]",
+      "  file_literal [0, 9] - [0, 11]",
     ],
   },
   {
