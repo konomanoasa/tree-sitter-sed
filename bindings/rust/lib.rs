@@ -199,7 +199,7 @@ mod tests {
           9,
           1,
           6,
-          ["unexpected_command_text", "invalid_substitution_flag"],
+          ["invalid_substitution_flag"; 2],
         ),
       ] {
         for (invalid_byte, reason) in [0, 0xff].into_iter().zip(reasons) {

@@ -151,8 +151,7 @@ function checkExternalTokenOrder(clang, compilerArguments, variant, directory) {
     readFileSync(join(variant.includeDirectory, "grammar.json"), "utf8"),
   );
   const assertions = grammar.externals.map(({ name }, index) => {
-    const enumerator =
-      variant.enumerators?.[name] ?? name.replace(/^_/, "").toUpperCase();
+    const enumerator = name.replace(/^_/, "").toUpperCase();
     return `typedef char external_${index}[${enumerator} == ${index} ? 1 : -1];`;
   });
   assertions.push(

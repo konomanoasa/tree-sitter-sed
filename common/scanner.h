@@ -126,6 +126,7 @@ enum TokenType {
   LINE_WORD,
   ARGUMENT_SEPARATOR,
   RIGHT_BRACE,
+  BRACE_LEADING_BLANKS,
   BLOCK_TRAILING_BLANKS,
   EMPTY_COMMAND_MARKER,
   RESERVED_UNKNOWN_FUNCTION_TOKEN,
@@ -415,12 +416,6 @@ static void advance_past_blanks(TSLexer *lexer) {
   }
 }
 
-static void skip_blanks(TSLexer *lexer) {
-  while (is_blank(lexer->lookahead)) {
-    lexer->advance(lexer, true);
-  }
-}
-
 static bool invalid_delimiter(TSLexer *lexer) {
   return lexer->eof(lexer) || !delimiter_character_is_valid(lexer->lookahead);
 }
@@ -465,6 +460,19 @@ static bool consume_as(
 ) {
   consume(lexer);
   return emit_symbol(valid_symbols, candidate, symbol);
+}
+
+static bool consume_invalid_character(
+  TSLexer *lexer,
+  const bool *valid_symbols,
+  TSSymbol *symbol
+) {
+  return consume_as(
+    lexer,
+    valid_symbols,
+    source_character_issue_symbol(lexer->lookahead),
+    symbol
+  );
 }
 
 static bool end_mode(
@@ -758,30 +766,23 @@ static bool scan_text_token(
     return end_mode(state, valid_symbols, TEXT_LINE_END, symbol);
   }
 
+  // Every remaining token is line content except an escaped newline.
+  state->text_line_has_content = true;
   if (!source_character_is_valid(lexer->lookahead)) {
-    state->text_line_has_content = true;
-    return consume_as(
-      lexer,
-      valid_symbols,
-      source_character_issue_symbol(lexer->lookahead),
-      symbol
-    );
+    return consume_invalid_character(lexer, valid_symbols, symbol);
   }
 
   if (lexer->lookahead == '\\') {
     consume(lexer);
 
     if (lexer->eof(lexer)) {
-      state->text_line_has_content = true;
       return emit_symbol(valid_symbols, TEXT_UNSPECIFIED_ESCAPE, symbol);
     }
     if (!source_character_is_valid(lexer->lookahead)) {
-      state->text_line_has_content = true;
       return emit_symbol(valid_symbols, ESCAPE_PREFIX, symbol);
     }
     if (lexer->lookahead == '\\') {
       consume(lexer);
-      state->text_line_has_content = true;
       return emit_symbol(valid_symbols, TEXT_BACKSLASH_ESCAPE, symbol);
     }
     if (lexer->lookahead == '\n') {
@@ -791,7 +792,6 @@ static bool scan_text_token(
     }
 
     consume(lexer);
-    state->text_line_has_content = true;
     return emit_symbol(valid_symbols, TEXT_UNSPECIFIED_ESCAPE, symbol);
   }
 
@@ -804,7 +804,6 @@ static bool scan_text_token(
     '\\' &&
     lexer->lookahead != '\n'
   );
-  state->text_line_has_content = true;
   return emit_symbol(valid_symbols, TEXT_LITERAL, symbol);
 }
 
@@ -980,6 +979,20 @@ unterminated_mode_symbol(enum ScannerMode mode, bool at_end_of_source) {
   return ERROR_SENTINEL;
 }
 
+static bool end_unterminated_mode(
+  TSLexer *lexer,
+  ScannerState *state,
+  const bool *valid_symbols,
+  TSSymbol *symbol
+) {
+  return end_mode(
+    state,
+    valid_symbols,
+    unterminated_mode_symbol(state->mode, lexer->eof(lexer)),
+    symbol
+  );
+}
+
 static const struct {
   int32_t marker;
   TSSymbol open_symbol;
@@ -1105,12 +1118,7 @@ static bool scan_regex_bracket_term_content(
 
   if (!lexer->eof(lexer) && !source_character_is_valid(lexer->lookahead)) {
     state->regex_bracket_term_has_content = true;
-    return consume_as(
-      lexer,
-      valid_symbols,
-      source_character_issue_symbol(lexer->lookahead),
-      symbol
-    );
+    return consume_invalid_character(lexer, valid_symbols, symbol);
   }
 
   for (;;) {
@@ -1299,6 +1307,9 @@ static bool emit_malformed_interval(
 ) {
   state->regex_in_interval =
     !lexer->eof(lexer) && !source_character_is_valid(lexer->lookahead);
+  if (lexer->lookahead == state->delimiter) {
+    advance(lexer);
+  }
   return emit_symbol(valid_symbols, REGEX_INVALID_INTERVAL, symbol);
 }
 
@@ -1875,12 +1886,7 @@ static bool scan_regex_token(
     !lexer->eof(lexer) &&
     !source_character_is_valid(lexer->lookahead)
   ) {
-    return consume_as(
-      lexer,
-      valid_symbols,
-      source_character_issue_symbol(lexer->lookahead),
-      symbol
-    );
+    return consume_invalid_character(lexer, valid_symbols, symbol);
   }
 
   if (valid_symbols[REGEX_DUP_COUNT] && is_digit(lexer->lookahead)) {
@@ -1995,12 +2001,7 @@ static bool scan_regex_token(
     );
   }
   if (literal_result == LITERAL_SCAN_LINE_END) {
-    return end_mode(
-      state,
-      valid_symbols,
-      unterminated_mode_symbol(state->mode, lexer->eof(lexer)),
-      symbol
-    );
+    return end_unterminated_mode(lexer, state, valid_symbols, symbol);
   }
 
   if (state->regex_state == REGEX_OUTSIDE_BRACKET) {
@@ -2145,20 +2146,10 @@ static bool scan_operand_token(
     );
   }
   if (literal_result == LITERAL_SCAN_INVALID_CHARACTER) {
-    return consume_as(
-      lexer,
-      valid_symbols,
-      source_character_issue_symbol(lexer->lookahead),
-      symbol
-    );
+    return consume_invalid_character(lexer, valid_symbols, symbol);
   }
   if (literal_result == LITERAL_SCAN_LINE_END) {
-    return end_mode(
-      state,
-      valid_symbols,
-      unterminated_mode_symbol(state->mode, lexer->eof(lexer)),
-      symbol
-    );
+    return end_unterminated_mode(lexer, state, valid_symbols, symbol);
   }
 
   if (lexer->lookahead == '\\') {
@@ -2319,24 +2310,22 @@ static TSSymbol missing_text_introducer_symbol(const TSLexer *lexer) {
                            : NONCONFORMING_MISSING_TEXT_INTRODUCER_MARKER;
 }
 
-static bool
-scan_right_brace(TSLexer *lexer, const bool *valid_symbols, TSSymbol *symbol) {
-  skip_blanks(lexer);
-
-  if (lexer->lookahead == '}') {
-    consume(lexer);
-    *symbol = RIGHT_BRACE;
-    return true;
+static bool scan_brace_leading_blanks(
+  TSLexer *lexer,
+  const bool *valid_symbols,
+  TSSymbol *symbol
+) {
+  advance_past_blanks(lexer);
+  if (
+    lexer->lookahead !=
+    '}' &&
+    !(lexer->eof(lexer) && valid_symbols[MISSING_CLOSING_BRACE_MARKER])
+  ) {
+    return false;
   }
-  if (lexer->eof(lexer)) {
-    return emit_marker(
-      lexer,
-      valid_symbols,
-      MISSING_CLOSING_BRACE_MARKER,
-      symbol
-    );
-  }
-  return false;
+  lexer->mark_end(lexer);
+  *symbol = BRACE_LEADING_BLANKS;
+  return true;
 }
 
 static bool scan_command_recovery(
@@ -2628,11 +2617,14 @@ static bool scan_command_token(
     }
   }
 
-  if (
-    valid_symbols[RIGHT_BRACE] &&
-    (is_blank(lexer->lookahead) || lexer->lookahead == '}')
-  ) {
-    return scan_right_brace(lexer, valid_symbols, symbol);
+  if (valid_symbols[BRACE_LEADING_BLANKS] && is_blank(lexer->lookahead)) {
+    return scan_brace_leading_blanks(lexer, valid_symbols, symbol);
+  }
+
+  if (valid_symbols[RIGHT_BRACE] && lexer->lookahead == '}') {
+    consume(lexer);
+    *symbol = RIGHT_BRACE;
+    return true;
   }
 
   return scan_command_recovery(lexer, valid_symbols, symbol);

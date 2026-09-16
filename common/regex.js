@@ -123,6 +123,33 @@ function bracketExpression($, ambiguous) {
   );
 }
 
+// Character and equivalence classes are not portable range endpoints; their
+// ranges keep the range_expression shape with the endpoint inside an issue.
+const nonportableRangeClasses = ["character_class", "equivalence_class"];
+
+function rangeOperator($) {
+  return field(
+    "operator",
+    namedExternal($, $._regex_bracket_hyphen, "range_operator"),
+  );
+}
+
+function nonportableRangeRules() {
+  const rules = {};
+  for (const kind of nonportableRangeClasses) {
+    rules[`_${kind}_start_range`] = ($) =>
+      seq(
+        field("start", issueNode($, `${kind}_range_start`)),
+        rangeOperator($),
+      );
+  }
+  for (const kind of nonportableRangeClasses) {
+    rules[`_${kind}_end_range`] = ($) =>
+      field("term", issueNode($, `${kind}_range_end`));
+  }
+  return rules;
+}
+
 function bracketRules() {
   return {
     bracket_expression: ($) => bracketExpression($, false),
@@ -193,8 +220,9 @@ function bracketRules() {
           "start",
           choice(
             $.start_range,
-            alias($._character_class_start_range, $.start_range),
-            alias($._equivalence_class_start_range, $.start_range),
+            ...nonportableRangeClasses.map((kind) =>
+              alias($[`_${kind}_start_range`], $.start_range),
+            ),
           ),
         ),
         choice(
@@ -202,8 +230,9 @@ function bracketRules() {
             "end",
             choice(
               $.end_range,
-              alias($._character_class_end_range, $.end_range),
-              alias($._equivalence_class_end_range, $.end_range),
+              ...nonportableRangeClasses.map((kind) =>
+                alias($[`_${kind}_end_range`], $.end_range),
+              ),
             ),
           ),
           field(
@@ -217,38 +246,9 @@ function bracketRules() {
         ),
       ),
 
-    _character_class_start_range: ($) =>
-      seq(
-        field("start", issueNode($, "character_class_range_start")),
-        field(
-          "operator",
-          namedExternal($, $._regex_bracket_hyphen, "range_operator"),
-        ),
-      ),
+    ...nonportableRangeRules(),
 
-    _equivalence_class_start_range: ($) =>
-      seq(
-        field("start", issueNode($, "equivalence_class_range_start")),
-        field(
-          "operator",
-          namedExternal($, $._regex_bracket_hyphen, "range_operator"),
-        ),
-      ),
-
-    _character_class_end_range: ($) =>
-      field("term", issueNode($, "character_class_range_end")),
-
-    _equivalence_class_end_range: ($) =>
-      field("term", issueNode($, "equivalence_class_range_end")),
-
-    start_range: ($) =>
-      seq(
-        field("start", $.end_range),
-        field(
-          "operator",
-          namedExternal($, $._regex_bracket_hyphen, "range_operator"),
-        ),
-      ),
+    start_range: ($) => seq(field("start", $.end_range), rangeOperator($)),
 
     end_range: ($) =>
       choice(

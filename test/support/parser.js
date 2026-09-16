@@ -343,8 +343,15 @@ function parseSummary(scope, source, timeout = 10_000_000) {
   return summary;
 }
 
-function hasRecovery(cst) {
-  return /^[0-9: \t-]+•/m.test(cst);
+function parseCstWithin(scope, source, timeout, context) {
+  const sourcePath = join(temporaryDirectory, `cst-${fixtureNumber++}.sed`);
+  writeFileSync(sourcePath, source);
+  const result = treeSitter.run(
+    ["parse", "--scope", scope, "--cst", sourcePath],
+    { encoding: "utf8", stdio: ["ignore", "ignore", "pipe"], timeout },
+  );
+  assert.equal(result.error, undefined, context);
+  assert.equal(result.status, 0, `${context}\n${result.stderr}`);
 }
 
 export {
@@ -352,11 +359,11 @@ export {
   assertIncrementalContract,
   assertNoNodes,
   directDelimiterLeafLines,
-  hasRecovery,
   issuePaths,
   issueSignatures,
   nodeRange,
   parse,
+  parseCstWithin,
   parseSuccessfully,
   parseSummary,
   publicNodes,

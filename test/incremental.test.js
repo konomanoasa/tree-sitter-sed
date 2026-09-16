@@ -616,6 +616,57 @@ test("sed: BRE dollar classification tracks every byte of multibyte lookahead", 
   }
 });
 
+for (const [name, opening] of [
+  ["sed", "\\{"],
+  ["sed_ere", "{"],
+]) {
+  test(`${name}: malformed interval content tracks every byte of a multibyte delimiter`, () => {
+    const { scope } = grammars.find((grammar) => grammar.name === name);
+    for (const [delimiter, alternative] of [
+      ["é", "è"],
+      ["あ", "ぃ"],
+      ["😀", "😁"],
+    ]) {
+      const width = Buffer.byteLength(delimiter);
+      const prefix = `s${delimiter}a${opening}x`;
+      const source = `${prefix}${delimiter}${alternative}${delimiter}\n`;
+      const expected = `${prefix}${alternative}${delimiter}\n`;
+      const contentStart = Buffer.byteLength(prefix) - 1;
+      const edits = [
+        { byte: contentStart + width, deleteBytes: width, insert: "" },
+      ];
+      const context = `${width}-byte delimiter`;
+      assert.deepEqual(
+        applyEdits(source, edits),
+        Buffer.from(expected),
+        context,
+      );
+      const fresh = parseSuccessfully(scope, expected);
+      const incremental = parseSuccessfully(scope, source, edits);
+      assertIncrementalContract(fresh, incremental, context);
+      for (const [result, contentEnd] of [
+        [parseSuccessfully(scope, source), contentStart + 1],
+        [fresh, contentStart + 1 + width],
+        [incremental, contentStart + 1 + width],
+      ]) {
+        assert.deepEqual(
+          issueSignatures(result.nodes).filter(
+            ({ reason }) => reason === "malformed_interval",
+          ),
+          [
+            {
+              outcome: "undefined_syntax",
+              reason: "malformed_interval",
+              range: `[0, ${contentStart}] - [0, ${contentEnd}]`,
+            },
+          ],
+          context,
+        );
+      }
+    }
+  });
+}
+
 function createEditHistoryGenerator() {
   let seed = 1n;
   function next(maximum) {

@@ -47,6 +47,18 @@ function lineOperand($, first, rest) {
   );
 }
 
+function operandAtoms($, literal, ...atoms) {
+  return repeat1(
+    choice(
+      literal,
+      seq($._escape_prefix, issueField($, "invalid_encoding")),
+      issueField($, "nul_character"),
+      issueField($, "invalid_encoding"),
+      ...atoms,
+    ),
+  );
+}
+
 function commentText($) {
   return choice(
     namedExternal($, $._comment_text, "comment_text"),
@@ -205,6 +217,14 @@ function editingCommand($, kind) {
   return alias($[`_${kind}_editing_command`], $.editing_command);
 }
 
+function newlineSeparator($) {
+  return alias("\n", $.command_separator);
+}
+
+function semicolonSeparator($) {
+  return alias(";", $.command_separator);
+}
+
 function commandListRules() {
   return {
     script: ($) => optional(alias($._script_command_list, $.command_list)),
@@ -215,9 +235,7 @@ function commandListRules() {
     _initial_suppressing_comment_command_list: ($) =>
       seq(
         alias($._initial_suppressing_comment_command, $.editing_command),
-        optional(
-          seq(alias("\n", $.command_separator), optional($._command_list)),
-        ),
+        optional(seq(newlineSeparator($), optional($._command_list))),
       ),
 
     _initial_suppressing_comment_command: ($) =>
@@ -248,116 +266,91 @@ function commandListRules() {
         repeat(commentText($)),
       ),
 
+    // Lists are built with repeat so that Tree-sitter balances them; explicit
+    // recursion nests hidden nodes as deep as the command count, which makes
+    // cursor traversal quadratic.
     _command_list: ($) =>
       choice(
-        $._command_sequence,
+        seq(
+          repeat1($._command_unit),
+          optional(choice($._command_item, $._blanks)),
+        ),
+        $._command_item,
         $._blanks,
-        seq($._terminated_line, optional($._command_list)),
       ),
 
-    _terminated_line: ($) =>
-      seq($._command_sequence, alias("\n", $.command_separator)),
-
-    _command_sequence: ($) =>
+    _command_unit: ($) =>
       choice(
         seq(
-          editingCommand($, "line_terminated"),
-          optional($._unmatched_closing_brace_tail),
+          $._separable_command_item,
+          choice(
+            semicolonSeparator($),
+            newlineSeparator($),
+            issueNode($, "missing_separator_before_unmatched_brace"),
+          ),
         ),
-        seq(
-          editingCommand($, "recovered_line_terminated"),
-          optional(choice($._command_sequence, $._blanks)),
-        ),
-        seq($._separable_command_item, optional($._command_sequence_tail)),
         seq(
           $._unmatched_closing_brace_item,
-          optional($._unmatched_closing_brace_tail_content),
+          choice(
+            semicolonSeparator($),
+            newlineSeparator($),
+            issueNode($, "missing_separator_before_unmatched_brace"),
+            issueNode($, "missing_separator_after_unmatched_brace"),
+          ),
         ),
-      ),
-
-    _command_sequence_tail: ($) =>
-      choice(
         seq(
-          alias(";", $.command_separator),
-          optional(choice($._command_sequence, $._blanks)),
+          editingCommand($, "line_terminated"),
+          choice(
+            newlineSeparator($),
+            issueNode($, "missing_separator_before_unmatched_brace"),
+          ),
         ),
-        $._unmatched_closing_brace_tail,
+        editingCommand($, "recovered_line_terminated"),
       ),
 
-    _unmatched_closing_brace_tail: ($) =>
-      seq(
-        issueNode($, "missing_separator_before_unmatched_brace"),
+    _command_item: ($) =>
+      choice(
+        $._separable_command_item,
         $._unmatched_closing_brace_item,
-        optional($._unmatched_closing_brace_tail_content),
+        editingCommand($, "line_terminated"),
       ),
 
     _unmatched_closing_brace_item: ($) =>
-      seq(issueNode($, "unmatched_closing_brace"), optional($._blanks)),
-
-    _unmatched_closing_brace_tail_content: ($) =>
-      choice(
-        $._command_sequence_tail,
-        seq(
-          issueNode($, "missing_separator_after_unmatched_brace"),
-          $._command_sequence,
-        ),
+      seq(
+        optional($._brace_leading_blanks),
+        issueNode($, "unmatched_closing_brace"),
+        optional($._blanks),
       ),
 
     _separable_command_item: ($) =>
-      choice($.empty_command, $._chainable_command_item),
-
-    _chainable_command_item: ($) =>
-      choice(editingCommand($, "chainable"), editingCommand($, "recovered")),
-
-    _block_command_sequence: ($) =>
       choice(
-        editingCommand($, "line_terminated"),
-        seq(
-          editingCommand($, "recovered_line_terminated"),
-          optional($._block_command_sequence),
-        ),
-        seq(
-          $._separable_command_item,
-          optional(
-            seq(
-              alias(";", $.command_separator),
-              optional($._block_command_sequence),
-            ),
-          ),
-        ),
-      ),
-
-    _block_command_sequence_before_close: ($) =>
-      choice(
-        seq(
-          $._separable_command_item,
-          alias(";", $.command_separator),
-          optional($._block_command_sequence_before_close),
-        ),
-        seq(
-          editingCommand($, "recovered_line_terminated"),
-          optional($._block_command_sequence_before_close),
-        ),
-      ),
-
-    _block_command_list: ($) =>
-      choice(
-        $._block_command_sequence_before_close,
-        seq($._terminated_block_line, optional($._block_command_list)),
+        $.empty_command,
+        editingCommand($, "chainable"),
+        editingCommand($, "recovered"),
       ),
 
     _block_commands: ($) =>
-      choice($._block_command_list, $._block_command_list_missing_separator),
-
-    _block_command_list_missing_separator: ($) =>
       choice(
-        missingCommandSeparator($),
-        seq($._block_command_sequence, missingCommandSeparator($)),
-        seq($._terminated_block_line, $._block_command_list_missing_separator),
+        repeat1($._block_unit),
+        seq(
+          repeat($._block_unit),
+          optional($._block_item),
+          missingCommandSeparator($),
+        ),
       ),
 
-    _terminated_block_line: ($) =>
-      seq($._block_command_sequence, alias("\n", $.command_separator)),
+    _block_unit: ($) =>
+      choice(
+        seq(
+          $._separable_command_item,
+          choice(semicolonSeparator($), newlineSeparator($)),
+        ),
+        seq(editingCommand($, "line_terminated"), newlineSeparator($)),
+        editingCommand($, "recovered_line_terminated"),
+      ),
+
+    _block_item: ($) =>
+      choice($._separable_command_item, editingCommand($, "line_terminated")),
 
     empty_command: ($) => seq(optional($._blanks), $._empty_command_marker),
 
@@ -429,12 +422,9 @@ function addressRules(mode) {
     _max2_excess_address_clause: ($) =>
       prec.dynamic(
         1,
-        choice(
-          seq($._double_address_clause, issueField($, "excess_address_unit2")),
-          seq(
-            $._max2_excess_address_clause,
-            issueField($, "excess_address_unit2"),
-          ),
+        seq(
+          $._double_address_clause,
+          repeat1(issueField($, "excess_address_unit2")),
         ),
       ),
 
@@ -444,29 +434,27 @@ function addressRules(mode) {
     _max1_excess_address_clause: ($) =>
       prec.dynamic(
         1,
-        choice(
-          seq(field("first", $.address), issueField($, "excess_address_unit1")),
-          seq(
+        seq(
+          choice(
+            field("first", $.address),
             issueField($, "omitted_first_address_unit1"),
-            issueField($, "excess_address_unit1"),
           ),
-          seq(
-            $._max1_excess_address_clause,
-            issueField($, "excess_address_unit1"),
-          ),
+          repeat1(issueField($, "excess_address_unit1")),
         ),
       ),
 
     _max0_address_clause: ($) =>
       prec.dynamic(
         1,
-        choice(
-          issueField($, "excess_address"),
-          seq(
-            issueField($, "omitted_first_address_unit0"),
-            issueField($, "excess_address_unit0"),
+        seq(
+          choice(
+            issueField($, "excess_address"),
+            seq(
+              issueField($, "omitted_first_address_unit0"),
+              issueField($, "excess_address_unit0"),
+            ),
           ),
-          seq($._max0_address_clause, issueField($, "excess_address_unit0")),
+          repeat(issueField($, "excess_address_unit0")),
         ),
       ),
 
@@ -567,21 +555,17 @@ function operandRules(mode) {
       ),
 
     replacement: ($) =>
-      repeat1(
-        choice(
-          $.replacement_literal,
-          seq($._escape_prefix, issueField($, "invalid_encoding")),
-          issueField($, "nul_character"),
-          issueField($, "invalid_encoding"),
-          $.matched_text_reference,
-          $.replacement_backreference,
-          $.replacement_escaped_delimiter,
-          issueField($, "replacement_ampersand_delimiter_escape"),
-          $.replacement_escape,
-          $.escaped_newline,
-          issueField($, "unspecified_replacement_escape"),
-          issueField($, "incomplete_replacement_escape"),
-        ),
+      operandAtoms(
+        $,
+        $.replacement_literal,
+        $.matched_text_reference,
+        $.replacement_backreference,
+        $.replacement_escaped_delimiter,
+        issueField($, "replacement_ampersand_delimiter_escape"),
+        $.replacement_escape,
+        $.escaped_newline,
+        issueField($, "unspecified_replacement_escape"),
+        issueField($, "incomplete_replacement_escape"),
       ),
 
     replacement_literal: ($) => $._replacement_literal,
@@ -599,16 +583,8 @@ function operandRules(mode) {
     _substitution_flags: ($) =>
       prec.right(
         choice(
-          $._substitution_flags_without_write,
-          seq(optional($._substitution_flags_without_write), $.write_flag),
-        ),
-      ),
-
-    _substitution_flags_without_write: ($) =>
-      choice(
-        substitutionFlagChoice($),
-        prec.left(
-          seq($._substitution_flags_without_write, substitutionFlagChoice($)),
+          repeat1(substitutionFlagChoice($)),
+          seq(repeat(substitutionFlagChoice($)), $.write_flag),
         ),
       ),
 
@@ -646,17 +622,13 @@ function operandRules(mode) {
       ),
 
     translation_string: ($) =>
-      repeat1(
-        choice(
-          $.translation_literal,
-          seq($._escape_prefix, issueField($, "invalid_encoding")),
-          issueField($, "nul_character"),
-          issueField($, "invalid_encoding"),
-          $.translation_escape,
-          $.translation_escaped_delimiter,
-          issueField($, "undefined_translation_escape"),
-          issueField($, "incomplete_translation_escape"),
-        ),
+      operandAtoms(
+        $,
+        $.translation_literal,
+        $.translation_escape,
+        $.translation_escaped_delimiter,
+        issueField($, "undefined_translation_escape"),
+        issueField($, "incomplete_translation_escape"),
       ),
 
     translation_literal: ($) => $._translate_literal,
@@ -675,16 +647,12 @@ function functionRules() {
   const rules = {
     text: ($) =>
       seq(
-        repeat1(
-          choice(
-            $.text_literal,
-            seq($._escape_prefix, issueField($, "invalid_encoding")),
-            issueField($, "nul_character"),
-            issueField($, "invalid_encoding"),
-            $.text_backslash_escape,
-            $.text_escaped_newline,
-            issueField($, "unspecified_text_escape"),
-          ),
+        operandAtoms(
+          $,
+          $.text_literal,
+          $.text_backslash_escape,
+          $.text_escaped_newline,
+          issueField($, "unspecified_text_escape"),
         ),
         $._text_tail,
       ),
@@ -742,6 +710,7 @@ function functionRules() {
   const formArguments = {
     block: ($) => [
       field("commands", alias($._block_commands, $.command_list)),
+      optional($._brace_leading_blanks),
       choice(
         field("closing", $.closing_brace),
         issueField($, "missing_closing_brace"),
@@ -1362,7 +1331,11 @@ function issueDefinitions(mode) {
       reason: "invalid_substitution_flag",
       outcome: "nonconforming_syntax",
       rule: ($) =>
-        choice($._invalid_substitution_flag, issueField($, "invalid_encoding")),
+        choice(
+          $._invalid_substitution_flag,
+          $._nul_character,
+          issueField($, "invalid_encoding"),
+        ),
     },
     {
       reason: "invalid_delimiter",
@@ -1616,6 +1589,7 @@ function externalTokens($, mode) {
     $._line_word,
     $._argument_separator,
     $._right_brace,
+    $._brace_leading_blanks,
     $._block_trailing_blanks,
     $._empty_command_marker,
     $._reserved_unknown_function_token,

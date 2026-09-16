@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import {
   mkdtempSync,
   readdirSync,
@@ -12,25 +11,24 @@ import { generateParsers, grammars, packageName, root } from "./tree-sitter.js";
 
 const parserBudgets = {
   sed: {
-    STATE_COUNT: 2_000,
+    STATE_COUNT: 2_450,
     LARGE_STATE_COUNT: 50,
     SYMBOL_COUNT: 650,
-    EXTERNAL_TOKEN_COUNT: 146,
-    parser_bytes: 2_100_000,
-    maximum_ACTIONS_index: 3_320,
-    parse_table_storage_bytes: 160_000,
+    EXTERNAL_TOKEN_COUNT: 147,
+    parser_bytes: 2_350_000,
+    maximum_ACTIONS_index: 3_800,
+    parse_table_storage_bytes: 175_000,
   },
   sed_ere: {
-    STATE_COUNT: 2_000,
+    STATE_COUNT: 2_450,
     LARGE_STATE_COUNT: 50,
     SYMBOL_COUNT: 625,
-    EXTERNAL_TOKEN_COUNT: 144,
-    parser_bytes: 2_000_000,
-    maximum_ACTIONS_index: 3_270,
-    parse_table_storage_bytes: 150_000,
+    EXTERNAL_TOKEN_COUNT: 145,
+    parser_bytes: 2_200_000,
+    maximum_ACTIONS_index: 3_750,
+    parse_table_storage_bytes: 165_000,
   },
 };
-const prerequisiteScripts = [];
 
 const generatedPaths = [
   "grammar.json",
@@ -178,21 +176,6 @@ function main(arguments_) {
   if (arguments_.length !== 0) {
     throw new Error("Usage: node scripts/check-generated.js");
   }
-  for (const script of prerequisiteScripts) {
-    const result = spawnSync(
-      process.execPath,
-      [join(root, "scripts", script), "--check"],
-      {
-        cwd: root,
-        stdio: "inherit",
-        timeout: 60_000,
-        killSignal: "SIGKILL",
-      },
-    );
-    if (result.error) throw result.error;
-    if (result.status !== 0) return 1;
-  }
-
   const generatedRoot = mkdtempSync(
     join(tmpdir(), `${packageName}-generated-`),
   );

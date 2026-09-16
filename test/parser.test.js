@@ -15,6 +15,7 @@ import {
   issueSignatures,
   nodeRange,
   parse,
+  parseCstWithin,
   parseSuccessfully,
   parseSummary,
   publicNodes,
@@ -148,6 +149,104 @@ for (const grammar of grammars) {
       { byte: 4, deleteBytes: 1, insert: " \t" },
     ]);
     assertIncrementalContract(fresh, incremental, source);
+  });
+}
+
+for (const grammar of grammars) {
+  test(`${grammar.name}: blanks before a closing brace are owned without forming commands`, () => {
+    const retained = [
+      "script",
+      "command_list",
+      "block_function",
+      "closing_brace",
+      "unmatched_closing_brace",
+      "missing_command_separator",
+      "missing_closing_brace",
+    ];
+    const cases = [
+      {
+        name: "block closing brace",
+        source: "{p; \t}\n",
+        nodes: [
+          "script [0, 0] - [1, 0]",
+          "  command_list [0, 0] - [1, 0]",
+          "    block_function [0, 0] - [0, 6]",
+          "      commands: command_list [0, 1] - [0, 3]",
+          "      closing: closing_brace [0, 5] - [0, 6]",
+        ],
+      },
+      {
+        name: "block closing brace after a missing separator",
+        source: "{ \t}\n",
+        nodes: [
+          "script [0, 0] - [1, 0]",
+          "  command_list [0, 0] - [1, 0]",
+          "    block_function [0, 0] - [0, 4]",
+          "      commands: command_list [0, 1] - [0, 1]",
+          "        missing_command_separator [0, 1] - [0, 1]",
+          "      closing: closing_brace [0, 3] - [0, 4]",
+        ],
+      },
+      {
+        name: "missing closing brace at source end",
+        source: "{p; \t",
+        nodes: [
+          "script [0, 0] - [0, 5]",
+          "  command_list [0, 0] - [0, 5]",
+          "    block_function [0, 0] - [0, 5]",
+          "      commands: command_list [0, 1] - [0, 3]",
+          "      missing_closing_brace [0, 5] - [0, 5]",
+        ],
+      },
+      {
+        name: "unmatched closing brace at source start",
+        source: " \t}p\n",
+        nodes: [
+          "script [0, 0] - [1, 0]",
+          "  command_list [0, 0] - [1, 0]",
+          "    unmatched_closing_brace [0, 2] - [0, 3]",
+          "      closing_brace [0, 2] - [0, 3]",
+          "    missing_command_separator [0, 3] - [0, 3]",
+        ],
+      },
+      {
+        name: "unmatched closing brace after a separator",
+        source: "p; \t}\n",
+        nodes: [
+          "script [0, 0] - [1, 0]",
+          "  command_list [0, 0] - [1, 0]",
+          "    unmatched_closing_brace [0, 4] - [0, 5]",
+          "      closing_brace [0, 4] - [0, 5]",
+        ],
+      },
+      {
+        name: "unmatched closing brace after a missing separator",
+        source: "p \t}\n",
+        nodes: [
+          "script [0, 0] - [1, 0]",
+          "  command_list [0, 0] - [1, 0]",
+          "    missing_command_separator [0, 1] - [0, 1]",
+          "    unmatched_closing_brace [0, 3] - [0, 4]",
+          "      closing_brace [0, 3] - [0, 4]",
+        ],
+      },
+    ];
+    for (const testCase of cases) {
+      const fresh = parseSuccessfully(grammar.scope, testCase.source);
+      assertNoNodes(fresh.nodes, "empty_command", "ERROR", "MISSING");
+      assert.deepEqual(
+        syntaxSignatures(fresh.nodes, retained),
+        testCase.nodes,
+        `${testCase.name}\n${fresh.stdout}`,
+      );
+      const byte = testCase.source.indexOf(" \t");
+      const incremental = parse(
+        grammar.scope,
+        testCase.source.replace(" \t", ""),
+        [{ byte, deleteBytes: 0, insert: " \t" }],
+      );
+      assertIncrementalContract(fresh, incremental, testCase.name);
+    }
   });
 }
 
@@ -3440,6 +3539,15 @@ for (const grammar of grammars) {
       ["deep blocks", `${"{".repeat(2000)}p;${"}".repeat(2000)}\n`],
     ]) {
       assert.equal(parseSummary(grammar.scope, source).successful, true, name);
+    }
+  });
+
+  test(`${grammar.name}: wide and tall command lists print their CST within the time limit`, () => {
+    for (const [name, source] of [
+      ["wide command list", "p;".repeat(50_000)],
+      ["tall command list", "p\n".repeat(50_000)],
+    ]) {
+      parseCstWithin(grammar.scope, source, 60_000, name);
     }
   });
 

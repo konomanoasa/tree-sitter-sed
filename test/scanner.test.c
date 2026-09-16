@@ -690,6 +690,39 @@ test_group_body_omission_is_independent_of_closer_availability(void) {
   assert(state.regex_group_depth == 0);
 }
 
+static void test_brace_leading_blanks_require_a_closer(void) {
+  static const struct {
+    const char *source;
+    bool missing_closer;
+    bool expected;
+  } cases[] = {
+    {" \t}", false, true},
+    {" \t", true, true},
+    {" \t", false, false},
+    {" \tp", true, false},
+    {" \t;", false, false},
+  };
+
+  for (size_t index = 0; index < sizeof(cases) / sizeof(cases[0]); index++) {
+    ScannerState state = {0};
+    ScannerState initial = state;
+    MockLexer mock = make_mock_lexer(cases[index].source);
+    bool valid_symbols[ERROR_SENTINEL + 1] = {false};
+    valid_symbols[BRACE_LEADING_BLANKS] = true;
+    valid_symbols[MISSING_CLOSING_BRACE_MARKER] = cases[index].missing_closer;
+
+    assert(
+      sed_scanner_scan(&state, &mock.lexer, valid_symbols) ==
+      cases[index].expected
+    );
+    if (cases[index].expected) {
+      assert(mock.lexer.result_symbol == BRACE_LEADING_BLANKS);
+      assert(mock.mark == 2);
+    }
+    assert_same_state(&initial, &state);
+  }
+}
+
 #if !SED_REGEX_EXTENDED
 static void test_bre_interval_backslash_requires_a_completable_closer(void) {
   static const struct {
@@ -758,6 +791,7 @@ int main(void) {
   test_bracket_term_payload_owns_embedded_closing_brackets();
   test_regex_closers_at_source_boundaries();
   test_group_body_omission_is_independent_of_closer_availability();
+  test_brace_leading_blanks_require_a_closer();
 #if !SED_REGEX_EXTENDED
   test_bre_interval_backslash_requires_a_completable_closer();
 #endif
