@@ -88,6 +88,7 @@ static MockLexer make_mock_lexer(const char *source) {
     .lexer =
       {
         .lookahead = (unsigned char)source[0],
+        .result_symbol = UINT16_MAX,
         .advance = mock_advance,
         .mark_end = mock_mark_end,
         .eof = mock_eof,
@@ -103,6 +104,7 @@ make_character_lexer(const int32_t *characters, size_t length) {
     .lexer =
       {
         .lookahead = length == 0 ? 0 : characters[0],
+        .result_symbol = UINT16_MAX,
         .advance = mock_advance,
         .mark_end = mock_mark_end,
         .eof = mock_eof,
