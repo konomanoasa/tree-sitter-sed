@@ -84,7 +84,6 @@ function parse(scope, source, edits = []) {
     ],
     {
       encoding: "utf8",
-      env: { NO_COLOR: "1" },
       maxBuffer: 16 * 1024 * 1024,
       timeout: 60_000,
     },

@@ -4,7 +4,7 @@
 [![npm](https://img.shields.io/npm/v/tree-sitter-sed)](https://www.npmjs.com/package/tree-sitter-sed)
 
 [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) grammars for
-POSIX.1-2024 `sed`.
+POSIX.1-2024 sed.
 
 ## Installation
 
@@ -14,24 +14,24 @@ npm install tree-sitter-sed
 
 ## Grammars
 
-This repository contains the following two grammars.
-
-| Grammar | Regexp | Rust constant |
+| Grammar | Description | Rust constant |
 | --- | --- | --- |
-| `sed` | BRE | `LANGUAGE` |
-| `sed_ere` | ERE | `LANGUAGE_ERE` |
+| `sed` | POSIX.1-2024 sed with BRE | `LANGUAGE` |
+| `sed_ere` | POSIX.1-2024 sed with ERE | `LANGUAGE_ERE` |
 
 ## Development
 
+Development requires Node.js 24.2.0 or later.
+
 ```sh
 npm install
-npm run parse -- script.sed
-npm run parse:ere -- script.sed
+npm run build
+npm test
 ```
 
 ## Specifications
 
-- [POSIX.1-2024 `sed`](https://pubs.opengroup.org/onlinepubs/9799919799.2024edition/utilities/sed.html)
+- [POSIX.1-2024 sed](https://pubs.opengroup.org/onlinepubs/9799919799.2024edition/utilities/sed.html)
 - [POSIX.1-2024 regular expressions](https://pubs.opengroup.org/onlinepubs/9799919799.2024edition/basedefs/V1_chap09.html)
 
 ## License
