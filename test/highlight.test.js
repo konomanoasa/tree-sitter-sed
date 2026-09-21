@@ -10,7 +10,12 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
-import { createTreeSitter, grammars, root } from "../scripts/tree-sitter.js";
+import {
+  createTreeSitter,
+  grammars,
+  packageName,
+  root,
+} from "../scripts/tree-sitter.js";
 
 function decodeEntities(text) {
   return text
@@ -30,7 +35,7 @@ function renderedCaptures(html, source) {
   const captures = [];
   let text = "";
   for (const part of content.matchAll(
-    /<span class='([^']*)'>|<\/span>|([^<]+)/g,
+    /<span class='([^']*)'>|<[/]span>|([^<]+)/g,
   )) {
     if (part[1] !== undefined) stack.push(part[1].replaceAll(" ", "."));
     else if (part[0] === "</span>") assert.notEqual(stack.pop(), undefined);
@@ -121,7 +126,7 @@ function assertCaptures(source, actual, ranges) {
     expected.fill(capture, start, end);
     previousEnd = end;
   }
-  // HTML emits line breaks outside spans; compare colors on source characters.
+  // HTML emits line breaks outside spans.
   for (const [index, byte] of bytes.entries()) {
     if (byte !== 10)
       assert.equal(
@@ -153,41 +158,41 @@ const captureNames = [
 ];
 let highlight;
 
-let temporaryDirectory;
-let treeSitter;
-
+let directory;
+let runner;
 before(() => {
-  temporaryDirectory = mkdtempSync(
-    join(tmpdir(), "tree-sitter-sed-highlight-"),
-  );
-  try {
-    treeSitter = createTreeSitter();
-    highlight = createHighlighter({
-      directory: temporaryDirectory,
-      root,
-      run: checked,
-      captureNames,
-    });
-    for (const grammar of grammars) {
-      const query = grammar.highlights
-        .map((path) => readFileSync(join(root, path), "utf8"))
-        .join("\n");
-      writeFileSync(join(temporaryDirectory, `${grammar.name}.scm`), query);
-    }
-  } catch (error) {
-    treeSitter?.close();
-    rmSync(temporaryDirectory, { recursive: true, force: true });
-    throw error;
+  directory = mkdtempSync(join(tmpdir(), `${packageName}-highlight-`));
+  runner = createTreeSitter();
+  highlight = createHighlighter({
+    directory,
+    root,
+    run: assertCommand,
+    captureNames,
+  });
+  for (const grammar of grammars) {
+    const query = grammar.highlights
+      .map((path) => readFileSync(join(root, path), "utf8"))
+      .join("\n");
+    writeFileSync(join(directory, `${grammar.name}.scm`), query);
   }
 });
-
 after(() => {
   try {
-    treeSitter?.close();
+    runner?.close();
   } finally {
-    rmSync(temporaryDirectory, { recursive: true, force: true });
+    if (directory) rmSync(directory, { recursive: true, force: true });
   }
 });
+
+function assertCommand(arguments_) {
+  const result = runner.run(arguments_, {
+    timeout: 60_000,
+  });
+  assert.ifError(result.error);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.doesNotMatch(result.stderr, /Non-standard highlight captures/);
+  return result.stdout;
+}
 
 const lineOperandContexts = [
   {
@@ -305,7 +310,7 @@ const lineOperandFragments = [
   },
 ];
 
-// HTML replaces malformed UTF-8, so these cases inspect original byte ranges.
+// HTML replaces malformed UTF-8.
 const invalidEncodingCases = [
   {
     name: "invalid encoding splits comment text",
@@ -397,15 +402,15 @@ const invalidEncodingCases = [
 
 for (const grammar of grammars) {
   test(`${grammar.name}: invalid encoding leaves only identified source bytes highlighted`, () => {
-    const path = join(temporaryDirectory, `${grammar.name}-lexical.sed`);
+    const path = join(directory, `${grammar.name}-lexical.sed`);
     for (const testCase of invalidEncodingCases) {
       writeFileSync(path, testCase.source);
-      const output = checked([
+      const output = assertCommand([
         "query",
         "--captures",
         "--scope",
         grammar.scope,
-        join(temporaryDirectory, `${grammar.name}.scm`),
+        join(directory, `${grammar.name}.scm`),
         path,
       ]);
       for (const [capture, ranges] of [
@@ -430,18 +435,6 @@ for (const grammar of grammars) {
       }
     }
   });
-}
-
-function checked(arguments_) {
-  const result = treeSitter.run(arguments_, {
-    encoding: "utf8",
-    env: { NO_COLOR: "1" },
-    timeout: 60_000,
-  });
-  assert.ifError(result.error);
-  assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.doesNotMatch(result.stderr, /Non-standard highlight captures/);
-  return result.stdout;
 }
 
 const finalCaptureCases = [

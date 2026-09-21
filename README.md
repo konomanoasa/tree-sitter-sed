@@ -1,14 +1,12 @@
 # tree-sitter-sed
 
-[![CI](https://github.com/konomanoasa/tree-sitter-sed/actions/workflows/ci.yml/badge.svg)](https://github.com/konomanoasa/tree-sitter-sed/actions/workflows/ci.yml)
+[![CI](https://github.com/konomanoasa/tree-sitter-sed/actions/workflows/ci.yaml/badge.svg)](https://github.com/konomanoasa/tree-sitter-sed/actions/workflows/ci.yaml)
 [![npm](https://img.shields.io/npm/v/tree-sitter-sed)](https://www.npmjs.com/package/tree-sitter-sed)
 
 [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) grammars for
 POSIX.1-2024 `sed`.
 
 ## Installation
-
-### npm
 
 ```sh
 npm install tree-sitter-sed
@@ -18,10 +16,10 @@ npm install tree-sitter-sed
 
 This repository contains the following two grammars.
 
-| Grammar   | Regexp | Rust constant  |
-| --------- | ------ | -------------- |
-| `sed`     | BRE    | `LANGUAGE`     |
-| `sed_ere` | ERE    | `LANGUAGE_ERE` |
+| Grammar | Regexp | Rust constant |
+| --- | --- | --- |
+| `sed` | BRE | `LANGUAGE` |
+| `sed_ere` | ERE | `LANGUAGE_ERE` |
 
 ## Development
 

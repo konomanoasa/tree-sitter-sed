@@ -485,6 +485,15 @@ static bool end_mode(
   return emit_symbol(valid_symbols, candidate, symbol);
 }
 
+static TSSymbol
+dangling_escape_symbol(const TSLexer *lexer, TSSymbol at_end_of_source) {
+  if (lexer->eof(lexer)) {
+    return at_end_of_source;
+  }
+  return source_character_is_valid(lexer->lookahead) ? ERROR_SENTINEL
+                                                     : ESCAPE_PREFIX;
+}
+
 static bool scan_active_mode_delimiter(
   TSLexer *lexer,
   ScannerState *state,
@@ -520,10 +529,11 @@ static bool scan_active_mode_delimiter(
     return false;
   }
 
-  state->mode = next_mode;
-  reset_mode_tracking(state);
   if (next_mode == MODE_NONE) {
-    state->delimiter = 0;
+    reset_state(state);
+  } else {
+    state->mode = next_mode;
+    reset_mode_tracking(state);
   }
   return consume_as(lexer, valid_symbols, candidate, symbol);
 }
@@ -766,7 +776,6 @@ static bool scan_text_token(
     return end_mode(state, valid_symbols, TEXT_LINE_END, symbol);
   }
 
-  // Every remaining token is line content except an escaped newline.
   state->text_line_has_content = true;
   if (!source_character_is_valid(lexer->lookahead)) {
     return consume_invalid_character(lexer, valid_symbols, symbol);
@@ -775,11 +784,10 @@ static bool scan_text_token(
   if (lexer->lookahead == '\\') {
     consume(lexer);
 
-    if (lexer->eof(lexer)) {
-      return emit_symbol(valid_symbols, TEXT_UNSPECIFIED_ESCAPE, symbol);
-    }
-    if (!source_character_is_valid(lexer->lookahead)) {
-      return emit_symbol(valid_symbols, ESCAPE_PREFIX, symbol);
+    const TSSymbol dangling =
+      dangling_escape_symbol(lexer, TEXT_UNSPECIFIED_ESCAPE);
+    if (dangling != ERROR_SENTINEL) {
+      return emit_symbol(valid_symbols, dangling, symbol);
     }
     if (lexer->lookahead == '\\') {
       consume(lexer);
@@ -1073,10 +1081,11 @@ static bool bracket_meta_character(int32_t character) {
 static TSSymbol regex_bracket_term_content_symbol(
   const ScannerState *state,
   uint8_t character_count,
-  int32_t single_character
+  int32_t single_character,
+  bool valid_class_name
 ) {
   if (state->regex_bracket_term_state == REGEX_BRACKET_TERM_COLON) {
-    return REGEX_CLASS_NAME;
+    return valid_class_name ? REGEX_CLASS_NAME : REGEX_INVALID_CLASS_NAME;
   }
   if (character_count > 1U) {
     return REGEX_COLL_ELEM_MULTI;
@@ -1180,16 +1189,16 @@ static bool scan_regex_bracket_term_content(
     return emit_symbol(valid_symbols, REGEX_MALFORMED_BRACKET_TERM, symbol);
   }
   state->regex_bracket_term_has_content = true;
-  const TSSymbol candidate = state->regex_bracket_term_state ==
-      REGEX_BRACKET_TERM_COLON &&
-      !valid_class_name
-    ? REGEX_INVALID_CLASS_NAME
-    : regex_bracket_term_content_symbol(
-        state,
-        character_count,
-        single_character
-      );
-  return emit_symbol(valid_symbols, candidate, symbol);
+  return emit_symbol(
+    valid_symbols,
+    regex_bracket_term_content_symbol(
+      state,
+      character_count,
+      single_character,
+      valid_class_name
+    ),
+    symbol
+  );
 }
 
 static bool scan_regex_bracket_term_close(
@@ -1461,7 +1470,6 @@ static bool regex_delimiter_is_special(int32_t character) {
   }
 }
 
-// The QUOTED_CHAR sequences of XBD 9.5.1 for the selected RE.
 static bool escape_quotes_regex_syntax(int32_t character) {
   switch (character) {
 #if SED_REGEX_EXTENDED
@@ -1507,16 +1515,14 @@ static bool scan_regex_escape_after_backslash(
   const bool *valid_symbols,
   TSSymbol *symbol
 ) {
-  if (lexer->eof(lexer)) {
-    return emit_symbol(valid_symbols, REGEX_INCOMPLETE_ESCAPE, symbol);
+  const TSSymbol dangling =
+    dangling_escape_symbol(lexer, REGEX_INCOMPLETE_ESCAPE);
+  if (dangling != ERROR_SENTINEL) {
+    return emit_symbol(valid_symbols, dangling, symbol);
   }
 
   if (lexer->lookahead == '\n') {
     return emit_symbol(valid_symbols, REGEX_FORBIDDEN_NEWLINE_ESCAPE, symbol);
-  }
-
-  if (!source_character_is_valid(lexer->lookahead)) {
-    return emit_symbol(valid_symbols, ESCAPE_PREFIX, symbol);
   }
 
   if (lexer->lookahead == state->delimiter) {
@@ -2053,12 +2059,10 @@ static bool scan_replacement_escape(
 ) {
   consume(lexer);
 
-  if (lexer->eof(lexer)) {
-    return emit_symbol(valid_symbols, REPLACEMENT_INCOMPLETE_ESCAPE, symbol);
-  }
-
-  if (!source_character_is_valid(lexer->lookahead)) {
-    return emit_symbol(valid_symbols, ESCAPE_PREFIX, symbol);
+  const TSSymbol dangling =
+    dangling_escape_symbol(lexer, REPLACEMENT_INCOMPLETE_ESCAPE);
+  if (dangling != ERROR_SENTINEL) {
+    return emit_symbol(valid_symbols, dangling, symbol);
   }
 
   if (lexer->lookahead == '\n') {
@@ -2106,12 +2110,10 @@ static bool scan_translate_escape(
 ) {
   consume(lexer);
 
-  if (lexer->eof(lexer)) {
-    return emit_symbol(valid_symbols, TRANSLATE_INCOMPLETE_ESCAPE, symbol);
-  }
-
-  if (!source_character_is_valid(lexer->lookahead)) {
-    return emit_symbol(valid_symbols, ESCAPE_PREFIX, symbol);
+  const TSSymbol dangling =
+    dangling_escape_symbol(lexer, TRANSLATE_INCOMPLETE_ESCAPE);
+  if (dangling != ERROR_SENTINEL) {
+    return emit_symbol(valid_symbols, dangling, symbol);
   }
 
   if (lexer->lookahead == '\n') {
@@ -2498,8 +2500,7 @@ static bool scan_command_token(
     return true;
   }
 
-  // Read label separators before recovery markers can claim the space in
-  // front of a label starting with '}'.
+  // Recovery markers can steal the separator before a label starting with '}'.
   if (valid_symbols[ARGUMENT_SEPARATOR] && lexer->lookahead == ' ') {
     consume(lexer);
     *symbol = ARGUMENT_SEPARATOR;

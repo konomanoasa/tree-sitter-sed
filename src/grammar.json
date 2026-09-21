@@ -640,7 +640,7 @@
       "type": "TOKEN",
       "content": {
         "type": "PATTERN",
-        "value": "[[:blank:]]+"
+        "value": "[ \\t]+"
       }
     },
     "address_clause": {
@@ -1134,7 +1134,7 @@
     },
     "line_number_address": {
       "type": "PATTERN",
-      "value": "[[:digit:]]+"
+      "value": "[0-9]+"
     },
     "last_line_address": {
       "type": "STRING",
@@ -1895,7 +1895,7 @@
     },
     "occurrence_flag": {
       "type": "PATTERN",
-      "value": "[[:digit:]]+"
+      "value": "[0-9]+"
     },
     "write_flag": {
       "type": "SEQ",
@@ -8275,7 +8275,7 @@
         "type": "IMMEDIATE_TOKEN",
         "content": {
           "type": "PATTERN",
-          "value": "[[:blank:]]+"
+          "value": "[ \\t]+"
         }
       },
       "named": true,
@@ -8906,7 +8906,7 @@
             "value": -2,
             "content": {
               "type": "PATTERN",
-              "value": "[^[:blank:][:digit:]$\\/\\\\!;}\\n{abcdDgGhHilnNpPqrstwxy:=#]"
+              "value": "[^ \\t0-9$\\/\\\\!;}\\n{abcdDgGhHilnNpPqrstwxy:=#]"
             }
           }
         },

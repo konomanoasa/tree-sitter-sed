@@ -56,6 +56,7 @@ function compoundBracketExpression(
   contentField,
   content,
   closingExternal,
+  ...payloadIssues
 ) {
   const closing = seq(
     alias(closingExternal, marker),
@@ -66,12 +67,7 @@ function compoundBracketExpression(
       field(contentField, content),
       issueField($, "invalid_regular_expression_character"),
       issueField($, "invalid_encoding"),
-      ...(marker === ":"
-        ? [issueField($, "invalid_character_class_name")]
-        : []),
-      ...(marker === "="
-        ? [issueField($, "equivalence_class_meta_character")]
-        : []),
+      ...payloadIssues.map((reason) => issueField($, reason)),
     ),
   );
   return seq(
@@ -123,8 +119,6 @@ function bracketExpression($, ambiguous) {
   );
 }
 
-// Character and equivalence classes are not portable range endpoints; their
-// ranges keep the range_expression shape with the endpoint inside an issue.
 const nonportableRangeClasses = ["character_class", "equivalence_class"];
 
 function rangeOperator($) {
@@ -285,6 +279,7 @@ function bracketRules() {
           namedExternal($, $._regex_coll_elem_multi, "coll_elem_multi"),
         ),
         $._regex_equal_close,
+        "equivalence_class_meta_character",
       ),
 
     character_class: ($) =>
@@ -295,6 +290,7 @@ function bracketRules() {
         "name",
         namedExternal($, $._regex_class_name, "class_name"),
         $._regex_colon_close,
+        "invalid_character_class_name",
       ),
   };
 }

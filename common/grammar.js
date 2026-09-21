@@ -28,21 +28,23 @@ function fileOperandForms($, name, operand) {
   ];
 }
 
+function sourcePiece($, external, leaf) {
+  return choice(
+    namedExternal($, external, leaf),
+    issueField($, "nul_character"),
+    issueField($, "invalid_encoding"),
+  );
+}
+
+function sourcePieces($, leaf, external) {
+  return prec.right(repeat1(sourcePiece($, external, leaf)));
+}
+
 function lineOperand($, first, rest) {
   return prec.right(
     seq(
-      choice(
-        namedExternal($, first, "file_literal"),
-        issueField($, "nul_character"),
-        issueField($, "invalid_encoding"),
-      ),
-      repeat(
-        choice(
-          namedExternal($, rest, "file_literal"),
-          issueField($, "nul_character"),
-          issueField($, "invalid_encoding"),
-        ),
-      ),
+      sourcePiece($, first, "file_literal"),
+      repeat(sourcePiece($, rest, "file_literal")),
     ),
   );
 }
@@ -56,14 +58,6 @@ function operandAtoms($, literal, ...atoms) {
       issueField($, "invalid_encoding"),
       ...atoms,
     ),
-  );
-}
-
-function commentText($) {
-  return choice(
-    namedExternal($, $._comment_text, "comment_text"),
-    issueField($, "nul_character"),
-    issueField($, "invalid_encoding"),
   );
 }
 
@@ -161,17 +155,15 @@ const functionDefinitions = [
   },
 ];
 
-// A known verb never becomes an unknown function: address maxima are owned by
-// the excess address clauses, and a token that could also match a verb would
-// let a GLR branch that expects other verbs compete with the valid parse.
+// Matching known verbs here creates GLR branches that compete with valid
+// commands.
 const unknownFunctionCharacter = new RegExp(
-  `[^[:blank:][:digit:]$\\/\\\\!;}\\n${functionDefinitions
+  `[^ \\t0-9$\\/\\\\!;}\\n${functionDefinitions
     .map(({ spelling }) => spelling)
     .join("")}]`,
 );
 
-// Letter flags are aliased at their use sites: a rule that is only a string
-// shares its token with the function verbs and would wrap an anonymous leaf.
+// String-only flag rules share verb tokens and would wrap anonymous leaves.
 const letterSubstitutionFlags = {
   global_flag: "g",
   case_insensitive_flag: "i",
@@ -263,12 +255,11 @@ function commandListRules() {
             "default_output_suppression",
           ),
         ),
-        repeat(commentText($)),
+        repeat(sourcePiece($, $._comment_text, "comment_text")),
       ),
 
-    // Lists are built with repeat so that Tree-sitter balances them; explicit
-    // recursion nests hidden nodes as deep as the command count, which makes
-    // cursor traversal quadratic.
+    // Explicit recursion makes cursor traversal quadratic; repeat keeps lists
+    // balanced.
     _command_list: ($) =>
       choice(
         seq(
@@ -354,7 +345,7 @@ function commandListRules() {
 
     empty_command: ($) => seq(optional($._blanks), $._empty_command_marker),
 
-    _blanks: () => token(/[[:blank:]]+/),
+    _blanks: () => token(/[ \t]+/),
   };
 }
 
@@ -482,7 +473,7 @@ function addressRules(mode) {
 
     _max2_address: addressChoice,
 
-    line_number_address: () => /[[:digit:]]+/,
+    line_number_address: () => /[0-9]+/,
 
     last_line_address: () => "$",
 
@@ -588,7 +579,7 @@ function operandRules(mode) {
         ),
       ),
 
-    occurrence_flag: () => /[[:digit:]]+/,
+    occurrence_flag: () => /[0-9]+/,
 
     write_flag: ($) => {
       const wfile = field("wfile", alias($._substitution_wfile, $.wfile));
@@ -682,18 +673,9 @@ function functionRules() {
         $._substitution_wfile_continuation,
       ),
 
-    label: ($) =>
-      prec.right(
-        repeat1(
-          choice(
-            namedExternal($, $._line_word, "label_literal"),
-            issueField($, "nul_character"),
-            issueField($, "invalid_encoding"),
-          ),
-        ),
-      ),
+    label: ($) => sourcePieces($, "label_literal", $._line_word),
 
-    comment: ($) => prec.right(repeat1(commentText($))),
+    comment: ($) => sourcePieces($, "comment_text", $._comment_text),
 
     comment_function: ($) =>
       prec.right(
@@ -1153,7 +1135,7 @@ function issueDefinitions(mode) {
     {
       reason: "blanks_after_negation",
       outcome: "unspecified_syntax",
-      rule: ($) => alias(token.immediate(/[[:blank:]]+/), $.blank),
+      rule: ($) => alias(token.immediate(/[ \t]+/), $.blank),
     },
     {
       reason: "unspecified_replacement_escape",

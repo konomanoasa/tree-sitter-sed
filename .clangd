@@ -1,28 +1,34 @@
 CompileFlags:
   Add:
     - -std=c17
+    - -xc
+    - -Wall
+    - -Wextra
+    - -Werror
+    - -pedantic
+    - -Wno-unused-function
+
+---
+If:
+  PathMatch: .*\.h
+CompileFlags:
+  Add:
+    - -xc-header
 
 ---
 If:
   PathMatch:
-    - sed_ere/src/.*
     - src/.*
+    - sed_ere/src/.*
 CompileFlags:
   Add:
     - -I.
 
 ---
 If:
-  PathMatch: common/scanner\.h
-CompileFlags:
-  Add:
-    - -xc
-    - -DSED_REGEX_EXTENDED=0
-    - -I../src
-
----
-If:
-  PathMatch: test/scanner\.test\.c
+  PathMatch:
+    - common/scanner\.h
+    - test/scanner\.test\.c
 CompileFlags:
   Add:
     - -DSED_REGEX_EXTENDED=0
