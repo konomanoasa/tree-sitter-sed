@@ -1,4 +1,4 @@
-use tree_sitter::{InputEdit, Language, Parser, Point, Range, Tree};
+use tree_sitter::{InputEdit, Language, Parser, Point, Query, Range, Tree};
 use tree_sitter_sed as grammar;
 
 fn issue_signatures(tree: &Tree) -> Vec<(String, String, Range)> {
@@ -51,15 +51,32 @@ fn assert_invalid_encoding_leaves(
 
 #[test]
 fn parses_valid_source() {
-  let source = "p\n";
-  for language in [grammar::LANGUAGE, grammar::LANGUAGE_ERE] {
+  for (language, node_types, highlights, source, root_kind) in [
+    (
+      grammar::LANGUAGE,
+      grammar::NODE_TYPES,
+      grammar::HIGHLIGHTS_QUERY,
+      "p\n",
+      "script",
+    ),
+    (
+      grammar::LANGUAGE_ERE,
+      grammar::NODE_TYPES_ERE,
+      grammar::HIGHLIGHTS_QUERY_ERE,
+      "p\n",
+      "script",
+    ),
+  ] {
+    let language = language.into();
     let mut parser = Parser::new();
-    parser.set_language(&language.into()).unwrap();
+    parser.set_language(&language).unwrap();
     let tree = parser.parse(source, None).unwrap();
     let root = tree.root_node();
-    assert_eq!(root.kind(), "script");
-    assert_eq!(root.byte_range(), 0..source.len());
-    assert!(!root.has_error());
+    assert_eq!(root.kind(), root_kind, "{source}");
+    assert_eq!(root.byte_range(), 0..source.len(), "{source}");
+    assert!(!root.has_error(), "{source}");
+    assert!(node_types.contains(&format!("\"{root_kind}\"")), "{source}");
+    Query::new(&language, highlights).unwrap();
   }
 }
 
