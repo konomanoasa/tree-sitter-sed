@@ -404,7 +404,7 @@
         ]
       },
       "issue": {
-        "multiple": false,
+        "multiple": true,
         "required": false,
         "types": [
           {
@@ -414,7 +414,7 @@
         ]
       },
       "maximum": {
-        "multiple": false,
+        "multiple": true,
         "required": false,
         "types": [
           {
@@ -424,7 +424,7 @@
         ]
       },
       "minimum": {
-        "multiple": false,
+        "multiple": true,
         "required": false,
         "types": [
           {
@@ -723,7 +723,18 @@
   {
     "type": "command_list",
     "named": true,
-    "fields": {},
+    "fields": {
+      "issue": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "syntax_issue",
+            "named": true
+          }
+        ]
+      }
+    },
     "children": {
       "multiple": true,
       "required": false,
@@ -738,10 +749,6 @@
         },
         {
           "type": "empty_command",
-          "named": true
-        },
-        {
-          "type": "syntax_issue",
           "named": true
         }
       ]
@@ -979,16 +986,6 @@
     "named": true,
     "fields": {
       "issue": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "syntax_issue",
-            "named": true
-          }
-        ]
-      },
-      "term": {
         "multiple": false,
         "required": false,
         "types": [
@@ -1425,27 +1422,7 @@
     }
   },
   {
-    "type": "incomplete_bracket_term",
-    "named": true,
-    "fields": {}
-  },
-  {
-    "type": "incomplete_interval",
-    "named": true,
-    "fields": {}
-  },
-  {
-    "type": "incomplete_regular_expression",
-    "named": true,
-    "fields": {}
-  },
-  {
     "type": "incomplete_regular_expression_escape",
-    "named": true,
-    "fields": {}
-  },
-  {
-    "type": "incomplete_replacement",
     "named": true,
     "fields": {}
   },
@@ -1463,23 +1440,11 @@
       "required": true,
       "types": [
         {
-          "type": "incomplete_bracket_term",
-          "named": true
-        },
-        {
-          "type": "incomplete_interval",
-          "named": true
-        },
-        {
-          "type": "incomplete_regular_expression",
+          "type": "empty_subexpression",
           "named": true
         },
         {
           "type": "incomplete_regular_expression_escape",
-          "named": true
-        },
-        {
-          "type": "incomplete_replacement",
           "named": true
         },
         {
@@ -1491,15 +1456,23 @@
           "named": true
         },
         {
-          "type": "incomplete_translation",
-          "named": true
-        },
-        {
           "type": "incomplete_translation_escape",
           "named": true
         },
         {
+          "type": "invalid_interval_close",
+          "named": true
+        },
+        {
           "type": "missing_bracket_list",
+          "named": true
+        },
+        {
+          "type": "missing_bracket_term_close",
+          "named": true
+        },
+        {
+          "type": "missing_bracket_term_payload",
           "named": true
         },
         {
@@ -1515,6 +1488,14 @@
           "named": true
         },
         {
+          "type": "missing_interval_close",
+          "named": true
+        },
+        {
+          "type": "missing_interval_minimum",
+          "named": true
+        },
+        {
           "type": "missing_label",
           "named": true
         },
@@ -1524,10 +1505,6 @@
         },
         {
           "type": "missing_rfile",
-          "named": true
-        },
-        {
-          "type": "missing_subexpression",
           "named": true
         },
         {
@@ -1553,17 +1530,24 @@
         {
           "type": "unclosed_subexpression",
           "named": true
+        },
+        {
+          "type": "unterminated_regular_expression",
+          "named": true
+        },
+        {
+          "type": "unterminated_replacement",
+          "named": true
+        },
+        {
+          "type": "unterminated_translation",
+          "named": true
         }
       ]
     }
   },
   {
     "type": "incomplete_text_introducer",
-    "named": true,
-    "fields": {}
-  },
-  {
-    "type": "incomplete_translation",
     "named": true,
     "fields": {}
   },
@@ -1619,23 +1603,42 @@
     }
   },
   {
+    "type": "invalid_character_class_name",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "invalid_delimiter",
     "named": true,
-    "fields": {
-      "issue": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "syntax_issue",
-            "named": true
-          }
-        ]
-      }
-    }
+    "fields": {}
   },
   {
     "type": "invalid_encoding",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "invalid_equivalence_class_element",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "meta_char",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "invalid_interval_character",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "invalid_interval_close",
     "named": true,
     "fields": {}
   },
@@ -1647,18 +1650,7 @@
   {
     "type": "invalid_substitution_flag",
     "named": true,
-    "fields": {
-      "issue": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "syntax_issue",
-            "named": true
-          }
-        ]
-      }
-    }
+    "fields": {}
   },
   {
     "type": "invalid_syntax",
@@ -1800,37 +1792,6 @@
     }
   },
   {
-    "type": "malformed_bracket_term",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": false,
-      "types": [
-        {
-          "type": "meta_char",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "malformed_interval",
-    "named": true,
-    "fields": {
-      "issue": {
-        "multiple": true,
-        "required": false,
-        "types": [
-          {
-            "type": "syntax_issue",
-            "named": true
-          }
-        ]
-      }
-    }
-  },
-  {
     "type": "matched_text_reference",
     "named": true,
     "fields": {}
@@ -1862,6 +1823,16 @@
     "fields": {}
   },
   {
+    "type": "missing_bracket_term_close",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "missing_bracket_term_payload",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "missing_closing_brace",
     "named": true,
     "fields": {}
@@ -1877,6 +1848,16 @@
     "fields": {}
   },
   {
+    "type": "missing_interval_close",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "missing_interval_minimum",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "missing_label",
     "named": true,
     "fields": {}
@@ -1888,11 +1869,6 @@
   },
   {
     "type": "missing_rfile",
-    "named": true,
-    "fields": {}
-  },
-  {
-    "type": "missing_subexpression",
     "named": true,
     "fields": {}
   },
@@ -2534,6 +2510,16 @@
     "type": "simple_bre",
     "named": true,
     "fields": {
+      "issue": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "syntax_issue",
+            "named": true
+          }
+        ]
+      },
       "operand": {
         "multiple": false,
         "required": false,
@@ -2554,10 +2540,6 @@
         "types": [
           {
             "type": "bre_dupl_symbol",
-            "named": true
-          },
-          {
-            "type": "syntax_issue",
             "named": true
           }
         ]
@@ -2606,6 +2588,16 @@
     "type": "start_range",
     "named": true,
     "fields": {
+      "issue": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "syntax_issue",
+            "named": true
+          }
+        ]
+      },
       "operator": {
         "multiple": false,
         "required": true,
@@ -2618,14 +2610,10 @@
       },
       "start": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "end_range",
-            "named": true
-          },
-          {
-            "type": "syntax_issue",
             "named": true
           }
         ]
@@ -3045,19 +3033,43 @@
           "named": true
         },
         {
+          "type": "invalid_character_class_name",
+          "named": true
+        },
+        {
+          "type": "invalid_equivalence_class_element",
+          "named": true
+        },
+        {
+          "type": "invalid_interval_character",
+          "named": true
+        },
+        {
+          "type": "invalid_interval_close",
+          "named": true
+        },
+        {
           "type": "leading_duplication_symbol",
           "named": true
         },
         {
-          "type": "malformed_bracket_term",
-          "named": true
-        },
-        {
-          "type": "malformed_interval",
-          "named": true
-        },
-        {
           "type": "missing_bracket_list",
+          "named": true
+        },
+        {
+          "type": "missing_bracket_term_close",
+          "named": true
+        },
+        {
+          "type": "missing_bracket_term_payload",
+          "named": true
+        },
+        {
+          "type": "missing_interval_close",
+          "named": true
+        },
+        {
+          "type": "missing_interval_minimum",
           "named": true
         },
         {
@@ -3082,6 +3094,10 @@
         },
         {
           "type": "undefined_translation_escape",
+          "named": true
+        },
+        {
+          "type": "unexpected_interval_separator",
           "named": true
         },
         {
@@ -3128,20 +3144,24 @@
     }
   },
   {
+    "type": "unexpected_interval_separator",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "interval_separator",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "unknown_function",
     "named": true,
-    "fields": {
-      "issue": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "syntax_issue",
-            "named": true
-          }
-        ]
-      }
-    }
+    "fields": {}
   },
   {
     "type": "unmatched_closing_brace",

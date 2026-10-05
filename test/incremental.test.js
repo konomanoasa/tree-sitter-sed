@@ -52,12 +52,12 @@ const bracketDelimiterConvergenceCases = grammars.flatMap((grammar) => [
     issues: [
       {
         outcome: "undefined_syntax",
-        reason: "malformed_bracket_term",
-        range: "[0, 4] - [0, 11]",
+        reason: "invalid_character_class_name",
+        range: "[0, 9] - [0, 10]",
       },
       {
         outcome: "undefined_syntax",
-        reason: "malformed_bracket_term",
+        reason: "missing_bracket_term_close",
         range: "[0, 11] - [0, 11]",
       },
     ],
@@ -506,9 +506,11 @@ for (const testCase of explicitConvergenceCases) {
     if (testCase.issues !== undefined) {
       assert.deepEqual(issueSignatures(fresh.nodes), testCase.issues);
     }
-    const retainedTypes = testCase.syntax?.map(
-      (line) => /^ *([a-z_]+: )?([a-z_]+) \[/.exec(line)[2],
-    );
+    const retainedTypes = testCase.syntax?.map((line) => {
+      const match = /^ *([a-z_]+: )?([a-z_]+) \[/.exec(line);
+      assert.ok(match, line);
+      return match[2];
+    });
     if (retainedTypes !== undefined) {
       assert.deepEqual(
         syntaxSignatures(fresh.nodes, retainedTypes),
@@ -651,12 +653,12 @@ for (const [name, opening] of [
       ]) {
         assert.deepEqual(
           issueSignatures(result.nodes).filter(
-            ({ reason }) => reason === "malformed_interval",
+            ({ reason }) => reason === "invalid_interval_character",
           ),
           [
             {
               outcome: "undefined_syntax",
-              reason: "malformed_interval",
+              reason: "invalid_interval_character",
               range: `[0, ${contentStart}] - [0, ${contentEnd}]`,
             },
           ],
@@ -807,28 +809,63 @@ for (const grammar of grammars) {
       [0xc3, 0xa9, 0xf0, 0x9f, 0x80],
       [0xc3, 0xa9, 0xf0, 0x9f, 0x98],
     ];
-    for (const [source, changed, payloadByte, owner, literal, suffix] of [
-      [
-        "s/a/é😀/p\np\n",
-        "s/a/x/p\np\n",
-        4,
-        "replacement",
-        "replacement_literal",
-        "/p\np\n",
-      ],
-      [":é😀\np\n", ":x\np\n", 1, "label", "label_literal", "\np\n"],
-      ["b é😀\np\n", "b x\np\n", 2, "label", "label_literal", "\np\n"],
-      ["t é😀\np\n", "t x\np\n", 2, "label", "label_literal", "\np\n"],
-      ["r é😀\np\n", "r x\np\n", 2, "rfile", "file_literal", "\np\n"],
-      ["w é😀\np\n", "w x\np\n", 2, "wfile", "file_literal", "\np\n"],
-      [
-        "s/a/b/w é😀\np\n",
-        "s/a/b/w x\np\n",
-        8,
-        "wfile",
-        "file_literal",
-        "\np\n",
-      ],
+    for (const { source, changed, payloadByte, owner, literal, suffix } of [
+      {
+        source: "s/a/é😀/p\np\n",
+        changed: "s/a/x/p\np\n",
+        payloadByte: 4,
+        owner: "replacement",
+        literal: "replacement_literal",
+        suffix: "/p\np\n",
+      },
+      {
+        source: ":é😀\np\n",
+        changed: ":x\np\n",
+        payloadByte: 1,
+        owner: "label",
+        literal: "label_literal",
+        suffix: "\np\n",
+      },
+      {
+        source: "b é😀\np\n",
+        changed: "b x\np\n",
+        payloadByte: 2,
+        owner: "label",
+        literal: "label_literal",
+        suffix: "\np\n",
+      },
+      {
+        source: "t é😀\np\n",
+        changed: "t x\np\n",
+        payloadByte: 2,
+        owner: "label",
+        literal: "label_literal",
+        suffix: "\np\n",
+      },
+      {
+        source: "r é😀\np\n",
+        changed: "r x\np\n",
+        payloadByte: 2,
+        owner: "rfile",
+        literal: "file_literal",
+        suffix: "\np\n",
+      },
+      {
+        source: "w é😀\np\n",
+        changed: "w x\np\n",
+        payloadByte: 2,
+        owner: "wfile",
+        literal: "file_literal",
+        suffix: "\np\n",
+      },
+      {
+        source: "s/a/b/w é😀\np\n",
+        changed: "s/a/b/w x\np\n",
+        payloadByte: 8,
+        owner: "wfile",
+        literal: "file_literal",
+        suffix: "\np\n",
+      },
     ]) {
       const prefix = Buffer.from(source).subarray(0, payloadByte);
       for (const [removedByte, brokenPayload] of brokenPayloads.entries()) {
@@ -880,5 +917,107 @@ for (const grammar of grammars) {
         }
       }
     }
+  });
+}
+
+for (const grammar of grammars) {
+  for (const [name, prefix, suffix] of [
+    ["function", "", "\np\n"],
+    ["command tail", "p", "\nq\n"],
+    ["comment", "# a", "b\n"],
+    ["expression", "/a", "b/p\n"],
+    ["replacement", "s/a/", "/\n"],
+    ["translation", "y/a", "/b/\n"],
+    ["label", ": a", "b\n"],
+    ["file", "r a", "b\n"],
+    ["character class", "/[[:a", "b:]]/p\n"],
+  ]) {
+    test(`${grammar.name}: decoding runs merge after edits to the following character in ${name}`, () => {
+      const offset = Buffer.byteLength(prefix);
+      for (const character of ["é", "😀"]) {
+        const source = Buffer.concat([
+          Buffer.from(prefix),
+          Buffer.from([0xff]),
+          Buffer.from(character + suffix),
+        ]);
+        for (let index = 0; index < Buffer.byteLength(character); index++) {
+          const edits = [
+            { byte: offset + 1 + index, deleteBytes: 1, insert: "" },
+          ];
+          const fresh = parseSuccessfully(
+            grammar.scope,
+            applyEdits(source, edits),
+          );
+          assert.deepEqual(
+            issueSignatures(fresh.nodes).map(({ outcome, reason }) => [
+              outcome,
+              reason,
+            ]),
+            [["invalid_syntax", "invalid_encoding"]],
+          );
+          const issue = fresh.nodes.find(({ kind }) => kind === "syntax_issue");
+          assert.ok(issue);
+          assert.deepEqual(
+            [issue.startByte, issue.endByte],
+            [offset, offset + Buffer.byteLength(character)],
+          );
+          assertIncrementalContract(
+            fresh,
+            parse(grammar.scope, source, edits),
+            `${name}: ${character} byte ${index}`,
+          );
+        }
+      }
+    });
+  }
+
+  test(`${grammar.name}: valid characters split decoding runs without merging NUL or replacement characters`, () => {
+    const source = Buffer.concat([
+      Buffer.from([0x23, 0x20, 0xff, 0x80, 0xfe, 0]),
+      Buffer.from("�\n"),
+    ]);
+    const edits = [{ byte: 3, deleteBytes: 0, insert: "x" }];
+    const fresh = parseSuccessfully(grammar.scope, applyEdits(source, edits));
+    assert.deepEqual(issueSignatures(fresh.nodes), [
+      {
+        outcome: "invalid_syntax",
+        reason: "invalid_encoding",
+        range: "[0, 2] - [0, 3]",
+      },
+      {
+        outcome: "invalid_syntax",
+        reason: "invalid_encoding",
+        range: "[0, 4] - [0, 6]",
+      },
+      {
+        outcome: "nonconforming_syntax",
+        reason: "nul_character",
+        range: "[0, 6] - [0, 7]",
+      },
+    ]);
+    assertIncrementalContract(
+      fresh,
+      parse(grammar.scope, source, edits),
+      "split decoding run",
+    );
+    const reverse = [{ byte: 3, deleteBytes: 1, insert: "" }];
+    const merged = parseSuccessfully(grammar.scope, source);
+    assert.deepEqual(issueSignatures(merged.nodes), [
+      {
+        outcome: "invalid_syntax",
+        reason: "invalid_encoding",
+        range: "[0, 2] - [0, 5]",
+      },
+      {
+        outcome: "nonconforming_syntax",
+        reason: "nul_character",
+        range: "[0, 5] - [0, 6]",
+      },
+    ]);
+    assertIncrementalContract(
+      merged,
+      parse(grammar.scope, applyEdits(source, edits), reverse),
+      "merge decoding run",
+    );
   });
 }

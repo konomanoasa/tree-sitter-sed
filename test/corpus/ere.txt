@@ -238,7 +238,7 @@ leaves a bracket expression outside a malformed ERE interval
                         (dup_count)
                         (syntax_issue
                           (undefined_syntax
-                            (malformed_interval))))))
+                            (missing_interval_close))))))
                   (ere_expression
                     (one_char_or_coll_elem_ere
                       (bracket_expression
@@ -295,7 +295,7 @@ leaves a closing subexpression outside a malformed ERE interval
                           (dup_count)
                           (syntax_issue
                             (undefined_syntax
-                              (malformed_interval)))))))
+                              (missing_interval_close)))))))
                   (close_parenthesis))))
             (delimiter))))
       (function
@@ -330,7 +330,7 @@ leaves an alternative outside a malformed ERE interval
                       (dup_count)
                       (syntax_issue
                         (undefined_syntax
-                          (malformed_interval)))))))
+                          (missing_interval_close)))))))
               (ere_alternation_operator)
               (ere_branch
                 (ere_expression
@@ -367,7 +367,7 @@ structures a leading malformed ERE interval
                           (open_brace)
                           (syntax_issue
                             (undefined_syntax
-                              (malformed_interval)))
+                              (invalid_interval_character)))
                           (close_brace))))))))
             (delimiter))))
       (function
@@ -400,7 +400,7 @@ s}a{1
                   (dup_count)
                   (syntax_issue
                     (undefined_syntax
-                      (malformed_interval)))))))
+                      (missing_interval_close)))))))
           (syntax_issue
             (incomplete_syntax
-              (incomplete_regular_expression))))))))
+              (unterminated_regular_expression))))))))

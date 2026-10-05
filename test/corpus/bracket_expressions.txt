@@ -284,7 +284,7 @@ rejects meta characters inside equivalence classes
                                             (equivalence_class
                                               (syntax_issue
                                                 (undefined_syntax
-                                                  (malformed_bracket_term
+                                                  (invalid_equivalence_class_element
                                                     (meta_char))))))))))
                                   (close_bracket)))))))
                       (bre_expression
@@ -301,7 +301,7 @@ rejects meta characters inside equivalence classes
                                           (equivalence_class
                                             (syntax_issue
                                               (undefined_syntax
-                                                (malformed_bracket_term
+                                                (invalid_equivalence_class_element
                                                   (meta_char))))))))))
                                 (close_bracket)))))))
                     (bre_expression
@@ -385,7 +385,7 @@ s/[[:1:]]/x/
                                   (character_class
                                     (syntax_issue
                                       (undefined_syntax
-                                        (malformed_bracket_term)))))))))
+                                        (invalid_character_class_name)))))))))
                         (close_bracket))))))))
           (delimiter)
           (replacement
@@ -422,7 +422,7 @@ s/[[:1:]]/x/
                               (character_class
                                 (syntax_issue
                                   (undefined_syntax
-                                    (malformed_bracket_term)))))))))
+                                    (invalid_character_class_name)))))))))
                     (close_bracket))))))
           (delimiter)
           (replacement
@@ -461,13 +461,13 @@ s/[[:alpha:
                                     (class_name)
                                     (syntax_issue
                                       (incomplete_syntax
-                                        (incomplete_bracket_term)))))))))
+                                        (missing_bracket_term_close)))))))))
                         (syntax_issue
                           (incomplete_syntax
                             (unclosed_bracket_expression))))))))))
           (syntax_issue
             (incomplete_syntax
-              (incomplete_regular_expression))))))))
+              (unterminated_regular_expression))))))))
 
 ==================
 keeps a partial collating symbol closer outside its element
@@ -499,13 +499,13 @@ s/[[.a.
                                   (coll_elem_single)
                                   (syntax_issue
                                     (incomplete_syntax
-                                      (incomplete_bracket_term))))))))))
+                                      (missing_bracket_term_close))))))))))
                     (syntax_issue
                       (incomplete_syntax
                         (unclosed_bracket_expression))))))))
           (syntax_issue
             (incomplete_syntax
-              (incomplete_regular_expression))))))))
+              (unterminated_regular_expression))))))))
 
 ==================
 keeps a partial equivalence class closer outside its element
@@ -538,13 +538,13 @@ s/[[=a=
                                     (coll_elem_single)
                                     (syntax_issue
                                       (incomplete_syntax
-                                        (incomplete_bracket_term)))))))))
+                                        (missing_bracket_term_close)))))))))
                         (syntax_issue
                           (incomplete_syntax
                             (unclosed_bracket_expression))))))))))
           (syntax_issue
             (incomplete_syntax
-              (incomplete_regular_expression))))))))
+              (unterminated_regular_expression))))))))
 
 ==================
 recovers malformed terms and non-portable ranges
@@ -667,7 +667,7 @@ recovers malformed terms and non-portable ranges
                                     (coll_elem_multi)
                                     (syntax_issue
                                       (undefined_syntax
-                                        (malformed_bracket_term))))))))))
+                                        (missing_bracket_term_close))))))))))
                       (syntax_issue
                         (undefined_syntax
                           (unclosed_bracket_expression))))))))

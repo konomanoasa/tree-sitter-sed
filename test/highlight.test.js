@@ -415,7 +415,9 @@ for (const grammar of grammars) {
       ]);
       for (const [capture, ranges] of [
         [testCase.capture, testCase.ranges],
-        ...Object.entries(testCase.preservedCaptures ?? {}),
+        ...Object.entries(
+          "preservedCaptures" in testCase ? testCase.preservedCaptures : {},
+        ),
       ]) {
         const captures = output
           .split("\n")
@@ -428,7 +430,7 @@ for (const grammar of grammars) {
               /start: \(([0-9]+), ([0-9]+)\), end: \(([0-9]+), ([0-9]+)\)/.exec(
                 line,
               );
-            assert.notEqual(range, null, line);
+            assert.ok(range, line);
             return range.slice(1).map(Number);
           });
         assert.deepEqual(captures, ranges, `${testCase.name}: ${capture}`);
@@ -1037,13 +1039,15 @@ const finalCaptureCases = [
     valid: false,
   },
   {
-    name: 'invalid class name "a-b" has no character capture',
+    name: "class-name parts around the invalid hyphen keep their captures",
     source: "s/[[:a-b:]]/x/\n",
     captures: [
       [0, 1, "keyword"],
       [1, 2, "punctuation.delimiter"],
       [2, 4, "punctuation.bracket"],
       [4, 5, "punctuation.delimiter"],
+      [5, 6, "character.special"],
+      [7, 8, "character.special"],
       [8, 9, "punctuation.delimiter"],
       [9, 11, "punctuation.bracket"],
       [11, 12, "punctuation.delimiter"],

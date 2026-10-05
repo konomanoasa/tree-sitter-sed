@@ -94,7 +94,7 @@ fn invalid_byte_issues_preserve_classification_and_ranges_through_edits() {
   {
     let mut parser = Parser::new();
     parser.set_language(&language.into()).unwrap();
-    for (name, source, start, end, row, column, reasons) in [
+    for (name, source, start, end, row, column, reason) in [
       (
         "first function",
         &b"p\nq\n"[..],
@@ -102,7 +102,7 @@ fn invalid_byte_issues_preserve_classification_and_ranges_through_edits() {
         1,
         0,
         0,
-        ["unknown_function"; 2],
+        "unknown_function",
       ),
       (
         "function after newline",
@@ -111,7 +111,7 @@ fn invalid_byte_issues_preserve_classification_and_ranges_through_edits() {
         3,
         1,
         0,
-        ["unknown_function"; 2],
+        "unknown_function",
       ),
       (
         "substitute delimiter",
@@ -120,7 +120,7 @@ fn invalid_byte_issues_preserve_classification_and_ranges_through_edits() {
         6,
         1,
         1,
-        ["invalid_delimiter"; 2],
+        "invalid_delimiter",
       ),
       (
         "translate delimiter",
@@ -129,7 +129,7 @@ fn invalid_byte_issues_preserve_classification_and_ranges_through_edits() {
         6,
         1,
         1,
-        ["invalid_delimiter"; 2],
+        "invalid_delimiter",
       ),
       (
         "address delimiter",
@@ -138,7 +138,7 @@ fn invalid_byte_issues_preserve_classification_and_ranges_through_edits() {
         5,
         1,
         1,
-        ["invalid_delimiter"; 2],
+        "invalid_delimiter",
       ),
       (
         "trailing command text",
@@ -147,7 +147,7 @@ fn invalid_byte_issues_preserve_classification_and_ranges_through_edits() {
         3,
         1,
         1,
-        ["unexpected_command_text"; 2],
+        "unexpected_command_text",
       ),
       (
         "substitution flag",
@@ -156,10 +156,10 @@ fn invalid_byte_issues_preserve_classification_and_ranges_through_edits() {
         9,
         1,
         6,
-        ["invalid_substitution_flag"; 2],
+        "invalid_substitution_flag",
       ),
     ] {
-      for (invalid_byte, reason) in [0, 0xff].into_iter().zip(reasons) {
+      for invalid_byte in [0, 0xff] {
         let mut damaged = source.to_vec();
         damaged.splice(start..end, [invalid_byte]);
         let mut tree = parser.parse(source, None).unwrap();
@@ -189,11 +189,13 @@ fn invalid_byte_issues_preserve_classification_and_ranges_through_edits() {
               start_point: Point::new(row, column),
               end_point: Point::new(row, column + 1),
             };
-            expected.push((
-              "nonconforming_syntax".to_owned(),
-              reason.to_owned(),
-              range,
-            ));
+            if invalid_byte == 0 {
+              expected.push((
+                "nonconforming_syntax".to_owned(),
+                reason.to_owned(),
+                range,
+              ));
+            }
             if invalid_byte == 0 && reason == "unexpected_command_text" {
               expected.push((
                 "nonconforming_syntax".to_owned(),
@@ -252,7 +254,7 @@ fn invalid_bytes_inside_intervals_and_escapes_remain_visible_through_edits() {
         count_start,
         &b"x"[..],
         &[
-          ("undefined_syntax", "malformed_interval", 0, 2),
+          ("undefined_syntax", "invalid_interval_character", 0, 1),
           (
             "invalid_syntax",
             "invalid_regular_expression_character",
@@ -327,25 +329,24 @@ fn invalid_bytes_inside_intervals_and_escapes_remain_visible_through_edits() {
             }
             if damage && name == "malformed interval" {
               let mut nodes = vec![parsed.root_node()];
-              let mut nested = false;
+              let mut owners = Vec::new();
               while let Some(node) = nodes.pop() {
-                if node.kind() == "malformed_interval" {
-                  let reason = if invalid_byte == 0 {
-                    "invalid_regular_expression_character"
-                  } else {
-                    "invalid_encoding"
-                  };
-                  nested = node.to_sexp().contains(&format!(
-                    "(syntax_issue (invalid_syntax ({reason}"
-                  ));
+                if node.kind() == "syntax_issue" {
+                  owners.push(node.parent().unwrap().kind());
                 }
                 for index in 0..node.named_child_count() {
                   nodes.push(node.named_child(index as u32).unwrap());
                 }
               }
-              assert!(
-                nested,
-                "{context}: invalid byte must belong to the interval issue"
+              let owner = if mode == "BRE" {
+                "bre_dupl_symbol"
+              } else {
+                "ere_dupl_symbol"
+              };
+              assert_eq!(
+                owners,
+                [owner, owner],
+                "{context}: interval faults must be siblings"
               );
             }
           }
@@ -554,11 +555,33 @@ fn decoding_issues_split_operands_and_escapes_and_disappear_after_repair() {
       ),
     ] {
       let (normal_kind, owner_kind) = normal_nodes;
-      let mut invalid_inputs = vec![&b"\xff"[..], &b"\xff\xfe"[..]];
+      let mut invalid_inputs = vec![
+        (
+          &b"\xff"[..],
+          &[("invalid_syntax", "invalid_encoding", 0, 1)][..],
+        ),
+        (
+          &b"\xff\xfe"[..],
+          &[("invalid_syntax", "invalid_encoding", 0, 2)][..],
+        ),
+      ];
       if owner_kind.is_some() {
-        invalid_inputs.extend([&b"\0"[..], &b"\xff\0\xfe"[..]]);
+        invalid_inputs.extend([
+          (
+            &b"\0"[..],
+            &[("nonconforming_syntax", "nul_character", 0, 1)][..],
+          ),
+          (
+            &b"\xff\0\xfe"[..],
+            &[
+              ("invalid_syntax", "invalid_encoding", 0, 1),
+              ("nonconforming_syntax", "nul_character", 1, 2),
+              ("invalid_syntax", "invalid_encoding", 2, 3),
+            ][..],
+          ),
+        ]);
       }
-      for invalid in invalid_inputs {
+      for (invalid, faults) in invalid_inputs {
         let mut tree = parser.parse(source, None).unwrap();
         assert!(!tree.root_node().has_error(), "{mode}, {name}");
         assert!(issue_signatures(&tree).is_empty(), "{mode}, {name}");
@@ -584,30 +607,27 @@ fn decoding_issues_split_operands_and_escapes_and_disappear_after_repair() {
           });
           let incremental = parser.parse(&next, Some(&tree)).unwrap();
           let fresh = parser.parse(&next, None).unwrap();
-          let ranges: Vec<_> = if step == 0 {
-            (0..invalid.len())
-              .map(|offset| Range {
-                start_byte: start + offset,
-                end_byte: start + offset + 1,
-                start_point: Point::new(row, column + offset),
-                end_point: Point::new(row, column + offset + 1),
+          let expected: Vec<_> = if step == 0 {
+            faults
+              .iter()
+              .map(|&(outcome, reason, first, last)| {
+                (
+                  outcome.to_owned(),
+                  reason.to_owned(),
+                  Range {
+                    start_byte: start + first,
+                    end_byte: start + last,
+                    start_point: Point::new(row, column + first),
+                    end_point: Point::new(row, column + last),
+                  },
+                )
               })
               .collect()
           } else {
             Vec::new()
           };
-          let expected: Vec<_> = ranges
-            .iter()
-            .zip(invalid)
-            .map(|(range, byte)| {
-              let (outcome, reason) = if *byte == 0 {
-                ("nonconforming_syntax", "nul_character")
-              } else {
-                ("invalid_syntax", "invalid_encoding")
-              };
-              (outcome.to_owned(), reason.to_owned(), *range)
-            })
-            .collect();
+          let ranges: Vec<_> =
+            expected.iter().map(|(_, _, range)| *range).collect();
           let encoding_ranges: Vec<_> = expected
             .iter()
             .filter(|(_, reason, _)| reason == "invalid_encoding")

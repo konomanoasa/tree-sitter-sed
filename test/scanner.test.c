@@ -64,6 +64,11 @@ static int32_t mock_lookahead(const MockLexer *mock) {
                                   : (unsigned char)mock->source[mock->offset];
 }
 
+static void mock_resume_at_token_end(MockLexer *mock) {
+  mock->offset = mock->mark;
+  mock->lexer.lookahead = mock_lookahead(mock);
+}
+
 static void mock_advance(TSLexer *lexer, bool skip) {
   (void)skip;
   MockLexer *mock = mock_lexer(lexer);
@@ -309,7 +314,7 @@ static void test_encoding_issues_preserve_construct_state(void) {
       assert(sed_scanner_scan(&state, &mock.lexer, valid_symbols));
       assert(mock.lexer.result_symbol == issues[issue].symbol);
       assert(mock.mark == 1);
-      assert(mock.lexer.lookahead == 'a');
+      assert(source[mock.mark] == 'a');
       assert(state.mode == initial.mode);
       assert(state.delimiter == '/');
       assert(state.regex_group_depth == 3);
@@ -386,8 +391,8 @@ static void test_opaque_literals_split_at_encoding_issues(void) {
         assert(sed_scanner_scan(&state, &mock.lexer, valid_symbols));
         assert(mock.lexer.result_symbol == expected[token]);
         assert(mock.mark == token + 1);
-        assert(mock.offset == mock.mark);
         assert(state.mode == contexts[context].mode);
+        mock_resume_at_token_end(&mock);
       }
       assert(mock.lexer.lookahead == '\n');
     }
@@ -423,10 +428,11 @@ static void test_escape_prefixes_stop_before_encoding_issues(void) {
       assert(mock.lexer.result_symbol == ESCAPE_PREFIX);
       assert(mock.mark == 1);
       assert(mock.lexer.lookahead == issues[issue].character);
+      mock_resume_at_token_end(&mock);
       assert(sed_scanner_scan(&state, &mock.lexer, valid_symbols));
       assert(mock.lexer.result_symbol == issues[issue].symbol);
       assert(mock.mark == 2);
-      assert(mock.lexer.lookahead == 'a');
+      assert(source[mock.mark] == 'a');
     }
   }
 }
@@ -447,6 +453,7 @@ static void test_unexpected_text_after_failed_blank_recovery(void) {
     assert(sed_scanner_scan(&state, &mock.lexer, valid_symbols));
     assert(mock.lexer.result_symbol == expected[token]);
     assert(mock.mark == marks[token]);
+    mock_resume_at_token_end(&mock);
   }
   assert(!sed_scanner_scan(&state, &mock.lexer, valid_symbols));
   assert(mock.lexer.lookahead == ';');
@@ -629,9 +636,9 @@ static void test_regex_closers_at_source_boundaries(void) {
     TSSymbol expected;
   } cases[] = {
     {"", '/', true, REGEX_INCOMPLETE_INTERVAL},
-    {"", '}', true, REGEX_INVALID_INTERVAL},
-    {"\n", '/', true, REGEX_INVALID_INTERVAL},
-    {"/", '/', true, REGEX_INVALID_INTERVAL},
+    {"", '}', true, REGEX_MISSING_INTERVAL_CLOSE},
+    {"\n", '/', true, REGEX_MISSING_INTERVAL_CLOSE},
+    {"/", '/', true, REGEX_MISSING_INTERVAL_CLOSE},
     {"", '/', false, REGEX_INCOMPLETE_GROUP},
     {"", ')', false, REGEX_UNCLOSED_GROUP},
     {"\n", '/', false, REGEX_UNCLOSED_GROUP},
@@ -650,7 +657,7 @@ static void test_regex_closers_at_source_boundaries(void) {
     MockLexer mock = make_mock_lexer(cases[index].source);
     bool valid_symbols[ERROR_SENTINEL + 1] = {false};
     valid_symbols[REGEX_INCOMPLETE_INTERVAL] = cases[index].in_interval;
-    valid_symbols[REGEX_INVALID_INTERVAL] = cases[index].in_interval;
+    valid_symbols[REGEX_MISSING_INTERVAL_CLOSE] = cases[index].in_interval;
     valid_symbols[REGEX_INCOMPLETE_GROUP] = !cases[index].in_interval;
     valid_symbols[REGEX_UNCLOSED_GROUP] = !cases[index].in_interval;
 
@@ -734,13 +741,13 @@ static void test_bre_interval_backslash_requires_a_completable_closer(void) {
     TSSymbol expected;
     size_t expected_mark;
   } cases[] = {
-    {"\\", '/', false, REGEX_INVALID_INTERVAL, 1},
-    {"\\", '/', true, REGEX_INCOMPLETE_INTERVAL, 1},
-    {"\\", '}', false, REGEX_INVALID_INTERVAL, 1},
-    {"\\", '}', true, REGEX_INVALID_INTERVAL, 1},
-    {"\\\n", '/', true, REGEX_INVALID_INTERVAL, 1},
+    {"\\", '/', false, REGEX_MISSING_INTERVAL_MINIMUM, 0},
+    {"\\", '/', true, REGEX_INCOMPLETE_INTERVAL_CLOSE, 1},
+    {"\\", '}', false, REGEX_MISSING_INTERVAL_MINIMUM, 0},
+    {"\\", '}', true, REGEX_INVALID_INTERVAL_CLOSE, 1},
+    {"\\\n", '/', true, REGEX_INVALID_INTERVAL_CLOSE, 1},
     {"\\}", '/', true, REGEX_INTERVAL_CLOSE, 2},
-    {"\\}", '/', false, REGEX_INVALID_INTERVAL, 0},
+    {"\\}", '/', false, REGEX_MISSING_INTERVAL_MINIMUM, 0},
   };
 
   for (size_t index = 0; index < sizeof(cases) / sizeof(cases[0]); index++) {
@@ -755,13 +762,14 @@ static void test_bre_interval_backslash_requires_a_completable_closer(void) {
     bool valid_symbols[ERROR_SENTINEL + 1] = {false};
     valid_symbols[REGEX_DUP_COUNT] = !cases[index].has_minimum;
     valid_symbols[REGEX_INTERVAL_CLOSE] = cases[index].has_minimum;
-    valid_symbols[REGEX_INCOMPLETE_INTERVAL] = true;
-    valid_symbols[REGEX_INVALID_INTERVAL] = true;
+    valid_symbols[REGEX_MISSING_INTERVAL_MINIMUM] = !cases[index].has_minimum;
+    valid_symbols[REGEX_INCOMPLETE_INTERVAL_CLOSE] = true;
+    valid_symbols[REGEX_INVALID_INTERVAL_CLOSE] = true;
 
     assert(sed_scanner_scan(&state, &mock.lexer, valid_symbols));
     assert(mock.lexer.result_symbol == cases[index].expected);
     assert(mock.mark == cases[index].expected_mark);
-    assert(!state.regex_in_interval);
+    assert(state.regex_in_interval == !cases[index].has_minimum);
   }
 }
 #endif

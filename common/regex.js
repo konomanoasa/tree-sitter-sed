@@ -1,4 +1,4 @@
-import { issueField, issueNode, namedExternal } from "./dsl.js";
+import { issueField, namedExternal } from "./dsl.js";
 
 function subexpressionBody($, expression) {
   return choice(
@@ -10,6 +10,20 @@ function subexpressionBody($, expression) {
 }
 
 function intervalExpression($, openingName, closingName) {
+  const piece = (name) =>
+    choice(
+      field(name, $.dup_count),
+      issueField($, "invalid_interval_character"),
+      issueField($, "invalid_regular_expression_character"),
+      issueField($, "invalid_encoding"),
+      seq(
+        $._escape_prefix,
+        choice(
+          issueField($, "escaped_invalid_regular_expression_character"),
+          issueField($, "invalid_encoding"),
+        ),
+      ),
+    );
   const closing = field(
     "closing",
     namedExternal($, $._regex_interval_close, closingName),
@@ -17,34 +31,30 @@ function intervalExpression($, openingName, closingName) {
   return seq(
     field("opening", namedExternal($, $._regex_interval_open, openingName)),
     choice(
+      repeat1(piece("minimum")),
+      issueField($, "missing_interval_minimum"),
+      issueField($, "incomplete_interval_minimum"),
+    ),
+    optional(
       seq(
-        field("minimum", $.dup_count),
-        optional(
-          seq(
-            field(
-              "separator",
-              namedExternal(
-                $,
-                $._regex_interval_separator,
-                "interval_separator",
-              ),
-            ),
-            optional(field("maximum", $.dup_count)),
+        field(
+          "separator",
+          namedExternal($, $._regex_interval_separator, "interval_separator"),
+        ),
+        repeat(
+          choice(
+            piece("maximum"),
+            issueField($, "unexpected_interval_separator"),
           ),
         ),
-        choice(
-          closing,
-          seq(issueField($, "malformed_interval"), optional(closing)),
-          issueField($, "incomplete_interval"),
-        ),
       ),
-      seq(
-        choice(
-          issueField($, "malformed_interval"),
-          issueField($, "incomplete_interval"),
-        ),
-        optional(closing),
-      ),
+    ),
+    choice(
+      closing,
+      issueField($, "missing_interval_close"),
+      issueField($, "incomplete_interval"),
+      issueField($, "invalid_interval_close"),
+      issueField($, "incomplete_interval_close"),
     ),
   );
 }
@@ -60,7 +70,11 @@ function compoundBracketExpression(
 ) {
   const closing = seq(
     alias(closingExternal, marker),
-    choice("]", issueField($, "incomplete_bracket_term")),
+    choice(
+      "]",
+      issueField($, "missing_bracket_term_close"),
+      issueField($, "incomplete_bracket_term"),
+    ),
   );
   const payload = repeat1(
     choice(
@@ -74,14 +88,14 @@ function compoundBracketExpression(
     alias(openingExternal, "["),
     marker,
     choice(
-      seq(payload, closing),
-      seq(
-        optional(payload),
-        choice(
-          seq(issueField($, "malformed_bracket_term"), optional(closing)),
-          issueField($, "incomplete_bracket_term"),
-        ),
-      ),
+      payload,
+      issueField($, "missing_bracket_term_payload"),
+      issueField($, "incomplete_bracket_term_payload"),
+    ),
+    choice(
+      closing,
+      issueField($, "missing_bracket_term_close"),
+      issueField($, "incomplete_bracket_term"),
     ),
   );
 }
@@ -132,14 +146,10 @@ function nonportableRangeRules() {
   const rules = {};
   for (const kind of nonportableRangeClasses) {
     rules[`_${kind}_start_range`] = ($) =>
-      seq(
-        field("start", issueNode($, `${kind}_range_start`)),
-        rangeOperator($),
-      );
+      seq(issueField($, `${kind}_range_start`), rangeOperator($));
   }
   for (const kind of nonportableRangeClasses) {
-    rules[`_${kind}_end_range`] = ($) =>
-      field("term", issueNode($, `${kind}_range_end`));
+    rules[`_${kind}_end_range`] = ($) => issueField($, `${kind}_range_end`);
   }
   return rules;
 }
@@ -201,7 +211,6 @@ function bracketRules() {
       choice(
         $.single_expression,
         $.range_expression,
-        issueField($, "malformed_bracket_term"),
         issueField($, "shared_range_endpoint"),
       ),
 
@@ -301,7 +310,7 @@ function regularExpressionEscape($) {
     seq(
       $._escape_prefix,
       choice(
-        issueField($, "invalid_regular_expression_character"),
+        issueField($, "escaped_invalid_regular_expression_character"),
         issueField($, "invalid_encoding"),
       ),
     ),
@@ -355,8 +364,9 @@ function breDuplicationSymbol($) {
   );
 }
 
-function breRules() {
+export function breRules() {
   return {
+    ...commonRegularExpressionRules(),
     basic_reg_exp: ($) => $.bre_branch,
 
     bre_branch: ($) =>
@@ -417,10 +427,10 @@ function breRules() {
           -1,
           seq(
             field("operand", $.simple_bre),
-            field("operator", issueNode($, "adjacent_duplication_symbol")),
+            issueField($, "adjacent_duplication_symbol"),
           ),
         ),
-        field("operator", issueNode($, "leading_duplication_symbol")),
+        issueField($, "leading_duplication_symbol"),
       ),
 
     nondupl_bre: ($) =>
@@ -467,8 +477,9 @@ function ereDuplicationSymbol($) {
   );
 }
 
-function ereRules() {
+export function ereRules() {
   return {
+    ...commonRegularExpressionRules(),
     extended_reg_exp: ($) =>
       choice(
         $.ere_branch,
@@ -515,16 +526,13 @@ function ereRules() {
           1,
           seq(
             field("operand", $.ere_expression),
-            field(
-              "operator",
-              choice(
-                $.ere_dupl_symbol,
-                issueNode($, "adjacent_duplication_symbol"),
-              ),
+            choice(
+              field("operator", $.ere_dupl_symbol),
+              issueField($, "adjacent_duplication_symbol"),
             ),
           ),
         ),
-        field("operator", issueNode($, "leading_duplication_symbol")),
+        issueField($, "leading_duplication_symbol"),
       ),
 
     one_char_or_coll_elem_ere: ($) => oneCharOrCollElem($),
@@ -540,12 +548,3 @@ function ereRules() {
     repetition_modifier: ($) => $._regex_repetition_modifier,
   };
 }
-
-function regularExpressionRules(mode) {
-  return {
-    ...commonRegularExpressionRules(),
-    ...(mode === "bre" ? breRules() : ereRules()),
-  };
-}
-
-export default regularExpressionRules;

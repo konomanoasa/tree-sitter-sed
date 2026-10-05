@@ -32,8 +32,4 @@ function issueField($, id) {
   return field("issue", alias($[issueRuleName(id)], $.syntax_issue));
 }
 
-function issueNode($, id) {
-  return alias($[issueRuleName(id)], $.syntax_issue);
-}
-
-export { defineIssueRules, issueField, issueNode, namedExternal };
+export { defineIssueRules, issueField, namedExternal };

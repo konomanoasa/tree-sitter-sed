@@ -76,6 +76,8 @@ function parse(scope, source, edits = []) {
   const result = treeSitter.run(
     [
       "parse",
+      "--encoding",
+      "utf8",
       "--scope",
       scope,
       "--cst",
@@ -178,6 +180,7 @@ function directDelimiterLeafLines(nodes, ownerType) {
 function issueSignatures(nodes, root = 0) {
   return subtree(nodes, root).flatMap((issue, offset) => {
     if (issue.kind !== "syntax_issue") return [];
+    assert.equal(issue.field, "issue", "issues must use the issue field");
     const index = root + offset;
     const outcome = nodes[index + 1];
     const reason = nodes[index + 2];
@@ -309,6 +312,8 @@ function parseSummary(scope, source, timeout = 10_000_000) {
   const result = treeSitter.run(
     [
       "parse",
+      "--encoding",
+      "utf8",
       "--scope",
       scope,
       "--quiet",
@@ -346,7 +351,7 @@ function parseCstWithin(scope, source, timeout, context) {
   const sourcePath = join(temporaryDirectory, `cst-${fixtureNumber++}.sed`);
   writeFileSync(sourcePath, source);
   const result = treeSitter.run(
-    ["parse", "--scope", scope, "--cst", sourcePath],
+    ["parse", "--encoding", "utf8", "--scope", scope, "--cst", sourcePath],
     { encoding: "utf8", stdio: ["ignore", "ignore", "pipe"], timeout },
   );
   assert.equal(result.error, undefined, context);

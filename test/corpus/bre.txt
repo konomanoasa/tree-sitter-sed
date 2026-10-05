@@ -438,7 +438,7 @@ ends a leading empty BRE interval before a following expression
                               (back_open_brace)
                               (syntax_issue
                                 (undefined_syntax
-                                  (malformed_interval)))
+                                  (missing_interval_minimum)))
                               (back_close_brace))))))))
                 (bre_expression
                   (simple_bre
@@ -488,7 +488,7 @@ s/x*\{\}y\{2\}/z/
                             (back_open_brace)
                             (syntax_issue
                               (undefined_syntax
-                                (malformed_interval)))
+                                (missing_interval_minimum)))
                             (back_close_brace))))))))
               (bre_expression
                 (simple_bre
@@ -600,7 +600,9 @@ classifies malformed BRE interval recovery inside the POSIX hierarchy
                         (dup_count)
                         (syntax_issue
                           (undefined_syntax
-                            (malformed_interval)))
+                            (unexpected_interval_separator
+                              (interval_separator))))
+                        (dup_count)
                         (back_close_brace)))))
                 (bre_expression
                   (simple_bre
@@ -644,7 +646,13 @@ keeps a newline escape inside a malformed BRE interval
                       (dup_count)
                       (syntax_issue
                         (undefined_syntax
-                          (malformed_interval))))))))
+                          (invalid_interval_character)))
+                      (syntax_issue
+                        (undefined_syntax
+                          (invalid_interval_character)))
+                      (syntax_issue
+                        (undefined_syntax
+                          (missing_interval_close))))))))
             (delimiter))))
       (function
         (print_function
@@ -678,7 +686,10 @@ s/b\{1\//x/
                     (dup_count)
                     (syntax_issue
                       (undefined_syntax
-                        (malformed_interval))))))))
+                        (invalid_interval_character)))
+                    (syntax_issue
+                      (undefined_syntax
+                        (missing_interval_close))))))))
           (delimiter)
           (replacement
             (replacement_literal))
@@ -782,7 +793,7 @@ leaves a bracket expression outside a malformed BRE interval
                           (dup_count)
                           (syntax_issue
                             (undefined_syntax
-                              (malformed_interval)))))))
+                              (missing_interval_close)))))))
                   (bre_expression
                     (simple_bre
                       (nondupl_bre
@@ -848,7 +859,7 @@ leaves a closing subexpression outside a malformed BRE interval
                                 (dup_count)
                                 (syntax_issue
                                   (undefined_syntax
-                                    (malformed_interval))))))))
+                                    (missing_interval_close))))))))
                       (back_close_parenthesis))))))
             (delimiter))))
       (function
@@ -883,7 +894,7 @@ leaves an ordinary character outside a malformed BRE interval
                       (dup_count)
                       (syntax_issue
                         (undefined_syntax
-                          (malformed_interval)))
+                          (invalid_interval_character)))
                       (back_close_brace))))))
             (delimiter))))
       (function
@@ -920,7 +931,7 @@ s.a\{1[.]b.x.
                         (dup_count)
                         (syntax_issue
                           (undefined_syntax
-                            (malformed_interval)))))))
+                            (missing_interval_close)))))))
                 (bre_expression
                   (simple_bre
                     (nondupl_bre
@@ -971,10 +982,13 @@ s/a\{\
                     (back_open_brace)
                     (syntax_issue
                       (undefined_syntax
-                        (malformed_interval))))))))
+                        (missing_interval_minimum)))
+                    (syntax_issue
+                      (incomplete_syntax
+                        (invalid_interval_close))))))))
           (syntax_issue
             (incomplete_syntax
-              (incomplete_regular_expression))))))))
+              (unterminated_regular_expression))))))))
 
 ==================
 rejects an unclosed BRE group whose delimiter prevents completion at EOF
@@ -1008,4 +1022,4 @@ s)\(a
                         (unclosed_subexpression))))))))
           (syntax_issue
             (incomplete_syntax
-              (incomplete_regular_expression))))))))
+              (unterminated_regular_expression))))))))
