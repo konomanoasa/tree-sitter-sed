@@ -989,12 +989,11 @@ classifies a missing separator before a context address
             (delimiter)
             (basic_reg_exp
               (bre_branch
-                (bre_branch
-                  (bre_expression
-                    (simple_bre
-                      (nondupl_bre
-                        (one_char_or_coll_elem_bre
-                          (ordinary_character))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (ordinary_character)))))
                 (bre_expression
                   (simple_bre
                     (nondupl_bre

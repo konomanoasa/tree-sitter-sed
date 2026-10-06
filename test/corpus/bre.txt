@@ -1,53 +1,54 @@
 ==================
 mirrors the POSIX BRE production hierarchy
 :language(sed)
+:cst
 ==================
 s#^\(ab*\)\{2,3\}$#x#
 
 ---
 
-(script
-  (command_list
-    (editing_command
-      (function
-        (substitute_function
-          (function_verb)
-          (delimiter)
-          (basic_reg_exp
-            (bre_branch
-              (bre_expression
-                (left_anchor)
-                (simple_bre
-                  (nondupl_bre
-                    (back_open_parenthesis)
-                    (basic_reg_exp
-                      (bre_branch
-                        (bre_branch
-                          (bre_expression
-                            (simple_bre
-                              (nondupl_bre
-                                (one_char_or_coll_elem_bre
-                                  (ordinary_character))))))
-                        (bre_expression
-                          (simple_bre
-                            (nondupl_bre
-                              (one_char_or_coll_elem_bre
-                                (ordinary_character)))
-                            (bre_dupl_symbol
-                              (zero_or_more_operator))))))
-                    (back_close_parenthesis))
-                  (bre_dupl_symbol
-                    (back_open_brace)
-                    (dup_count)
-                    (interval_separator)
-                    (dup_count)
-                    (back_close_brace)))
-                (right_anchor))))
-          (delimiter)
-          (replacement
-            (replacement_literal))
-          (delimiter))))
-    (command_separator)))
+0:0  - 1:0    script
+0:0  - 1:0      command_list
+0:0  - 0:21       editing_command
+0:0  - 0:21         function: function
+0:0  - 0:21           substitute_function
+0:0  - 0:1              verb: function_verb `s`
+0:1  - 0:2              opening: delimiter `#`
+0:2  - 0:18             expression: basic_reg_exp
+0:2  - 0:18               bre_branch
+0:2  - 0:18                 bre_expression
+0:2  - 0:3                    "^"
+0:3  - 0:17                   simple_bre
+0:3  - 0:10                     nondupl_bre
+0:3  - 0:5                        "\\("
+0:5  - 0:8                        expression: basic_reg_exp
+0:5  - 0:8                          bre_branch
+0:5  - 0:6                            bre_expression
+0:5  - 0:6                              simple_bre
+0:5  - 0:6                                nondupl_bre
+0:5  - 0:6                                  one_char_or_coll_elem_bre
+0:5  - 0:6                                    ordinary_character `a`
+0:6  - 0:8                            bre_expression
+0:6  - 0:8                              simple_bre
+0:6  - 0:7                                nondupl_bre
+0:6  - 0:7                                  one_char_or_coll_elem_bre
+0:6  - 0:7                                    ordinary_character `b`
+0:7  - 0:8                                bre_dupl_symbol
+0:7  - 0:8                                  "*"
+0:8  - 0:10                       "\\)"
+0:10 - 0:17                     bre_dupl_symbol
+0:10 - 0:12                       "\\{"
+0:12 - 0:13                       minimum: duplication_count `2`
+0:13 - 0:14                       ","
+0:14 - 0:15                       maximum: duplication_count `3`
+0:15 - 0:17                       "\\}"
+0:17 - 0:18                   "$"
+0:18 - 0:19             middle: delimiter `#`
+0:19 - 0:20             replacement: replacement
+0:19 - 0:20               replacement_literal `x`
+0:20 - 0:21             closing: delimiter `#`
+0:21 - 1:0        command_separator
+0:21 - 0:22         `\n`
 
 ==================
 recognizes an escaped BRE delimiter in a substitution
@@ -123,12 +124,11 @@ s|$\||x|
           (delimiter)
           (basic_reg_exp
             (bre_branch
-              (bre_branch
-                (bre_expression
-                  (simple_bre
-                    (nondupl_bre
-                      (one_char_or_coll_elem_bre
-                        (ordinary_character))))))
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character)))))
               (bre_expression
                 (simple_bre
                   (nondupl_bre
@@ -188,12 +188,11 @@ exposes non-ASCII BRE characters atomically
             (delimiter)
             (basic_reg_exp
               (bre_branch
-                (bre_branch
-                  (bre_expression
-                    (simple_bre
-                      (nondupl_bre
-                        (one_char_or_coll_elem_bre
-                          (ordinary_character))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (ordinary_character)))))
                 (bre_expression
                   (simple_bre
                     (nondupl_bre
@@ -255,21 +254,18 @@ s)\(a$\))x)
               (bre_expression
                 (simple_bre
                   (nondupl_bre
-                    (back_open_parenthesis)
                     (basic_reg_exp
                       (bre_branch
-                        (bre_branch
-                          (bre_branch
-                            (bre_expression
-                              (simple_bre
-                                (nondupl_bre
-                                  (one_char_or_coll_elem_bre
-                                    (ordinary_character))))))
-                          (bre_expression
-                            (simple_bre
-                              (nondupl_bre
-                                (one_char_or_coll_elem_bre
-                                  (ordinary_character))))))
+                        (bre_expression
+                          (simple_bre
+                            (nondupl_bre
+                              (one_char_or_coll_elem_bre
+                                (ordinary_character)))))
+                        (bre_expression
+                          (simple_bre
+                            (nondupl_bre
+                              (one_char_or_coll_elem_bre
+                                (ordinary_character)))))
                         (bre_expression
                           (simple_bre
                             (nondupl_bre
@@ -301,74 +297,61 @@ rejects optional BRE anchors while preserving implementation-defined escapes
             (delimiter)
             (basic_reg_exp
               (bre_branch
-                (bre_branch
-                  (bre_branch
-                    (bre_branch
-                      (bre_branch
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (basic_reg_exp
                         (bre_branch
-                          (bre_branch
-                            (bre_expression
-                              (simple_bre
-                                (nondupl_bre
-                                  (back_open_parenthesis)
-                                  (basic_reg_exp
-                                    (bre_branch
-                                      (bre_branch
-                                        (bre_branch
-                                          (bre_expression
-                                            (simple_bre
-                                              (nondupl_bre
-                                                (one_char_or_coll_elem_bre
-                                                  (syntax_issue
-                                                    (nonconforming_syntax
-                                                      (bre_subexpression_left_anchor))))))))
-                                        (bre_expression
-                                          (simple_bre
-                                            (nondupl_bre
-                                              (one_char_or_coll_elem_bre
-                                                (ordinary_character))))))
-                                      (bre_expression
-                                        (simple_bre
-                                          (nondupl_bre
-                                            (one_char_or_coll_elem_bre
-                                              (syntax_issue
-                                                (nonconforming_syntax
-                                                  (bre_subexpression_right_anchor)))))))))
-                                  (back_close_parenthesis)))))
                           (bre_expression
                             (simple_bre
                               (nondupl_bre
                                 (one_char_or_coll_elem_bre
                                   (syntax_issue
-                                    (implementation_defined_syntax
-                                      (bre_plus_escape
-                                        (back_plus)))))))))
-                        (bre_expression
-                          (simple_bre
-                            (nondupl_bre
-                              (one_char_or_coll_elem_bre
-                                (ordinary_character))))))
-                      (bre_expression
-                        (simple_bre
-                          (nondupl_bre
-                            (one_char_or_coll_elem_bre
-                              (syntax_issue
-                                (implementation_defined_syntax
-                                  (bre_question_mark_escape
-                                    (back_qm)))))))))
-                    (bre_expression
-                      (simple_bre
-                        (nondupl_bre
-                          (one_char_or_coll_elem_bre
-                            (ordinary_character))))))
-                  (bre_expression
-                    (simple_bre
-                      (nondupl_bre
-                        (one_char_or_coll_elem_bre
-                          (syntax_issue
-                            (implementation_defined_syntax
-                              (bre_vertical_line_escape
-                                (back_bar)))))))))
+                                    (nonconforming_syntax
+                                      (bre_subexpression_left_anchor)))))))
+                          (bre_expression
+                            (simple_bre
+                              (nondupl_bre
+                                (one_char_or_coll_elem_bre
+                                  (ordinary_character)))))
+                          (bre_expression
+                            (simple_bre
+                              (nondupl_bre
+                                (one_char_or_coll_elem_bre
+                                  (syntax_issue
+                                    (nonconforming_syntax
+                                      (bre_subexpression_right_anchor))))))))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (syntax_issue
+                          (implementation_defined_syntax
+                            (bre_plus_escape)))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (ordinary_character)))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (syntax_issue
+                          (implementation_defined_syntax
+                            (bre_question_mark_escape)))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (ordinary_character)))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (syntax_issue
+                          (implementation_defined_syntax
+                            (bre_vertical_line_escape)))))))
                 (bre_expression
                   (simple_bre
                     (nondupl_bre
@@ -399,9 +382,7 @@ accepts empty BRE groups without an expression or issue
               (bre_branch
                 (bre_expression
                   (simple_bre
-                    (nondupl_bre
-                      (back_open_parenthesis)
-                      (back_close_parenthesis))))))
+                    (nondupl_bre)))))
             (delimiter))))
       (function
         (print_function
@@ -425,27 +406,22 @@ ends a leading empty BRE interval before a following expression
             (delimiter)
             (basic_reg_exp
               (bre_branch
-                (bre_branch
-                  (bre_expression
-                    (simple_bre
-                      (syntax_issue
-                        (undefined_syntax
-                          (leading_duplication_symbol
-                            (bre_dupl_symbol
-                              (back_open_brace)
-                              (syntax_issue
-                                (undefined_syntax
-                                  (missing_interval_minimum)))
-                              (back_close_brace))))))))
+                (bre_expression
+                  (simple_bre
+                    (syntax_issue
+                      (undefined_syntax
+                        (leading_duplication_symbol
+                          (bre_dupl_symbol
+                            (syntax_issue
+                              (undefined_syntax
+                                (missing_interval_minimum)))))))))
                 (bre_expression
                   (simple_bre
                     (nondupl_bre
                       (one_char_or_coll_elem_bre
                         (ordinary_character)))
                     (bre_dupl_symbol
-                      (back_open_brace)
-                      (dup_count)
-                      (back_close_brace))))))
+                      (duplication_count))))))
             (delimiter))))
       (function
         (print_function
@@ -469,33 +445,26 @@ s/x*\{\}y\{2\}/z/
           (delimiter)
           (basic_reg_exp
             (bre_branch
-              (bre_branch
-                (bre_expression
-                  (simple_bre
-                    (simple_bre
-                      (nondupl_bre
-                        (one_char_or_coll_elem_bre
-                          (ordinary_character)))
-                      (bre_dupl_symbol
-                        (zero_or_more_operator)))
-                    (syntax_issue
-                      (undefined_syntax
-                        (adjacent_duplication_symbol
-                          (bre_dupl_symbol
-                            (back_open_brace)
-                            (syntax_issue
-                              (undefined_syntax
-                                (missing_interval_minimum)))
-                            (back_close_brace))))))))
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character)))
+                  (bre_dupl_symbol)
+                  (syntax_issue
+                    (undefined_syntax
+                      (adjacent_duplication_symbol
+                        (bre_dupl_symbol
+                          (syntax_issue
+                            (undefined_syntax
+                              (missing_interval_minimum)))))))))
               (bre_expression
                 (simple_bre
                   (nondupl_bre
                     (one_char_or_coll_elem_bre
                       (ordinary_character)))
                   (bre_dupl_symbol
-                    (back_open_brace)
-                    (dup_count)
-                    (back_close_brace))))))
+                    (duplication_count))))))
           (delimiter)
           (replacement
             (replacement_literal))
@@ -519,39 +488,30 @@ preserves BRE interval recovery structure
             (delimiter)
             (basic_reg_exp
               (bre_branch
-                (bre_branch
-                  (bre_branch
-                    (bre_expression
-                      (simple_bre
-                        (syntax_issue
-                          (undefined_syntax
-                            (leading_duplication_symbol
-                              (bre_dupl_symbol
-                                (back_open_brace)
-                                (dup_count)
-                                (back_close_brace))))))))
-                  (bre_expression
-                    (simple_bre
-                      (simple_bre
-                        (nondupl_bre
-                          (one_char_or_coll_elem_bre
-                            (ordinary_character)))
-                        (bre_dupl_symbol
-                          (zero_or_more_operator)))
-                      (syntax_issue
-                        (undefined_syntax
-                          (adjacent_duplication_symbol
-                            (bre_dupl_symbol
-                              (back_open_brace)
-                              (dup_count)
-                              (back_close_brace))))))))
+                (bre_expression
+                  (simple_bre
+                    (syntax_issue
+                      (undefined_syntax
+                        (leading_duplication_symbol
+                          (bre_dupl_symbol
+                            (duplication_count)))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (ordinary_character)))
+                    (bre_dupl_symbol)
+                    (syntax_issue
+                      (undefined_syntax
+                        (adjacent_duplication_symbol
+                          (bre_dupl_symbol
+                            (duplication_count)))))))
                 (bre_expression
                   (simple_bre
                     (nondupl_bre
                       (syntax_issue
                         (undefined_syntax
-                          (unmatched_interval_close
-                            (back_close_brace)))))))))
+                          (unmatched_interval_close))))))))
             (delimiter))))
       (function
         (print_function
@@ -575,36 +535,27 @@ classifies malformed BRE interval recovery inside the POSIX hierarchy
             (delimiter)
             (basic_reg_exp
               (bre_branch
-                (bre_branch
-                  (bre_branch
-                    (bre_expression
-                      (simple_bre
-                        (nondupl_bre
-                          (back_open_parenthesis)
-                          (back_close_parenthesis)))))
-                  (bre_expression
-                    (simple_bre
-                      (nondupl_bre
-                        (one_char_or_coll_elem_bre
-                          (ordinary_character)))
-                      (bre_dupl_symbol
-                        (back_open_brace)
-                        (dup_count)
-                        (interval_separator)
-                        (dup_count)
-                        (syntax_issue
-                          (undefined_syntax
-                            (unexpected_interval_separator
-                              (interval_separator))))
-                        (dup_count)
-                        (back_close_brace)))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre)))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (ordinary_character)))
+                    (bre_dupl_symbol
+                      (duplication_count)
+                      (duplication_count)
+                      (syntax_issue
+                        (undefined_syntax
+                          (unexpected_interval_separator)))
+                      (duplication_count))))
                 (bre_expression
                   (simple_bre
                     (nondupl_bre
                       (syntax_issue
                         (undefined_syntax
-                          (unmatched_subexpression_close
-                            (back_close_parenthesis)))))))))
+                          (unmatched_subexpression_close))))))))
             (delimiter))))
       (function
         (print_function
@@ -634,10 +585,8 @@ keeps a newline escape inside a malformed BRE interval
                       (one_char_or_coll_elem_bre
                         (ordinary_character)))
                     (bre_dupl_symbol
-                      (back_open_brace)
-                      (dup_count)
-                      (interval_separator)
-                      (dup_count)
+                      (duplication_count)
+                      (duplication_count)
                       (syntax_issue
                         (undefined_syntax
                           (invalid_interval_character)))
@@ -676,8 +625,7 @@ s/b\{1\//x/
                     (one_char_or_coll_elem_bre
                       (ordinary_character)))
                   (bre_dupl_symbol
-                    (back_open_brace)
-                    (dup_count)
+                    (duplication_count)
                     (syntax_issue
                       (undefined_syntax
                         (invalid_interval_character)))
@@ -707,51 +655,42 @@ keeps nonconforming BRE subexpression anchors structured for duplication recover
             (delimiter)
             (basic_reg_exp
               (bre_branch
-                (bre_branch
-                  (bre_expression
-                    (simple_bre
-                      (nondupl_bre
-                        (back_open_parenthesis)
-                        (basic_reg_exp
-                          (bre_branch
-                            (bre_branch
-                              (bre_expression
-                                (simple_bre
-                                  (nondupl_bre
-                                    (one_char_or_coll_elem_bre
-                                      (syntax_issue
-                                        (nonconforming_syntax
-                                          (bre_subexpression_left_anchor))))))))
-                            (bre_expression
-                              (simple_bre
-                                (nondupl_bre
-                                  (one_char_or_coll_elem_bre
-                                    (ordinary_character)))))))
-                        (back_close_parenthesis)))))
                 (bre_expression
                   (simple_bre
                     (nondupl_bre
-                      (back_open_parenthesis)
                       (basic_reg_exp
                         (bre_branch
-                          (bre_branch
-                            (bre_expression
-                              (simple_bre
-                                (nondupl_bre
-                                  (one_char_or_coll_elem_bre
-                                    (syntax_issue
-                                      (nonconforming_syntax
-                                        (bre_subexpression_left_anchor))))))))
+                          (bre_expression
+                            (simple_bre
+                              (nondupl_bre
+                                (one_char_or_coll_elem_bre
+                                  (syntax_issue
+                                    (nonconforming_syntax
+                                      (bre_subexpression_left_anchor)))))))
+                          (bre_expression
+                            (simple_bre
+                              (nondupl_bre
+                                (one_char_or_coll_elem_bre
+                                  (ordinary_character))))))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (basic_reg_exp
+                        (bre_branch
+                          (bre_expression
+                            (simple_bre
+                              (nondupl_bre
+                                (one_char_or_coll_elem_bre
+                                  (syntax_issue
+                                    (nonconforming_syntax
+                                      (bre_subexpression_left_anchor)))))))
                           (bre_expression
                             (simple_bre
                               (syntax_issue
                                 (undefined_syntax
                                   (leading_duplication_symbol
                                     (bre_dupl_symbol
-                                      (back_open_brace)
-                                      (dup_count)
-                                      (back_close_brace)))))))))
-                      (back_close_parenthesis))))))
+                                      (duplication_count))))))))))))))
             (delimiter))))
       (function
         (print_function
@@ -775,45 +714,38 @@ leaves a bracket expression outside a malformed BRE interval
             (delimiter)
             (basic_reg_exp
               (bre_branch
-                (bre_branch
-                  (bre_branch
-                    (bre_expression
-                      (simple_bre
-                        (nondupl_bre
-                          (one_char_or_coll_elem_bre
-                            (ordinary_character)))
-                        (bre_dupl_symbol
-                          (back_open_brace)
-                          (dup_count)
-                          (syntax_issue
-                            (undefined_syntax
-                              (missing_interval_close)))))))
-                  (bre_expression
-                    (simple_bre
-                      (nondupl_bre
-                        (one_char_or_coll_elem_bre
-                          (bracket_expression
-                            (open_bracket)
-                            (matching_list
-                              (bracket_list
-                                (follow_list
-                                  (follow_list
-                                    (expression_term
-                                      (single_expression
-                                        (end_range
-                                          (collating_element)))))
-                                  (expression_term
-                                    (single_expression
-                                      (end_range
-                                        (collating_element)))))))
-                            (close_bracket)))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (ordinary_character)))
+                    (bre_dupl_symbol
+                      (duplication_count)
+                      (syntax_issue
+                        (undefined_syntax
+                          (missing_interval_close))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (bracket_expression
+                          (matching_list
+                            (bracket_list
+                              (follow_list
+                                (expression_term
+                                  (single_expression
+                                    (end_range
+                                      (collating_element_single))))
+                                (expression_term
+                                  (single_expression
+                                    (end_range
+                                      (collating_element_single))))))))))))
                 (bre_expression
                   (simple_bre
                     (nondupl_bre
                       (syntax_issue
                         (undefined_syntax
-                          (unmatched_interval_close
-                            (back_close_brace)))))))))
+                          (unmatched_interval_close))))))))
             (delimiter))))
       (function
         (print_function
@@ -840,7 +772,6 @@ leaves a closing subexpression outside a malformed BRE interval
                 (bre_expression
                   (simple_bre
                     (nondupl_bre
-                      (back_open_parenthesis)
                       (basic_reg_exp
                         (bre_branch
                           (bre_expression
@@ -849,12 +780,10 @@ leaves a closing subexpression outside a malformed BRE interval
                                 (one_char_or_coll_elem_bre
                                   (ordinary_character)))
                               (bre_dupl_symbol
-                                (back_open_brace)
-                                (dup_count)
+                                (duplication_count)
                                 (syntax_issue
                                   (undefined_syntax
-                                    (missing_interval_close))))))))
-                      (back_close_parenthesis))))))
+                                    (missing_interval_close)))))))))))))
             (delimiter))))
       (function
         (print_function
@@ -884,12 +813,10 @@ leaves an ordinary character outside a malformed BRE interval
                       (one_char_or_coll_elem_bre
                         (ordinary_character)))
                     (bre_dupl_symbol
-                      (back_open_brace)
-                      (dup_count)
+                      (duplication_count)
                       (syntax_issue
                         (undefined_syntax
-                          (invalid_interval_character)))
-                      (back_close_brace))))))
+                          (invalid_interval_character))))))))
             (delimiter))))
       (function
         (print_function
@@ -913,33 +840,28 @@ s.a\{1[.]b.x.
           (delimiter)
           (basic_reg_exp
             (bre_branch
-              (bre_branch
-                (bre_branch
-                  (bre_expression
-                    (simple_bre
-                      (nondupl_bre
-                        (one_char_or_coll_elem_bre
-                          (ordinary_character)))
-                      (bre_dupl_symbol
-                        (back_open_brace)
-                        (dup_count)
-                        (syntax_issue
-                          (undefined_syntax
-                            (missing_interval_close)))))))
-                (bre_expression
-                  (simple_bre
-                    (nondupl_bre
-                      (one_char_or_coll_elem_bre
-                        (bracket_expression
-                          (open_bracket)
-                          (matching_list
-                            (bracket_list
-                              (follow_list
-                                (expression_term
-                                  (single_expression
-                                    (end_range
-                                      (collating_element)))))))
-                          (close_bracket)))))))
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character)))
+                  (bre_dupl_symbol
+                    (duplication_count)
+                    (syntax_issue
+                      (undefined_syntax
+                        (missing_interval_close))))))
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (bracket_expression
+                        (matching_list
+                          (bracket_list
+                            (follow_list
+                              (expression_term
+                                (single_expression
+                                  (end_range
+                                    (collating_element_single))))))))))))
               (bre_expression
                 (simple_bre
                   (nondupl_bre
@@ -973,7 +895,6 @@ s/a\{\
                     (one_char_or_coll_elem_bre
                       (ordinary_character)))
                   (bre_dupl_symbol
-                    (back_open_brace)
                     (syntax_issue
                       (undefined_syntax
                         (missing_interval_minimum)))
@@ -1003,7 +924,6 @@ s)\(a
               (bre_expression
                 (simple_bre
                   (nondupl_bre
-                    (back_open_parenthesis)
                     (basic_reg_exp
                       (bre_branch
                         (bre_expression

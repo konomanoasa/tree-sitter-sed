@@ -53,11 +53,11 @@ const verbOperands = {
 const addressPrefixes = ["1 ", "1\t", "1!", "1 !", "$ ", "/x/ ", "\\,x, "];
 
 for (const grammar of grammars) {
-  test(`${grammar.name}: empty regex groups own only their delimiters`, () => {
+  test(`${grammar.name}: empty regex groups have delimiters without an expression body`, () => {
     const [owner, opening, closing, width] =
       grammar.name === "sed"
-        ? ["nondupl_bre", "back_open_parenthesis", "back_close_parenthesis", 2]
-        : ["ere_expression", "open_parenthesis", "close_parenthesis", 1];
+        ? ["nondupl_bre", '"\\\\("', '"\\\\)"', 2]
+        : ["ere_expression", '"("', '")"', 1];
     const cases =
       grammar.name === "sed"
         ? [
@@ -82,15 +82,20 @@ for (const grammar of grammars) {
       const result = parseSuccessfully(grammar.scope, source);
       assert.deepEqual(issueSignatures(result.nodes), [], source);
       const group = result.nodes.findIndex(
-        ({ kind, startByte, endByte }) =>
+        ({ kind, startByte }, index) =>
           kind === owner &&
           startByte === start &&
-          endByte === start + 2 * width,
+          result.nodes.some(
+            (child) => child.parent === index && child.kind === opening,
+          ),
       );
       assert.notEqual(group, -1, source);
       assert.deepEqual(
         result.nodes
-          .filter(({ parent }) => parent === group)
+          .filter(
+            ({ parent, kind }) =>
+              parent === group && kind !== "ere_dupl_symbol",
+          )
           .map(({ field, kind, startByte, endByte }) => [
             field,
             kind,
@@ -98,8 +103,8 @@ for (const grammar of grammars) {
             endByte,
           ]),
         [
-          ["opening", opening, start, start + width],
-          ["closing", closing, start + width, start + 2 * width],
+          [null, opening, start, start + width],
+          [null, closing, start + width, start + 2 * width],
         ],
         source,
       );
@@ -200,9 +205,10 @@ for (const grammar of grammars) {
         source,
       );
       assert.deepEqual(
-        syntaxSignatures(result.nodes, ["dup_count"]),
+        syntaxSignatures(result.nodes, ["duplication_count"]),
         counts.map(
-          ([field, first, last]) => `${field}: dup_count ${range(first, last)}`,
+          ([field, first, last]) =>
+            `${field}: duplication_count ${range(first, last)}`,
         ),
         source,
       );
@@ -573,7 +579,7 @@ test("sed: bracket terms directly own one-byte delimiter leaves", () => {
       "collating_symbol [0, 11] - [0, 16]",
       '  "[" [0, 11] - [0, 12]',
       '  "." [0, 12] - [0, 13]',
-      "  element: meta_char [0, 13] - [0, 14]",
+      "  element: meta_character [0, 13] - [0, 14]",
       '  "." [0, 14] - [0, 15]',
       '  "]" [0, 15] - [0, 16]',
     ],
@@ -581,7 +587,7 @@ test("sed: bracket terms directly own one-byte delimiter leaves", () => {
       "equivalence_class [0, 16] - [0, 21]",
       '  "[" [0, 16] - [0, 17]',
       '  "=" [0, 17] - [0, 18]',
-      "  element: coll_elem_single [0, 18] - [0, 19]",
+      "  element: collating_element_single [0, 18] - [0, 19]",
       '  "=" [0, 19] - [0, 20]',
       '  "]" [0, 20] - [0, 21]',
     ],
@@ -630,15 +636,15 @@ for (const grammar of grammars) {
             `${type} [0, 2] - [0, ${end + 2}]`,
             '  "[" [0, 2] - [0, 3]',
             `  "${marker}" [0, 3] - [0, 4]`,
-            `  element: coll_elem_multi [0, 4] - [0, ${end}]`,
+            `  element: collating_element_multi [0, 4] - [0, ${end}]`,
             `  "${marker}" [0, ${end}] - [0, ${end + 1}]`,
             `  "]" [0, ${end + 1}] - [0, ${end + 2}]`,
           ],
           label,
         );
         assert.deepEqual(
-          syntaxSignatures(result.nodes, ["close_bracket"]),
-          [`closing: close_bracket [0, ${end + 2}] - [0, ${end + 3}]`],
+          directDelimiterLeafLines(result.nodes, "bracket_expression"),
+          ['0:1 - 0:2 "["', `0:${end + 2} - 0:${end + 3} "]"`],
           label,
         );
         const position = 4 + payload.indexOf("]");
@@ -702,8 +708,8 @@ for (const grammar of grammars) {
         assert.notEqual(owner, -1, label);
         assert.equal(nodeRange(result.nodes[owner]), "[0, 2] - [0, 11]", label);
         assert.deepEqual(
-          syntaxSignatures(result.nodes, ["coll_elem_multi"]),
-          ["element: coll_elem_multi [0, 4] - [0, 11]"],
+          syntaxSignatures(result.nodes, ["collating_element_multi"]),
+          ["element: collating_element_multi [0, 4] - [0, 11]"],
           label,
         );
         assert.deepEqual(
@@ -711,7 +717,7 @@ for (const grammar of grammars) {
           ['0:2 - 0:3 "["', `0:3 - 0:4 "${marker}"`],
           label,
         );
-        assertNoNodes(result.nodes, "close_bracket", "ERROR", "MISSING");
+        assertNoNodes(result.nodes, '"]"', "ERROR", "MISSING");
         assert.deepEqual(
           syntaxSignatures(result.nodes, ["print_function"]),
           suffix === "" ? [] : ["print_function [1, 0] - [1, 1]"],
@@ -761,11 +767,11 @@ for (const grammar of grammars) {
           `${type} [0, 2] - [0, 11]`,
           '  "[" [0, 2] - [0, 3]',
           `  "${marker}" [0, 3] - [0, 4]`,
-          "  element: coll_elem_multi [0, 4] - [0, 6]",
+          "  element: collating_element_multi [0, 4] - [0, 6]",
           "  issue: syntax_issue [0, 6] - [0, 7]",
           "    invalid_syntax [0, 6] - [0, 7]",
           "      invalid_regular_expression_character [0, 6] - [0, 7]",
-          "  element: coll_elem_multi [0, 7] - [0, 9]",
+          "  element: collating_element_multi [0, 7] - [0, 9]",
           `  "${marker}" [0, 9] - [0, 10]`,
           '  "]" [0, 10] - [0, 11]',
         ],
@@ -784,8 +790,8 @@ for (const grammar of grammars) {
       const fresh = parseSuccessfully(grammar.scope, repaired);
       assertNoNodes(fresh.nodes, "syntax_issue", "ERROR", "MISSING");
       assert.deepEqual(
-        syntaxSignatures(fresh.nodes, ["coll_elem_multi"]),
-        ["element: coll_elem_multi [0, 4] - [0, 9]"],
+        syntaxSignatures(fresh.nodes, ["collating_element_multi"]),
+        ["element: collating_element_multi [0, 4] - [0, 9]"],
         type,
       );
       assertIncrementalContract(
@@ -933,18 +939,18 @@ function checkSourceChildren(nodeTypes, grammar, displayPath) {
   const expectedChildren = [
     ["blanks_after_negation", "blank"],
     ["blanks_around_address_separator", "blank"],
-    ["shared_range_endpoint", "range_operator"],
     ["special_delimiter_escape", "escaped_delimiter"],
     ["replacement_ampersand_delimiter_escape", "replacement_escaped_delimiter"],
   ];
-  const unmatchedClosers = [
-    ["unmatched_interval_close", "back_close_brace"],
-    ["unmatched_subexpression_close", "back_close_parenthesis"],
-  ];
-  if (grammar.name === "sed") {
-    expectedChildren.push(...unmatchedClosers);
-  } else {
-    for (const [reason] of unmatchedClosers) {
+  for (const reason of [
+    "unmatched_interval_close",
+    "unmatched_subexpression_close",
+  ]) {
+    if (grammar.name === "sed") {
+      const node = namedNode(nodeTypes, reason, displayPath);
+      assert.equal(node.children, undefined);
+      assert.deepEqual(node.fields, {});
+    } else {
       assert.ok(
         !nodeTypes.some((node) => node.named && node.type === reason),
         `${displayPath}: ${reason} must remain BRE-only`,
@@ -975,16 +981,8 @@ function checkBracketTerms(nodeTypes, displayPath) {
     displayPath,
   );
   assert.deepEqual(requiredSingleChildren(invalidElement, displayPath), [
-    { type: "meta_char", named: true },
+    { type: "meta_character", named: true },
   ]);
-  assert.deepEqual(
-    nodeTypes
-      .filter((node) => !node.named)
-      .map((node) => node.type)
-      .sort(),
-    ["[", ":", ".", "=", "]"].sort(),
-    `${displayPath}: only bracket term delimiters may be anonymous`,
-  );
   for (const obsolete of [
     "open_colon",
     "colon_close",
@@ -1003,12 +1001,16 @@ function checkBracketTerms(nodeTypes, displayPath) {
     {
       type: "collating_symbol",
       field: "element",
-      payloadTypes: ["coll_elem_multi", "coll_elem_single", "meta_char"],
+      payloadTypes: [
+        "collating_element_multi",
+        "collating_element_single",
+        "meta_character",
+      ],
     },
     {
       type: "equivalence_class",
       field: "element",
-      payloadTypes: ["coll_elem_multi", "coll_elem_single"],
+      payloadTypes: ["collating_element_multi", "collating_element_single"],
     },
   ]) {
     const node = namedNode(nodeTypes, type, displayPath);
@@ -1108,16 +1110,16 @@ function checkPublicCst(grammar, generatedRoot) {
     "delimiter",
     "closing_brace",
     "text_introducer",
-    "close_bracket",
-    "collating_element",
+    "collating_element_single",
+    "collating_element_multi",
+    "duplication_count",
+    "ordinary_character",
     "quoted_character",
     "invalid_encoding",
     "class_name",
-    "meta_char",
-    "range_operator",
+    "meta_character",
     "escaped_delimiter",
     "replacement_escaped_delimiter",
-    grammar.name === "sed" ? "back_close_parenthesis" : "close_parenthesis",
   ]) {
     const node = namedNode(nodeTypes, type, displayPath);
     assert.ok(
@@ -1129,6 +1131,28 @@ function checkPublicCst(grammar, generatedRoot) {
 
   checkSourceChildren(nodeTypes, grammar, displayPath);
   checkBracketTerms(nodeTypes, displayPath);
+  assert.deepEqual(
+    nodeTypes
+      .filter((node) => !node.named)
+      .map((node) => node.type)
+      .sort(),
+    [
+      "$",
+      "*",
+      ",",
+      "-",
+      ".",
+      ":",
+      "=",
+      "[",
+      "]",
+      "^",
+      ...(grammar.name === "sed"
+        ? ["\\(", "\\)", "\\{", "\\}"]
+        : ["(", ")", "+", "?", "{", "|", "}"]),
+    ].sort(),
+    `${displayPath}: POSIX regular expression punctuation`,
+  );
 }
 
 for (const grammar of grammars) {
@@ -1262,7 +1286,7 @@ const boundaryCases = [
       "incomplete_syntax/unterminated_regular_expression",
       "incomplete_syntax/missing_function",
     ],
-    nodes: ["back_open_parenthesis"],
+    nodes: ['"\\\\("'],
   },
   {
     name: "unclosed empty ERE group at source end",
@@ -1273,7 +1297,7 @@ const boundaryCases = [
       "incomplete_syntax/unterminated_regular_expression",
       "incomplete_syntax/missing_function",
     ],
-    nodes: ["open_parenthesis"],
+    nodes: ['"("'],
   },
   {
     name: "unfinished ERE alternative and group at source end",
@@ -1285,7 +1309,7 @@ const boundaryCases = [
       "incomplete_syntax/unterminated_regular_expression",
       "incomplete_syntax/missing_function",
     ],
-    nodes: ["ere_alternation_operator", "open_parenthesis"],
+    nodes: ['"|"', '"("'],
   },
   {
     name: "unfinished ERE interval at source end",
@@ -1296,7 +1320,7 @@ const boundaryCases = [
       "incomplete_syntax/unterminated_regular_expression",
       "incomplete_syntax/missing_function",
     ],
-    nodes: ["ere_dupl_symbol", "open_brace"],
+    nodes: ["ere_dupl_symbol", '"{"'],
   },
   {
     name: "unfinished BRE escape at source end",
@@ -1321,7 +1345,7 @@ const boundaryCases = [
     scope: "source.sed",
     source: "/a*\\+/p\n",
     issues: ["implementation_defined_syntax/bre_plus_escape"],
-    nodes: ["zero_or_more_operator", "bre_plus_escape", "print_function"],
+    nodes: ['"*"', "bre_plus_escape", "print_function"],
   },
   {
     name: "unfinished replacement at source end",
@@ -1943,10 +1967,10 @@ for (const grammar of grammars) {
       { source: "1,2p\n", kind: "address_separator", expected: [[0, 1, 0, 2]] },
       { source: "{p;}\n", kind: "closing_brace", expected: [[0, 3, 0, 4]] },
       { source: "a\\\nx\n", kind: "text_introducer", expected: [[0, 1, 1, 0]] },
-      { source: "/[a]/p\n", kind: "close_bracket", expected: [[0, 3, 0, 4]] },
+      { source: "/[a]/p\n", kind: '"]"', expected: [[0, 3, 0, 4]] },
       {
         source: "/[a]/p\n",
-        kind: "collating_element",
+        kind: "collating_element_single",
         expected: [[0, 2, 0, 3]],
       },
       {
@@ -1957,12 +1981,12 @@ for (const grammar of grammars) {
       grammar.name === "sed"
         ? {
             source: "/\\(a\\)/p\n",
-            kind: "back_close_parenthesis",
+            kind: '"\\\\)"',
             expected: [[0, 4, 0, 6]],
           }
         : {
             source: "/(a)/p\n",
-            kind: "close_parenthesis",
+            kind: '")"',
             expected: [[0, 3, 0, 4]],
           },
     ];
@@ -1997,12 +2021,7 @@ for (const grammar of grammars) {
         "incomplete_text_introducer",
         "text_introducer",
       ],
-      [
-        "/[a",
-        "bracket_expression",
-        "unclosed_bracket_expression",
-        "close_bracket",
-      ],
+      ["/[a", "bracket_expression", "unclosed_bracket_expression", '"]"'],
     ]) {
       const result = parseSuccessfully(grammar.scope, source);
       const nodes = publicNodes(result.nodes);
@@ -2219,10 +2238,10 @@ for (const testCase of regularExpressionEofCases) {
       result.nodes,
       "ERROR",
       "MISSING",
-      "back_close_brace",
-      "close_brace",
-      "back_close_parenthesis",
-      "close_parenthesis",
+      '"\\\\}"',
+      '"}"',
+      '"\\\\)"',
+      '")"',
     );
     assert.deepEqual(
       applyEdits(testCase.repaired, testCase.damage),
@@ -2264,7 +2283,7 @@ test("sed: a malformed interval ends before a following construct", () => {
           range: "[0, 9] - [0, 11]",
         },
       ],
-      nodes: ["bracket_expression", "back_close_brace"],
+      nodes: ["bracket_expression", "unmatched_interval_close"],
     },
     {
       scope: "source.sed",
@@ -2276,7 +2295,7 @@ test("sed: a malformed interval ends before a following construct", () => {
           range: "[0, 7] - [0, 7]",
         },
       ],
-      nodes: ["back_close_parenthesis"],
+      nodes: ['"\\\\)"'],
     },
     {
       scope: "source.sed",
@@ -2288,7 +2307,7 @@ test("sed: a malformed interval ends before a following construct", () => {
           range: "[0, 7] - [0, 8]",
         },
       ],
-      nodes: ["back_close_brace"],
+      nodes: ['"\\\\}"'],
     },
     {
       scope: "source.sed.ere",
@@ -2312,7 +2331,7 @@ test("sed: a malformed interval ends before a following construct", () => {
           range: "[0, 5] - [0, 5]",
         },
       ],
-      nodes: ["close_parenthesis"],
+      nodes: ['")"'],
     },
   ];
   for (const testCase of cases) {
@@ -2334,10 +2353,10 @@ test("sed: a malformed interval ends before a following construct", () => {
 
 const regexIssueOwnershipCases = [
   ...[
-    ["vertical line", "s/a\\|/x/\n", "bre_vertical_line_escape", "back_bar"],
-    ["question mark", "s/a\\?/x/\n", "bre_question_mark_escape", "back_qm"],
-    ["plus", "s/a\\+/x/\n", "bre_plus_escape", "back_plus"],
-  ].map(([name, source, reason, child]) => ({
+    ["vertical line", "s/a\\|/x/\n", "bre_vertical_line_escape"],
+    ["question mark", "s/a\\?/x/\n", "bre_question_mark_escape"],
+    ["plus", "s/a\\+/x/\n", "bre_plus_escape"],
+  ].map(([name, source, reason]) => ({
     name: `BRE ${name} escape`,
     scope: "source.sed",
     source,
@@ -2348,7 +2367,7 @@ const regexIssueOwnershipCases = [
         range: "[0, 3] - [0, 5]",
       },
     ],
-    child,
+    child: null,
   })),
   {
     name: "leading BRE interval",
@@ -2540,19 +2559,25 @@ for (const testCase of regexIssueOwnershipCases) {
     const { reason, range } = testCase.issues[0];
     const reasonIndex = nodes.findIndex(({ kind }) => kind === reason);
     assert.ok(reasonIndex >= 0, fresh.stdout);
-    const child = nodes[reasonIndex + 1];
-    assert.deepEqual(
-      { parent: child.parent, type: child.kind, range: nodeRange(child) },
-      { parent: reasonIndex, type: testCase.child, range },
-      fresh.stdout,
-    );
-    assert.equal(
-      nodes.filter(
-        (node) => node.kind === testCase.child && nodeRange(node) === range,
-      ).length,
-      1,
-      fresh.stdout,
-    );
+    if (testCase.child === null) {
+      assert.deepEqual(syntaxSignatures(nodes, undefined, reasonIndex), [
+        `${reason} ${range}`,
+      ]);
+    } else {
+      const child = nodes[reasonIndex + 1];
+      assert.deepEqual(
+        { parent: child.parent, type: child.kind, range: nodeRange(child) },
+        { parent: reasonIndex, type: testCase.child, range },
+        fresh.stdout,
+      );
+      assert.equal(
+        nodes.filter(
+          (node) => node.kind === testCase.child && nodeRange(node) === range,
+        ).length,
+        1,
+        fresh.stdout,
+      );
+    }
     if (testCase.issues.length > 1) {
       assert.deepEqual(
         issueSignatures(nodes, reasonIndex),
@@ -2562,14 +2587,14 @@ for (const testCase of regexIssueOwnershipCases) {
     }
 
     const retainedTypes = [
-      testCase.child,
+      ...(testCase.child === null ? [] : [testCase.child]),
       ...testCase.issues.map(({ reason }) => reason),
-      "dup_count",
-      "interval_separator",
+      "duplication_count",
+      '","',
       "class_name",
-      "coll_elem_single",
-      "coll_elem_multi",
-      "meta_char",
+      "collating_element_single",
+      "collating_element_multi",
+      "meta_character",
       "repetition_modifier",
     ];
     const retained = syntaxSignatures(fresh.nodes, retainedTypes);
@@ -2668,14 +2693,14 @@ test("sed: bracket term marker prefixes preserve payloads and converge after edi
       type: "collating_symbol",
       marker: ".",
       payload: "a",
-      kind: "coll_elem_single",
+      kind: "collating_element_single",
       field: "element",
     },
     {
       type: "equivalence_class",
       marker: "=",
       payload: "a",
-      kind: "coll_elem_single",
+      kind: "collating_element_single",
       field: "element",
     },
   ];
@@ -2817,8 +2842,8 @@ test("sed: bracket term marker prefixes preserve payloads and converge after edi
             assertNoNodes(fresh.nodes, "ERROR", "MISSING");
             if (!closingMarker) {
               assert.deepEqual(
-                syntaxSignatures(fresh.nodes, ["coll_elem_multi"]),
-                ["element: coll_elem_multi [0, 5] - [0, 7]"],
+                syntaxSignatures(fresh.nodes, ["collating_element_multi"]),
+                ["element: collating_element_multi [0, 5] - [0, 7]"],
                 label,
               );
             }
@@ -2949,7 +2974,7 @@ const identifiedIssueLeafCases = [
     source: "/[[=-=]][[=]=]]/p\n",
     outcome: "undefined_syntax",
     reason: "invalid_equivalence_class_element",
-    child: "meta_char",
+    child: "meta_character",
     ranges: ["[0, 4] - [0, 5]", "[0, 11] - [0, 12]"],
     repaired: "/[[.-.]][[.].]]/p\n",
     damage: [
@@ -2970,7 +2995,7 @@ const identifiedIssueLeafCases = [
     source: "/[a-b-c]/p\n",
     outcome: "undefined_syntax",
     reason: "shared_range_endpoint",
-    child: "range_operator",
+    child: '"-"',
     ranges: ["[0, 5] - [0, 6]"],
     repaired: "/[a-bc]/p\n",
     damage: [{ byte: 5, deleteBytes: 0, insert: "-" }],
@@ -3017,17 +3042,15 @@ for (const grammar of grammars) {
   }
 }
 
-test("sed: unmatched BRE closers own one source child", () => {
+test("sed: unmatched BRE closers retain their source as leaf reasons", () => {
   const cases = [
     {
       source: "/\\}/p\n",
       reason: "unmatched_interval_close",
-      child: "back_close_brace",
     },
     {
       source: "/\\)/p\n",
       reason: "unmatched_subexpression_close",
-      child: "back_close_parenthesis",
     },
   ];
   for (const testCase of cases) {
@@ -3047,14 +3070,13 @@ test("sed: unmatched BRE closers own one source child", () => {
         "issue: syntax_issue [0, 1] - [0, 3]",
         "  undefined_syntax [0, 1] - [0, 3]",
         `    ${testCase.reason} [0, 1] - [0, 3]`,
-        `      ${testCase.child} [0, 1] - [0, 3]`,
       ],
       `the issue must own the unmatched closer\n${result.stdout}`,
     );
     assert.equal(
-      result.nodes.filter(({ kind }) => kind === testCase.child).length,
+      result.nodes.filter(({ kind }) => kind === testCase.reason).length,
       1,
-      `the source child must appear exactly once\n${result.stdout}`,
+      `the reason must appear exactly once\n${result.stdout}`,
     );
     assertNoNodes(result.nodes, "ERROR", "MISSING");
   }
@@ -3180,7 +3202,7 @@ for (const grammar of grammars) {
         const label = `${testCase.name}, byte ${byte}`;
         assertIncrementalContract(fresh, incremental, label);
         const retained = [
-          `minimum: dup_count ${range(start - 2, start - 1)}`,
+          `minimum: duplication_count ${range(start - 2, start - 1)}`,
           ...expected
             .filter(
               ({ reason }) =>
@@ -3193,7 +3215,7 @@ for (const grammar of grammars) {
           assert.deepEqual(issueSignatures(result.nodes), expected, label);
           assert.deepEqual(
             syntaxSignatures(result.nodes, [
-              "dup_count",
+              "duplication_count",
               "invalid_interval_character",
               invalidReason,
             ]),
@@ -4132,7 +4154,7 @@ for (const grammar of grammars) {
       if (context.counts !== undefined) {
         assert.deepEqual(
           result.nodes
-            .filter(({ kind }) => kind === "dup_count")
+            .filter(({ kind }) => kind === "duplication_count")
             .map(({ field, startByte, endByte }) => [
               field,
               source.subarray(startByte, endByte).toString(),

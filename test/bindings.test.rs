@@ -81,6 +81,58 @@ fn parses_valid_source() {
 }
 
 #[test]
+fn repeated_regex_groups_keep_fields_on_their_direct_children() {
+  for (language, source, group_kind, expected) in [
+    (
+      grammar::LANGUAGE,
+      r"/\(\)\(a\)\{2,3\}/p",
+      "nondupl_bre",
+      vec![
+        ("opening", 1..3),
+        ("closing", 3..5),
+        ("opening", 5..7),
+        ("expression", 7..8),
+        ("closing", 8..10),
+      ],
+    ),
+    (
+      grammar::LANGUAGE_ERE,
+      "/()(a){2,3}?/p",
+      "ere_expression",
+      vec![
+        ("opening", 1..2),
+        ("closing", 2..3),
+        ("opening", 3..4),
+        ("expression", 4..5),
+        ("closing", 5..6),
+      ],
+    ),
+  ] {
+    let mut parser = Parser::new();
+    parser.set_language(&language.into()).unwrap();
+    let tree = parser.parse(source, None).unwrap();
+    assert!(!tree.root_node().has_error(), "{source}");
+    assert!(issue_signatures(&tree).is_empty(), "{source}");
+    let mut nodes = vec![tree.root_node()];
+    let mut fields = Vec::new();
+    while let Some(node) = nodes.pop() {
+      if node.kind() == group_kind {
+        for field in ["opening", "expression", "closing"] {
+          if let Some(child) = node.child_by_field_name(field) {
+            assert_eq!(child.parent(), Some(node), "{source}");
+            fields.push((field, child.byte_range()));
+          }
+        }
+      }
+      for index in (0..node.named_child_count()).rev() {
+        nodes.push(node.named_child(index as u32).unwrap());
+      }
+    }
+    assert_eq!(fields, expected, "{source}");
+  }
+}
+
+#[test]
 fn uses_distinct_grammars() {
   let sed = Language::new(grammar::LANGUAGE);
   let sed_ere = Language::new(grammar::LANGUAGE_ERE);
@@ -523,7 +575,7 @@ fn decoding_issues_split_operands_and_escapes_and_disappear_after_repair() {
         3,
         0,
         3,
-        ("collating_element", None),
+        ("collating_element_single", None),
         true,
       ),
       (
@@ -532,7 +584,7 @@ fn decoding_issues_split_operands_and_escapes_and_disappear_after_repair() {
         5,
         0,
         5,
-        ("coll_elem_multi", None),
+        ("collating_element_multi", None),
         true,
       ),
       (
@@ -541,7 +593,7 @@ fn decoding_issues_split_operands_and_escapes_and_disappear_after_repair() {
         5,
         0,
         5,
-        ("coll_elem_multi", None),
+        ("collating_element_multi", None),
         true,
       ),
       (
@@ -899,22 +951,8 @@ fn completed_groups_replace_recovery_after_multibyte_delimiter_edits() {
 #[test]
 fn balanced_regex_groups_preserve_depth_across_the_16_bit_boundary() {
   for (language, mode, opening, closing, opening_kind, closing_kind) in [
-    (
-      grammar::LANGUAGE,
-      "BRE",
-      "\\(",
-      "\\)",
-      "back_open_parenthesis",
-      "back_close_parenthesis",
-    ),
-    (
-      grammar::LANGUAGE_ERE,
-      "ERE",
-      "(",
-      ")",
-      "open_parenthesis",
-      "close_parenthesis",
-    ),
+    (grammar::LANGUAGE, "BRE", "\\(", "\\)", "\\(", "\\)"),
+    (grammar::LANGUAGE_ERE, "ERE", "(", ")", "(", ")"),
   ] {
     let mut parser = Parser::new();
     parser.set_language(&language.into()).unwrap();

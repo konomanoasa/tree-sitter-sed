@@ -879,16 +879,14 @@ const finalCaptureCases = [
     ],
   },
   {
-    name: "BRE extension operators retain their identified lexical roles",
+    name: "BRE implementation-defined escape issues have no captures",
     source: "/a*\\|b\\+c\\?\\n/p\n",
     captures: [
       [0, 1, "punctuation.delimiter"],
       [1, 2, "string.regexp"],
-      [2, 5, "operator"],
+      [2, 3, "operator"],
       [5, 6, "string.regexp"],
-      [6, 8, "operator"],
       [8, 9, "string.regexp"],
-      [9, 11, "operator"],
       [11, 13, "string.escape"],
       [13, 14, "punctuation.delimiter"],
       [14, 15, "keyword"],
@@ -897,11 +895,10 @@ const finalCaptureCases = [
     valid: false,
   },
   {
-    name: "unmatched BRE closers retain bracket captures",
+    name: "unmatched BRE closer issues have no captures",
     source: "/\\)\\}/p\n",
     captures: [
       [0, 1, "punctuation.delimiter"],
-      [1, 5, "punctuation.bracket"],
       [5, 6, "punctuation.delimiter"],
       [6, 7, "keyword"],
     ],

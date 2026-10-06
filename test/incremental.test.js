@@ -628,12 +628,12 @@ test("sed: BRE dollar classification tracks every byte of multibyte lookahead", 
         `s${delimiter}$${alternative}${delimiter}x${delimiter}\n`,
         `s${delimiter}$${delimiter}x${delimiter}\n`,
         "ordinary_character",
-        "right_anchor",
+        '"$"',
       ],
       [
         `s${delimiter}$${delimiter}${alternative}${delimiter}x${delimiter}\n`,
         `s${delimiter}$${alternative}${delimiter}x${delimiter}\n`,
-        "right_anchor",
+        '"$"',
         "ordinary_character",
       ],
     ]) {
@@ -656,7 +656,7 @@ test("sed: BRE dollar classification tracks every byte of multibyte lookahead", 
           publicNodes(result.nodes)
             .filter(
               (node) =>
-                ["ordinary_character", "right_anchor"].includes(node.kind) &&
+                ["ordinary_character", '"$"'].includes(node.kind) &&
                 node.startByte === dollarStart,
             )
             .map((node) => ({

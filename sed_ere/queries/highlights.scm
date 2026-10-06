@@ -10,18 +10,7 @@
   (translation_escape)
 ] @string.escape
 
-[
-  (ere_alternation_operator)
-  (left_anchor)
-  (negation_operator)
-  (nonmatching_list_operator)
-  (one_or_more_operator)
-  (range_operator)
-  (repetition_modifier)
-  (right_anchor)
-  (zero_or_more_operator)
-  (zero_or_one_operator)
-] @operator
+(negation_operator) @operator
 
 [
   (case_insensitive_flag)
@@ -47,7 +36,7 @@
 (last_line_address) @constant.builtin
 
 [
-  (dup_count)
+  (duplication_count)
   (line_number_address)
   (occurrence_flag)
 ] @number
@@ -59,15 +48,7 @@
 
 (file_literal) @string.special.path
 
-[
-  (close_brace)
-  (close_bracket)
-  (close_parenthesis)
-  (closing_brace)
-  (open_brace)
-  (open_bracket)
-  (open_parenthesis)
-] @punctuation.bracket
+(closing_brace) @punctuation.bracket
 
 (character_class
   [
@@ -97,27 +78,80 @@
   "=" @punctuation.delimiter)
 
 [
-  (range_end_hyphen)
-  (trailing_hyphen)
-] @string.regexp
-
-[
   (class_name)
-  (coll_elem_multi)
-  (coll_elem_single)
-  (collating_element)
-  (meta_char)
-  (period)
+  (collating_element_multi)
+  (collating_element_single)
+  (meta_character)
 ] @character.special
 
 [
   (address_separator)
   (delimiter)
-  (interval_separator)
 ] @punctuation.delimiter
 
 ((command_separator) @punctuation.delimiter
   (#eq? @punctuation.delimiter ";"))
+
+(bracket_expression
+  [
+    "["
+    "]"
+  ] @punctuation.bracket)
+
+(nonmatching_list
+  "^" @operator)
+
+(start_range
+  "-" @operator)
+
+(shared_range_endpoint
+  "-" @operator)
+
+(range_expression
+  "-" @string.regexp)
+
+(bracket_list
+  "-" @string.regexp)
+
+(one_char_or_coll_elem_ere
+  "." @character.special)
+
+(ere_expression
+  [
+    "^"
+    "$"
+  ] @operator)
+
+(ere_expression
+  [
+    "("
+    ")"
+  ] @punctuation.bracket)
+
+(ere_dupl_symbol
+  [
+    "{"
+    "}"
+  ] @punctuation.bracket)
+
+(ere_dupl_symbol
+  [
+    "*"
+    "+"
+    "?"
+  ] @operator)
+
+(ere_dupl_symbol
+  "," @punctuation.delimiter)
+
+(unexpected_interval_separator
+  "," @punctuation.delimiter)
+
+(extended_reg_exp
+  "|" @operator)
+
+(ere_dupl_symbol
+  modifier: (repetition_modifier) @operator)
 
 (ordinary_character) @string.regexp
 

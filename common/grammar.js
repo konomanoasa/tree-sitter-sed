@@ -947,7 +947,7 @@ function issueDefinitions(mode) {
       id: "equivalence_class_meta_character",
       reason: "invalid_equivalence_class_element",
       outcome: "undefined_syntax",
-      rule: ($) => namedExternal($, $._regex_meta_char, "meta_char"),
+      rule: ($) => namedExternal($, $._regex_meta_char, "meta_character"),
     },
     {
       reason: "missing_bracket_term_payload",
@@ -1001,8 +1001,7 @@ function issueDefinitions(mode) {
     {
       reason: "shared_range_endpoint",
       outcome: "undefined_syntax",
-      rule: ($) =>
-        namedExternal($, $._regex_shared_range_endpoint, "range_operator"),
+      rule: ($) => alias($._regex_shared_range_endpoint, "-"),
     },
     {
       reason: "omitted_address",
@@ -1042,22 +1041,12 @@ function issueDefinitions(mode) {
           {
             reason: "unmatched_subexpression_close",
             outcome: "undefined_syntax",
-            rule: ($) =>
-              namedExternal(
-                $,
-                $._regex_unmatched_group_close,
-                "back_close_parenthesis",
-              ),
+            rule: ($) => $._regex_unmatched_group_close,
           },
           {
             reason: "unmatched_interval_close",
             outcome: "undefined_syntax",
-            rule: ($) =>
-              namedExternal(
-                $,
-                $._regex_unmatched_interval_close,
-                "back_close_brace",
-              ),
+            rule: ($) => $._regex_unmatched_interval_close,
           },
         ]
       : []),
@@ -1069,8 +1058,7 @@ function issueDefinitions(mode) {
     {
       reason: "unexpected_interval_separator",
       outcome: "undefined_syntax",
-      rule: ($) =>
-        namedExternal($, $._regex_interval_separator, "interval_separator"),
+      rule: ($) => alias($._regex_interval_separator, ","),
     },
     ...["minimum", "close"].flatMap((part) => [
       {
@@ -1215,29 +1203,17 @@ function issueDefinitions(mode) {
           {
             reason: "bre_vertical_line_escape",
             outcome: "implementation_defined_syntax",
-            rule: ($) =>
-              field(
-                "token",
-                namedExternal($, $._regex_bre_vertical_line_escape, "back_bar"),
-              ),
+            rule: ($) => $._regex_bre_vertical_line_escape,
           },
           {
             reason: "bre_question_mark_escape",
             outcome: "implementation_defined_syntax",
-            rule: ($) =>
-              field(
-                "token",
-                namedExternal($, $._regex_bre_question_mark_escape, "back_qm"),
-              ),
+            rule: ($) => $._regex_bre_question_mark_escape,
           },
           {
             reason: "bre_plus_escape",
             outcome: "implementation_defined_syntax",
-            rule: ($) =>
-              field(
-                "token",
-                namedExternal($, $._regex_bre_plus_escape, "back_plus"),
-              ),
+            rule: ($) => $._regex_bre_plus_escape,
           },
           {
             reason: "bre_subexpression_left_anchor",

@@ -20,42 +20,33 @@ mirrors the POSIX bracket expression production hierarchy
                     (nondupl_bre
                       (one_char_or_coll_elem_bre
                         (bracket_expression
-                          (open_bracket)
                           (nonmatching_list
-                            (nonmatching_list_operator)
                             (bracket_list
                               (follow_list
-                                (follow_list
-                                  (follow_list
-                                    (follow_list
-                                      (follow_list
-                                        (expression_term
-                                          (single_expression
-                                            (end_range
-                                              (collating_element)))))
-                                      (expression_term
-                                        (range_expression
-                                          (start_range
-                                            (end_range
-                                              (collating_element))
-                                            (range_operator))
-                                          (end_range
-                                            (collating_element)))))
-                                    (expression_term
-                                      (single_expression
-                                        (character_class
-                                          (class_name)))))
-                                  (expression_term
-                                    (single_expression
+                                (expression_term
+                                  (single_expression
+                                    (end_range
+                                      (collating_element_single))))
+                                (expression_term
+                                  (range_expression
+                                    (start_range
                                       (end_range
-                                        (collating_symbol
-                                          (meta_char))))))
+                                        (collating_element_single)))
+                                    (end_range
+                                      (collating_element_single))))
+                                (expression_term
+                                  (single_expression
+                                    (character_class
+                                      (class_name))))
+                                (expression_term
+                                  (single_expression
+                                    (end_range
+                                      (collating_symbol
+                                        (meta_character)))))
                                 (expression_term
                                   (single_expression
                                     (equivalence_class
-                                      (coll_elem_single)))))
-                              (trailing_hyphen)))
-                          (close_bracket))))))))
+                                      (collating_element_single))))))))))))))
             (delimiter))))
       (function
         (print_function
@@ -79,120 +70,93 @@ distinguishes POSIX collating tokens with embedded closing brackets and range en
             (delimiter)
             (extended_reg_exp
               (ere_branch
-                (ere_branch
-                  (ere_branch
-                    (ere_branch
-                      (ere_branch
-                        (ere_branch
-                          (ere_branch
-                            (ere_branch
-                              (ere_expression
-                                (one_char_or_coll_elem_ere
-                                  (bracket_expression
-                                    (open_bracket)
-                                    (matching_list
-                                      (bracket_list
-                                        (follow_list
-                                          (expression_term
-                                            (single_expression
-                                              (end_range
-                                                (collating_symbol
-                                                  (coll_elem_single))))))))
-                                    (close_bracket)))))
-                            (ere_expression
-                              (one_char_or_coll_elem_ere
-                                (bracket_expression
-                                  (open_bracket)
-                                  (matching_list
-                                    (bracket_list
-                                      (follow_list
-                                        (expression_term
-                                          (single_expression
-                                            (end_range
-                                              (collating_symbol
-                                                (coll_elem_multi))))))))
-                                  (close_bracket)))))
-                          (ere_expression
-                            (one_char_or_coll_elem_ere
-                              (bracket_expression
-                                (open_bracket)
-                                (matching_list
-                                  (bracket_list
-                                    (follow_list
-                                      (expression_term
-                                        (single_expression
-                                          (end_range
-                                            (collating_symbol
-                                              (meta_char))))))))
-                                (close_bracket)))))
-                        (ere_expression
-                          (one_char_or_coll_elem_ere
-                            (bracket_expression
-                              (open_bracket)
-                              (matching_list
-                                (bracket_list
-                                  (follow_list
-                                    (expression_term
-                                      (single_expression
-                                        (equivalence_class
-                                          (coll_elem_single)))))))
-                              (close_bracket)))))
-                      (ere_expression
-                        (one_char_or_coll_elem_ere
-                          (bracket_expression
-                            (open_bracket)
-                            (matching_list
-                              (bracket_list
-                                (follow_list
-                                  (expression_term
-                                    (single_expression
-                                      (equivalence_class
-                                        (coll_elem_multi)))))))
-                            (close_bracket)))))
-                    (ere_expression
-                      (one_char_or_coll_elem_ere
-                        (bracket_expression
-                          (open_bracket)
-                          (matching_list
-                            (bracket_list
-                              (follow_list
-                                (expression_term
-                                  (range_expression
-                                    (start_range
-                                      (end_range
-                                        (collating_element))
-                                      (range_operator))
-                                    (range_end_hyphen))))))
-                          (close_bracket)))))
-                  (ere_expression
-                    (one_char_or_coll_elem_ere
-                      (bracket_expression
-                        (open_bracket)
-                        (matching_list
-                          (bracket_list
-                            (follow_list
-                              (expression_term
-                                (range_expression
-                                  (start_range
-                                    (end_range
-                                      (collating_element))
-                                    (range_operator))
-                                  (end_range
-                                    (collating_element)))))))
-                        (close_bracket)))))
                 (ere_expression
                   (one_char_or_coll_elem_ere
                     (bracket_expression
-                      (open_bracket)
                       (matching_list
                         (bracket_list
                           (follow_list
                             (expression_term
                               (single_expression
                                 (end_range
-                                  (collating_element)))))
-                          (trailing_hyphen)))
-                      (close_bracket))))))
+                                  (collating_symbol
+                                    (collating_element_single)))))))))))
+                (ere_expression
+                  (one_char_or_coll_elem_ere
+                    (bracket_expression
+                      (matching_list
+                        (bracket_list
+                          (follow_list
+                            (expression_term
+                              (single_expression
+                                (end_range
+                                  (collating_symbol
+                                    (collating_element_multi)))))))))))
+                (ere_expression
+                  (one_char_or_coll_elem_ere
+                    (bracket_expression
+                      (matching_list
+                        (bracket_list
+                          (follow_list
+                            (expression_term
+                              (single_expression
+                                (end_range
+                                  (collating_symbol
+                                    (meta_character)))))))))))
+                (ere_expression
+                  (one_char_or_coll_elem_ere
+                    (bracket_expression
+                      (matching_list
+                        (bracket_list
+                          (follow_list
+                            (expression_term
+                              (single_expression
+                                (equivalence_class
+                                  (collating_element_single))))))))))
+                (ere_expression
+                  (one_char_or_coll_elem_ere
+                    (bracket_expression
+                      (matching_list
+                        (bracket_list
+                          (follow_list
+                            (expression_term
+                              (single_expression
+                                (equivalence_class
+                                  (collating_element_multi))))))))))
+                (ere_expression
+                  (one_char_or_coll_elem_ere
+                    (bracket_expression
+                      (matching_list
+                        (bracket_list
+                          (follow_list
+                            (expression_term
+                              (range_expression
+                                (start_range
+                                  (end_range
+                                    (collating_element_single)))))))))))
+                (ere_expression
+                  (one_char_or_coll_elem_ere
+                    (bracket_expression
+                      (matching_list
+                        (bracket_list
+                          (follow_list
+                            (expression_term
+                              (range_expression
+                                (start_range
+                                  (end_range
+                                    (collating_element_single)))
+                                (end_range
+                                  (collating_element_single))))))))))
+                (ere_expression
+                  (one_char_or_coll_elem_ere
+                    (bracket_expression
+                      (matching_list
+                        (bracket_list
+                          (follow_list
+                            (expression_term
+                              (single_expression
+                                (end_range
+                                  (collating_element_single))))))))))))
             (delimiter))))
       (function
         (print_function
@@ -224,25 +188,21 @@ exposes the POSIX ambiguous outer-bracket form
                           (unspecified_syntax
                             (ambiguous_bracket_expression
                               (bracket_expression
-                                (open_bracket)
                                 (matching_list
                                   (bracket_list
                                     (follow_list
-                                      (follow_list
-                                        (follow_list
-                                          (expression_term
-                                            (single_expression
-                                              (end_range
-                                                (collating_element)))))
-                                        (expression_term
-                                          (single_expression
-                                            (end_range
-                                              (collating_element)))))
                                       (expression_term
                                         (single_expression
                                           (end_range
-                                            (collating_element)))))))
-                                (close_bracket)))))))))))
+                                            (collating_element_single))))
+                                      (expression_term
+                                        (single_expression
+                                          (end_range
+                                            (collating_element_single))))
+                                      (expression_term
+                                        (single_expression
+                                          (end_range
+                                            (collating_element_single)))))))))))))))))
             (delimiter))))
       (function
         (print_function
@@ -266,79 +226,53 @@ rejects meta characters inside equivalence classes
             (delimiter)
             (basic_reg_exp
               (bre_branch
-                (bre_branch
-                  (bre_branch
-                    (bre_branch
-                      (bre_branch
-                        (bre_expression
-                          (simple_bre
-                            (nondupl_bre
-                              (one_char_or_coll_elem_bre
-                                (bracket_expression
-                                  (open_bracket)
-                                  (matching_list
-                                    (bracket_list
-                                      (follow_list
-                                        (expression_term
-                                          (single_expression
-                                            (equivalence_class
-                                              (syntax_issue
-                                                (undefined_syntax
-                                                  (invalid_equivalence_class_element
-                                                    (meta_char))))))))))
-                                  (close_bracket)))))))
-                      (bre_expression
-                        (simple_bre
-                          (nondupl_bre
-                            (one_char_or_coll_elem_bre
-                              (bracket_expression
-                                (open_bracket)
-                                (matching_list
-                                  (bracket_list
-                                    (follow_list
-                                      (expression_term
-                                        (single_expression
-                                          (equivalence_class
-                                            (syntax_issue
-                                              (undefined_syntax
-                                                (invalid_equivalence_class_element
-                                                  (meta_char))))))))))
-                                (close_bracket)))))))
-                    (bre_expression
-                      (simple_bre
-                        (nondupl_bre
-                          (one_char_or_coll_elem_bre
-                            (bracket_expression
-                              (open_bracket)
-                              (matching_list
-                                (bracket_list
-                                  (follow_list
-                                    (expression_term
-                                      (single_expression
-                                        (equivalence_class
-                                          (coll_elem_single)))))))
-                              (close_bracket)))))))
-                  (bre_expression
-                    (simple_bre
-                      (nondupl_bre
-                        (one_char_or_coll_elem_bre
-                          (bracket_expression
-                            (open_bracket)
-                            (matching_list
-                              (bracket_list
-                                (follow_list
-                                  (expression_term
-                                    (single_expression
-                                      (end_range
-                                        (collating_symbol
-                                          (coll_elem_single))))))))
-                            (close_bracket)))))))
                 (bre_expression
                   (simple_bre
                     (nondupl_bre
                       (one_char_or_coll_elem_bre
                         (bracket_expression
-                          (open_bracket)
+                          (matching_list
+                            (bracket_list
+                              (follow_list
+                                (expression_term
+                                  (single_expression
+                                    (equivalence_class
+                                      (syntax_issue
+                                        (undefined_syntax
+                                          (invalid_equivalence_class_element
+                                            (meta_character)))))))))))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (bracket_expression
+                          (matching_list
+                            (bracket_list
+                              (follow_list
+                                (expression_term
+                                  (single_expression
+                                    (equivalence_class
+                                      (syntax_issue
+                                        (undefined_syntax
+                                          (invalid_equivalence_class_element
+                                            (meta_character)))))))))))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (bracket_expression
+                          (matching_list
+                            (bracket_list
+                              (follow_list
+                                (expression_term
+                                  (single_expression
+                                    (equivalence_class
+                                      (collating_element_single))))))))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (bracket_expression
                           (matching_list
                             (bracket_list
                               (follow_list
@@ -346,8 +280,20 @@ rejects meta characters inside equivalence classes
                                   (single_expression
                                     (end_range
                                       (collating_symbol
-                                        (meta_char))))))))
-                          (close_bracket))))))))
+                                        (collating_element_single)))))))))))))
+                (bre_expression
+                  (simple_bre
+                    (nondupl_bre
+                      (one_char_or_coll_elem_bre
+                        (bracket_expression
+                          (matching_list
+                            (bracket_list
+                              (follow_list
+                                (expression_term
+                                  (single_expression
+                                    (end_range
+                                      (collating_symbol
+                                        (meta_character)))))))))))))))
             (delimiter))))
       (function
         (print_function
@@ -376,7 +322,6 @@ s/[[:1:]]/x/
                   (nondupl_bre
                     (one_char_or_coll_elem_bre
                       (bracket_expression
-                        (open_bracket)
                         (matching_list
                           (bracket_list
                             (follow_list
@@ -385,8 +330,7 @@ s/[[:1:]]/x/
                                   (character_class
                                     (syntax_issue
                                       (undefined_syntax
-                                        (invalid_character_class_name)))))))))
-                        (close_bracket))))))))
+                                        (invalid_character_class_name))))))))))))))))
           (delimiter)
           (replacement
             (replacement_literal))
@@ -413,7 +357,6 @@ s/[[:1:]]/x/
               (ere_expression
                 (one_char_or_coll_elem_ere
                   (bracket_expression
-                    (open_bracket)
                     (matching_list
                       (bracket_list
                         (follow_list
@@ -422,8 +365,7 @@ s/[[:1:]]/x/
                               (character_class
                                 (syntax_issue
                                   (undefined_syntax
-                                    (invalid_character_class_name)))))))))
-                    (close_bracket))))))
+                                    (invalid_character_class_name))))))))))))))
           (delimiter)
           (replacement
             (replacement_literal))
@@ -451,7 +393,6 @@ s/[[:alpha:
                   (nondupl_bre
                     (one_char_or_coll_elem_bre
                       (bracket_expression
-                        (open_bracket)
                         (matching_list
                           (bracket_list
                             (follow_list
@@ -488,7 +429,6 @@ s/[[.a.
               (ere_expression
                 (one_char_or_coll_elem_ere
                   (bracket_expression
-                    (open_bracket)
                     (matching_list
                       (bracket_list
                         (follow_list
@@ -496,7 +436,7 @@ s/[[.a.
                             (single_expression
                               (end_range
                                 (collating_symbol
-                                  (coll_elem_single)
+                                  (collating_element_single)
                                   (syntax_issue
                                     (incomplete_syntax
                                       (missing_bracket_term_close))))))))))
@@ -528,14 +468,13 @@ s/[[=a=
                   (nondupl_bre
                     (one_char_or_coll_elem_bre
                       (bracket_expression
-                        (open_bracket)
                         (matching_list
                           (bracket_list
                             (follow_list
                               (expression_term
                                 (single_expression
                                   (equivalence_class
-                                    (coll_elem_single)
+                                    (collating_element_single)
                                     (syntax_issue
                                       (incomplete_syntax
                                         (missing_bracket_term_close)))))))))
@@ -563,100 +502,80 @@ recovers malformed terms and non-portable ranges
             (delimiter)
             (extended_reg_exp
               (ere_branch
-                (ere_branch
-                  (ere_branch
-                    (ere_branch
-                      (ere_branch
-                        (ere_expression
-                          (one_char_or_coll_elem_ere
-                            (bracket_expression
-                              (open_bracket)
-                              (matching_list
-                                (bracket_list
-                                  (follow_list
-                                    (follow_list
-                                      (follow_list
-                                        (expression_term
-                                          (range_expression
-                                            (start_range
-                                              (end_range
-                                                (collating_element))
-                                              (range_operator))
-                                            (end_range
-                                              (collating_element)))))
-                                      (expression_term
-                                        (syntax_issue
-                                          (undefined_syntax
-                                            (shared_range_endpoint
-                                              (range_operator))))))
-                                    (expression_term
-                                      (single_expression
-                                        (end_range
-                                          (collating_element)))))))
-                              (close_bracket)))))
-                      (ere_expression
-                        (one_char_or_coll_elem_ere
-                          (bracket_expression
-                            (open_bracket)
-                            (matching_list
-                              (bracket_list
-                                (follow_list
-                                  (expression_term
-                                    (range_expression
-                                      (start_range
-                                        (end_range
-                                          (collating_element))
-                                        (range_operator))
-                                      (end_range
-                                        (syntax_issue
-                                          (undefined_syntax
-                                            (character_class_range_end
-                                              (character_class
-                                                (class_name)))))))))))
-                            (close_bracket)))))
-                    (ere_expression
-                      (one_char_or_coll_elem_ere
-                        (bracket_expression
-                          (open_bracket)
-                          (matching_list
-                            (bracket_list
-                              (follow_list
-                                (expression_term
-                                  (range_expression
-                                    (start_range
-                                      (syntax_issue
-                                        (unspecified_syntax
-                                          (equivalence_class_range_start
-                                            (equivalence_class
-                                              (coll_elem_single)))))
-                                      (range_operator))
-                                    (end_range
-                                      (collating_element)))))))
-                          (close_bracket)))))
-                  (ere_expression
-                    (one_char_or_coll_elem_ere
-                      (bracket_expression
-                        (open_bracket)
-                        (matching_list
-                          (bracket_list
-                            (follow_list
-                              (expression_term
-                                (range_expression
-                                  (start_range
-                                    (end_range
-                                      (collating_element))
-                                    (range_operator))
-                                  (end_range
-                                    (syntax_issue
-                                      (unspecified_syntax
-                                        (equivalence_class_range_end
-                                          (equivalence_class
-                                            (coll_elem_single)))))))))))
-                        (close_bracket)))))
                 (ere_expression
                   (one_char_or_coll_elem_ere
                     (bracket_expression
-                      (open_bracket)
+                      (matching_list
+                        (bracket_list
+                          (follow_list
+                            (expression_term
+                              (range_expression
+                                (start_range
+                                  (end_range
+                                    (collating_element_single)))
+                                (end_range
+                                  (collating_element_single))))
+                            (expression_term
+                              (syntax_issue
+                                (undefined_syntax
+                                  (shared_range_endpoint))))
+                            (expression_term
+                              (single_expression
+                                (end_range
+                                  (collating_element_single))))))))))
+                (ere_expression
+                  (one_char_or_coll_elem_ere
+                    (bracket_expression
+                      (matching_list
+                        (bracket_list
+                          (follow_list
+                            (expression_term
+                              (range_expression
+                                (start_range
+                                  (end_range
+                                    (collating_element_single)))
+                                (end_range
+                                  (syntax_issue
+                                    (undefined_syntax
+                                      (character_class_range_end
+                                        (character_class
+                                          (class_name))))))))))))))
+                (ere_expression
+                  (one_char_or_coll_elem_ere
+                    (bracket_expression
+                      (matching_list
+                        (bracket_list
+                          (follow_list
+                            (expression_term
+                              (range_expression
+                                (start_range
+                                  (syntax_issue
+                                    (unspecified_syntax
+                                      (equivalence_class_range_start
+                                        (equivalence_class
+                                          (collating_element_single))))))
+                                (end_range
+                                  (collating_element_single))))))))))
+                (ere_expression
+                  (one_char_or_coll_elem_ere
+                    (bracket_expression
+                      (matching_list
+                        (bracket_list
+                          (follow_list
+                            (expression_term
+                              (range_expression
+                                (start_range
+                                  (end_range
+                                    (collating_element_single)))
+                                (end_range
+                                  (syntax_issue
+                                    (unspecified_syntax
+                                      (equivalence_class_range_end
+                                        (equivalence_class
+                                          (collating_element_single))))))))))))))
+                (ere_expression
+                  (one_char_or_coll_elem_ere
+                    (bracket_expression
                       (matching_list
                         (bracket_list
                           (follow_list
@@ -664,7 +583,7 @@ recovers malformed terms and non-portable ranges
                               (single_expression
                                 (end_range
                                   (collating_symbol
-                                    (coll_elem_multi)
+                                    (collating_element_multi)
                                     (syntax_issue
                                       (undefined_syntax
                                         (missing_bracket_term_close))))))))))

@@ -10,17 +10,7 @@
   (translation_escape)
 ] @string.escape
 
-[
-  (back_bar)
-  (back_plus)
-  (back_qm)
-  (left_anchor)
-  (negation_operator)
-  (nonmatching_list_operator)
-  (range_operator)
-  (right_anchor)
-  (zero_or_more_operator)
-] @operator
+(negation_operator) @operator
 
 [
   (case_insensitive_flag)
@@ -46,7 +36,7 @@
 (last_line_address) @constant.builtin
 
 [
-  (dup_count)
+  (duplication_count)
   (line_number_address)
   (occurrence_flag)
 ] @number
@@ -59,15 +49,7 @@
 
 (file_literal) @string.special.path
 
-[
-  (back_close_brace)
-  (back_close_parenthesis)
-  (back_open_brace)
-  (back_open_parenthesis)
-  (close_bracket)
-  (closing_brace)
-  (open_bracket)
-] @punctuation.bracket
+(closing_brace) @punctuation.bracket
 
 (character_class
   [
@@ -97,27 +79,70 @@
   "=" @punctuation.delimiter)
 
 [
-  (range_end_hyphen)
-  (trailing_hyphen)
-] @string.regexp
-
-[
   (class_name)
-  (coll_elem_multi)
-  (coll_elem_single)
-  (collating_element)
-  (meta_char)
-  (period)
+  (collating_element_multi)
+  (collating_element_single)
+  (meta_character)
 ] @character.special
 
 [
   (address_separator)
   (delimiter)
-  (interval_separator)
 ] @punctuation.delimiter
 
 ((command_separator) @punctuation.delimiter
   (#eq? @punctuation.delimiter ";"))
+
+(bracket_expression
+  [
+    "["
+    "]"
+  ] @punctuation.bracket)
+
+(nonmatching_list
+  "^" @operator)
+
+(start_range
+  "-" @operator)
+
+(shared_range_endpoint
+  "-" @operator)
+
+(range_expression
+  "-" @string.regexp)
+
+(bracket_list
+  "-" @string.regexp)
+
+(one_char_or_coll_elem_bre
+  "." @character.special)
+
+(bre_expression
+  [
+    "^"
+    "$"
+  ] @operator)
+
+(nondupl_bre
+  [
+    "\\("
+    "\\)"
+  ] @punctuation.bracket)
+
+(bre_dupl_symbol
+  [
+    "\\{"
+    "\\}"
+  ] @punctuation.bracket)
+
+(bre_dupl_symbol
+  "*" @operator)
+
+(bre_dupl_symbol
+  "," @punctuation.delimiter)
+
+(unexpected_interval_separator
+  "," @punctuation.delimiter)
 
 (ordinary_character) @string.regexp
 

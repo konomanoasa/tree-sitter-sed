@@ -243,13 +243,6 @@ function publicNodes(nodes) {
     parents[index] = parent;
     missing[index] = node.kind === "MISSING" || missing[node.parent] === true;
     if (missing[index] || node.kind === "ERROR") continue;
-    if (
-      node.kind.startsWith('"') &&
-      !["character_class", "collating_symbol", "equivalence_class"].includes(
-        visible[parent]?.kind,
-      )
-    )
-      continue;
     parents[index] = visible.length;
     visible.push({
       ...node,

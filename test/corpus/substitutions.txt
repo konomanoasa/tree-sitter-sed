@@ -421,7 +421,6 @@ p
               (bre_expression
                 (simple_bre
                   (nondupl_bre
-                    (back_open_parenthesis)
                     (basic_reg_exp
                       (bre_branch
                         (bre_expression
