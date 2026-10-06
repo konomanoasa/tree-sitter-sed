@@ -57,6 +57,8 @@ enum TokenType {
 #endif
   REGEX_INTERVAL_OPEN,
   REGEX_DUP_COUNT,
+  REGEX_INTERVAL_ESCAPED_COUNT,
+  REGEX_INTERVAL_ESCAPED_SEPARATOR,
   REGEX_INTERVAL_SEPARATOR,
   REGEX_INTERVAL_CLOSE,
 #if !SED_REGEX_EXTENDED
@@ -85,6 +87,7 @@ enum TokenType {
   REGEX_COLL_ELEM_SINGLE,
   REGEX_COLL_ELEM_MULTI,
   REGEX_META_CHAR,
+  REGEX_INCOMPLETE_META_CHAR,
   REGEX_DOT_CLOSE,
   REGEX_OPEN_EQUAL,
   REGEX_EQUAL_CLOSE,
@@ -118,6 +121,8 @@ enum TokenType {
   TRANSLATE_UNTERMINATED_DESTINATION,
   INVALID_SUBSTITUTION_FLAG,
   FLAG_AFTER_WRITE_MARKER,
+  WRITE_TERMINAL_SEPARATOR,
+  WRITE_FOLLOWING_SEPARATOR,
   TEXT_COMMAND_START,
   TEXT_INCOMPLETE_INTRODUCER,
   TEXT_LITERAL,
@@ -179,6 +184,7 @@ enum TokenType {
 #endif
   INCOMPLETE_COMMAND_SEPARATOR_MARKER,
   UNEXPECTED_COMMAND_TEXT,
+  INCOMPLETE_COMMAND_TEXT,
   ERROR_SENTINEL,
 };
 
@@ -641,12 +647,17 @@ static bool is_substitution_flag_character(int32_t character) {
   }
 }
 
-static enum FlagAfterWriteScan scan_flag_after_write_marker(TSLexer *lexer) {
+static enum FlagAfterWriteScan
+scan_flag_after_write_marker(TSLexer *lexer, bool may_be_file) {
   if (!is_substitution_flag_character(lexer->lookahead)) {
     return FLAG_AFTER_WRITE_NONE;
   }
 
   lexer->mark_end(lexer);
+  if (!may_be_file) {
+    advance(lexer);
+    return FLAG_AFTER_WRITE_MATCH;
+  }
   do {
     advance(lexer);
   } while (is_substitution_flag_character(lexer->lookahead));
@@ -1237,12 +1248,19 @@ static bool scan_regex_bracket_term_content(
   state->regex_bracket_term_has_content = true;
   return emit_symbol(
     valid_symbols,
-    regex_bracket_term_content_symbol(
-      state,
-      character_count,
-      single_character,
-      valid_class_name
-    ),
+    state->regex_bracket_term_state ==
+        REGEX_BRACKET_TERM_EQUAL &&
+        character_count ==
+        1 &&
+        bracket_meta_character(single_character) &&
+        lexer->eof(lexer)
+      ? REGEX_INCOMPLETE_META_CHAR
+      : regex_bracket_term_content_symbol(
+          state,
+          character_count,
+          single_character,
+          valid_class_name
+        ),
     symbol
   );
 }
@@ -1293,7 +1311,16 @@ static bool scan_regex_interval_close(
   return end_interval(state, valid_symbols, REGEX_INTERVAL_CLOSE, symbol);
 }
 
-#if !SED_REGEX_EXTENDED
+#if SED_REGEX_EXTENDED
+static bool
+interval_character_ends_content(const ScannerState *state, int32_t character) {
+  return character ==
+    '(' ||
+    character ==
+    '|' ||
+    (character == ')' && state->regex_group_depth > 0);
+}
+#else
 static bool
 interval_escape_ends_content(const ScannerState *state, int32_t escaped) {
   return (escaped == '}' || escaped == '(' || escaped == ')') &&
@@ -1322,15 +1349,7 @@ scan_invalid_interval_characters(TSLexer *lexer, const ScannerState *state) {
       return;
     }
 #if SED_REGEX_EXTENDED
-    if (
-      character ==
-      '}' ||
-      character ==
-      '(' ||
-      character ==
-      ')' ||
-      character == '|'
-    ) {
+    if (character == '}' || interval_character_ends_content(state, character)) {
       return;
     }
 #endif
@@ -1646,12 +1665,8 @@ static bool scan_regex_interval(
   bool prefix = false;
   bool escaped = false;
 #if SED_REGEX_EXTENDED
-  boundary = boundary ||
-    lexer->lookahead ==
-    '(' ||
-    lexer->lookahead ==
-    ')' ||
-    lexer->lookahead == '|';
+  boundary =
+    boundary || interval_character_ends_content(state, lexer->lookahead);
   closing = !boundary && lexer->lookahead == '}';
 #endif
   if (!boundary && lexer->lookahead == '\\') {
@@ -1666,7 +1681,10 @@ static bool scan_regex_interval(
 #endif
   }
   if (
-    (boundary || closing || prefix || (!escaped && lexer->lookahead == ',')) &&
+    (boundary ||
+      closing ||
+      prefix ||
+      (lexer->lookahead == ',' && (!escaped || state->delimiter == ','))) &&
     emit_symbol(
       valid_symbols,
       at_eof ? REGEX_INCOMPLETE_INTERVAL_MINIMUM
@@ -1712,6 +1730,17 @@ static bool scan_regex_interval(
     }
     if (!source_character_is_valid(lexer->lookahead)) {
       return emit_symbol(valid_symbols, ESCAPE_PREFIX, symbol);
+    }
+    if (lexer->lookahead == state->delimiter) {
+      if (is_digit(lexer->lookahead) || lexer->lookahead == ',') {
+        return consume_as(
+          lexer,
+          valid_symbols,
+          is_digit(lexer->lookahead) ? REGEX_INTERVAL_ESCAPED_COUNT
+                                     : REGEX_INTERVAL_ESCAPED_SEPARATOR,
+          symbol
+        );
+      }
     }
     consume(lexer);
     return emit_symbol(valid_symbols, REGEX_INVALID_INTERVAL, symbol);
@@ -2365,6 +2394,11 @@ static bool scan_command_recovery(
     case POST_BLANK_RECOVERY_TOKEN:
       return true;
     case POST_BLANK_RECOVERY_FAILED:
+      if (lexer->eof(lexer) && valid_symbols[INCOMPLETE_COMMAND_TEXT]) {
+        lexer->mark_end(lexer);
+        *symbol = INCOMPLETE_COMMAND_TEXT;
+        return true;
+      }
       return scan_unexpected_command_text(lexer, valid_symbols, symbol, true);
     case POST_BLANK_RECOVERY_SKIPPED:
       break;
@@ -2461,6 +2495,25 @@ static bool scan_command_token(
   const bool *valid_symbols,
   TSSymbol *symbol
 ) {
+  if (
+    lexer->lookahead ==
+    ';' &&
+    (valid_symbols[WRITE_TERMINAL_SEPARATOR] ||
+      valid_symbols[WRITE_FOLLOWING_SEPARATOR])
+  ) {
+    consume(lexer);
+    while (is_blank(lexer->lookahead) || lexer->lookahead == ';') {
+      advance(lexer);
+    }
+    return emit_symbol(
+      valid_symbols,
+      lexer->eof(lexer) || lexer->lookahead == '\n' || lexer->lookahead == '}'
+        ? WRITE_TERMINAL_SEPARATOR
+        : WRITE_FOLLOWING_SEPARATOR,
+      symbol
+    );
+  }
+
   if (valid_symbols[BLOCK_TRAILING_BLANKS] && is_blank(lexer->lookahead)) {
     advance_past_blanks(lexer);
     lexer->mark_end(lexer);
@@ -2529,7 +2582,10 @@ static bool scan_command_token(
   }
 
   if (valid_symbols[FLAG_AFTER_WRITE_MARKER]) {
-    switch (scan_flag_after_write_marker(lexer)) {
+    switch (scan_flag_after_write_marker(
+      lexer,
+      valid_symbols[OMITTED_FILE_SEPARATOR_MARKER]
+    )) {
     case FLAG_AFTER_WRITE_MATCH:
       *symbol = FLAG_AFTER_WRITE_MARKER;
       return true;

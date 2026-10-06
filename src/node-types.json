@@ -358,6 +358,10 @@
           {
             "type": "duplication_count",
             "named": true
+          },
+          {
+            "type": "escaped_delimiter",
+            "named": true
           }
         ]
       },
@@ -368,9 +372,23 @@
           {
             "type": "duplication_count",
             "named": true
+          },
+          {
+            "type": "escaped_delimiter",
+            "named": true
           }
         ]
       }
+    },
+    "children": {
+      "multiple": false,
+      "required": false,
+      "types": [
+        {
+          "type": "escaped_delimiter",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -643,6 +661,25 @@
           }
         ]
       }
+    }
+  },
+  {
+    "type": "conflicting_substitution_flag",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "global_flag",
+          "named": true
+        },
+        {
+          "type": "occurrence_flag",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -1259,6 +1296,10 @@
           "named": true
         },
         {
+          "type": "invalid_equivalence_class_element",
+          "named": true
+        },
+        {
           "type": "invalid_interval_close",
           "named": true
         },
@@ -1328,6 +1369,10 @@
         },
         {
           "type": "unclosed_subexpression",
+          "named": true
+        },
+        {
+          "type": "unexpected_command_text",
           "named": true
         },
         {
@@ -1907,6 +1952,22 @@
           "named": true
         }
       ]
+    }
+  },
+  {
+    "type": "nonfinal_write_flag",
+    "named": true,
+    "fields": {
+      "verb": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "substitution_flag",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -2751,6 +2812,10 @@
           "named": true
         },
         {
+          "type": "forbidden_command_separator",
+          "named": true
+        },
+        {
           "type": "invalid_character_class_name",
           "named": true
         },
@@ -2788,6 +2853,10 @@
         },
         {
           "type": "missing_interval_minimum",
+          "named": true
+        },
+        {
+          "type": "nonfinal_write_flag",
           "named": true
         },
         {
@@ -2864,7 +2933,17 @@
   {
     "type": "unexpected_interval_separator",
     "named": true,
-    "fields": {}
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": false,
+      "types": [
+        {
+          "type": "escaped_delimiter",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "unknown_function",
@@ -2926,6 +3005,10 @@
         },
         {
           "type": "blanks_after_negation",
+          "named": true
+        },
+        {
+          "type": "conflicting_substitution_flag",
           "named": true
         },
         {
@@ -3017,7 +3100,7 @@
     "named": true,
     "fields": {
       "issue": {
-        "multiple": false,
+        "multiple": true,
         "required": false,
         "types": [
           {
@@ -3028,7 +3111,7 @@
       },
       "verb": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "substitution_flag",

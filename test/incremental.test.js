@@ -270,7 +270,13 @@ const explicitConvergenceCases = [
     name: `flags after write remain deterministic`,
     scope: grammar.scope,
     source: "s/a/b/wp file\n",
-    issues: [],
+    issues: [
+      {
+        outcome: "undefined_syntax",
+        reason: "nonfinal_write_flag",
+        range: "[0, 6] - [0, 7]",
+      },
+    ],
     histories: [
       {
         source: "s/a/b/wg file\n",
@@ -286,7 +292,13 @@ const explicitConvergenceCases = [
     name: `command after write remains deterministic`,
     scope: grammar.scope,
     source: "s/a/b/w file;p\n",
-    issues: [],
+    issues: [
+      {
+        outcome: "undefined_syntax",
+        reason: "forbidden_command_separator",
+        range: "[0, 12] - [0, 13]",
+      },
+    ],
     histories: [
       {
         source: "s/a/b/w file\np\n",

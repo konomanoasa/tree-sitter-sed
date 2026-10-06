@@ -118,12 +118,21 @@ s///wpigw2 file
           (delimiter)
           (substitution_flags
             (write_flag
-              (substitution_flag)
+              (syntax_issue
+                (undefined_syntax
+                  (nonfinal_write_flag
+                    (substitution_flag))))
               (print_flag)
               (case_insensitive_flag)
               (global_flag)
-              (substitution_flag)
-              (occurrence_flag)
+              (syntax_issue
+                (undefined_syntax
+                  (nonfinal_write_flag
+                    (substitution_flag))))
+              (syntax_issue
+                (unspecified_syntax
+                  (conflicting_substitution_flag
+                    (occurrence_flag))))
               (wfile
                 (file_literal)))))))
     (command_separator)))
@@ -215,7 +224,10 @@ s/a/b/w file;p
               (substitution_flag)
               (wfile
                 (file_literal)))))))
-    (command_separator)
+    (syntax_issue
+      (undefined_syntax
+        (forbidden_command_separator
+          (command_separator))))
     (editing_command
       (function
         (print_function
@@ -439,4 +451,52 @@ p
       (function
         (print_function
           (function_verb))))
+    (command_separator)))
+
+==================
+retains conflicting flags before and after a write flag
+:language(sed)
+:language(sed_ere)
+==================
+s///2g
+s///gw2 file
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (delimiter)
+          (delimiter)
+          (substitution_flags
+            (occurrence_flag)
+            (syntax_issue
+              (unspecified_syntax
+                (conflicting_substitution_flag
+                  (global_flag))))))))
+    (command_separator)
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (delimiter)
+          (delimiter)
+          (substitution_flags
+            (global_flag)
+            (write_flag
+              (syntax_issue
+                (undefined_syntax
+                  (nonfinal_write_flag
+                    (substitution_flag))))
+              (syntax_issue
+                (unspecified_syntax
+                  (conflicting_substitution_flag
+                    (occurrence_flag))))
+              (wfile
+                (file_literal)))))))
     (command_separator)))

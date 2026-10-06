@@ -4,6 +4,10 @@ function intervalExpression($, opening, closing) {
   const piece = (name) =>
     choice(
       field(name, $.duplication_count),
+      field(
+        name,
+        namedExternal($, $._regex_interval_escaped_count, "escaped_delimiter"),
+      ),
       issueField($, "invalid_interval_character"),
       issueField($, "invalid_regular_expression_character"),
       issueField($, "invalid_encoding"),
@@ -24,7 +28,14 @@ function intervalExpression($, opening, closing) {
     ),
     optional(
       seq(
-        alias($._regex_interval_separator, ","),
+        choice(
+          alias($._regex_interval_separator, ","),
+          namedExternal(
+            $,
+            $._regex_interval_escaped_separator,
+            "escaped_delimiter",
+          ),
+        ),
         repeat(
           choice(
             piece("maximum"),
@@ -233,6 +244,7 @@ function bracketRules() {
         ),
         $._regex_equal_close,
         "equivalence_class_meta_character",
+        "incomplete_equivalence_class_meta_character",
       ),
 
     character_class: ($) =>

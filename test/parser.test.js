@@ -53,6 +53,445 @@ const verbOperands = {
 const addressPrefixes = ["1 ", "1\t", "1!", "1 !", "$ ", "/x/ ", "\\,x, "];
 
 for (const grammar of grammars) {
+  test(`${grammar.name}: delimiter escapes keep interval roles and source leaves`, () => {
+    const [opening, closing] =
+      grammar.name === "sed" ? ["\\{", "\\}"] : ["{", "}"];
+    const cases = [
+      {
+        delimiter: ",",
+        body: "1\\,2",
+        pieces: [
+          ["minimum", "duplication_count", 0, 1],
+          [null, "escaped_delimiter", 1, 3],
+          ["maximum", "duplication_count", 3, 4],
+        ],
+        issues: [],
+      },
+      {
+        delimiter: "1",
+        body: "\\12,2\\1",
+        pieces: [
+          ["minimum", "escaped_delimiter", 0, 2],
+          ["minimum", "duplication_count", 2, 3],
+          ["maximum", "duplication_count", 4, 5],
+          ["maximum", "escaped_delimiter", 5, 7],
+        ],
+        issues: [],
+      },
+      {
+        delimiter: ",",
+        body: "1\\,2\\,3",
+        pieces: [
+          ["minimum", "duplication_count", 0, 1],
+          [null, "escaped_delimiter", 1, 3],
+          ["maximum", "duplication_count", 3, 4],
+          [null, "escaped_delimiter", 4, 6],
+          ["maximum", "duplication_count", 6, 7],
+        ],
+        issues: [
+          { reason: "unexpected_interval_separator", first: 4, last: 6 },
+        ],
+      },
+      {
+        delimiter: ",",
+        body: "\\,2",
+        pieces: [
+          [null, "escaped_delimiter", 0, 2],
+          ["maximum", "duplication_count", 2, 3],
+        ],
+        issues: [{ reason: "missing_interval_minimum", first: 0, last: 0 }],
+      },
+    ];
+    for (const { delimiter, body, pieces, issues } of cases) {
+      const source = `s${delimiter}a${opening}${body}${closing}${delimiter}b${delimiter}`;
+      const start = 3 + opening.length;
+      const fresh = parseSuccessfully(grammar.scope, source);
+      assert.deepEqual(
+        issueSignatures(fresh.nodes),
+        issues.map(({ reason, first, last }) => ({
+          outcome: "undefined_syntax",
+          reason,
+          range: `[0, ${start + first}] - [0, ${start + last}]`,
+        })),
+        source,
+      );
+      assert.deepEqual(
+        fresh.nodes
+          .filter(({ kind }) =>
+            ["duplication_count", "escaped_delimiter"].includes(kind),
+          )
+          .map(({ field, kind, startByte, endByte }) => [
+            field,
+            kind,
+            startByte - start,
+            endByte - start,
+          ]),
+        pieces,
+        source,
+      );
+      const escapeStart = source.indexOf(`\\${delimiter}`);
+      const edits = [
+        { byte: escapeStart + 1, deleteBytes: 1, insert: "x" },
+        { byte: escapeStart + 1, deleteBytes: 1, insert: delimiter },
+      ];
+      assertIncrementalContract(
+        fresh,
+        parseSuccessfully(grammar.scope, source, edits),
+        source,
+      );
+    }
+  });
+
+  test(`${grammar.name}: substitution flag combinations retain flags inside minimal issues`, () => {
+    const cases = [
+      {
+        source: "s/a/b/2g",
+        issues: [
+          {
+            outcome: "unspecified_syntax",
+            reason: "conflicting_substitution_flag",
+            first: 7,
+            last: 8,
+            child: "global_flag",
+          },
+        ],
+      },
+      {
+        source: "s/a/b/g2",
+        issues: [
+          {
+            outcome: "unspecified_syntax",
+            reason: "conflicting_substitution_flag",
+            first: 7,
+            last: 8,
+            child: "occurrence_flag",
+          },
+        ],
+      },
+      {
+        source: "s/a/b/gip2",
+        issues: [
+          {
+            outcome: "unspecified_syntax",
+            reason: "conflicting_substitution_flag",
+            first: 9,
+            last: 10,
+            child: "occurrence_flag",
+          },
+        ],
+      },
+      {
+        source: "s/a/b/wg file",
+        issues: [
+          {
+            outcome: "undefined_syntax",
+            reason: "nonfinal_write_flag",
+            first: 6,
+            last: 7,
+            child: "substitution_flag",
+          },
+        ],
+      },
+      {
+        source: "s/a/b/wwg file",
+        issues: [
+          {
+            outcome: "undefined_syntax",
+            reason: "nonfinal_write_flag",
+            first: 6,
+            last: 7,
+            child: "substitution_flag",
+          },
+          {
+            outcome: "undefined_syntax",
+            reason: "nonfinal_write_flag",
+            first: 7,
+            last: 8,
+            child: "substitution_flag",
+          },
+        ],
+      },
+      {
+        source: "s/a/b/2wg file",
+        issues: [
+          {
+            outcome: "undefined_syntax",
+            reason: "nonfinal_write_flag",
+            first: 7,
+            last: 8,
+            child: "substitution_flag",
+          },
+          {
+            outcome: "unspecified_syntax",
+            reason: "conflicting_substitution_flag",
+            first: 8,
+            last: 9,
+            child: "global_flag",
+          },
+        ],
+      },
+      {
+        source: "s/a/b/gw2 file",
+        issues: [
+          {
+            outcome: "undefined_syntax",
+            reason: "nonfinal_write_flag",
+            first: 7,
+            last: 8,
+            child: "substitution_flag",
+          },
+          {
+            outcome: "unspecified_syntax",
+            reason: "conflicting_substitution_flag",
+            first: 8,
+            last: 9,
+            child: "occurrence_flag",
+          },
+        ],
+      },
+      {
+        source: "s/a/b/w2g file",
+        issues: [
+          {
+            outcome: "undefined_syntax",
+            reason: "nonfinal_write_flag",
+            first: 6,
+            last: 7,
+            child: "substitution_flag",
+          },
+          {
+            outcome: "unspecified_syntax",
+            reason: "conflicting_substitution_flag",
+            first: 8,
+            last: 9,
+            child: "global_flag",
+          },
+        ],
+      },
+      {
+        source: "s/a/b/2gg3",
+        issues: [
+          {
+            outcome: "unspecified_syntax",
+            reason: "conflicting_substitution_flag",
+            first: 7,
+            last: 8,
+            child: "global_flag",
+          },
+          {
+            outcome: "unspecified_syntax",
+            reason: "conflicting_substitution_flag",
+            first: 8,
+            last: 9,
+            child: "global_flag",
+          },
+          {
+            outcome: "unspecified_syntax",
+            reason: "conflicting_substitution_flag",
+            first: 9,
+            last: 10,
+            child: "occurrence_flag",
+          },
+        ],
+      },
+      { source: "s/a/b/gipw file", issues: [] },
+      { source: "s/a/b/w g2", issues: [] },
+      { source: "s/a/b/2ip", issues: [] },
+      { source: "s/a/b/gg", issues: [] },
+    ];
+    for (const { source, issues } of cases) {
+      const result = parseSuccessfully(grammar.scope, source);
+      assert.deepEqual(
+        issueSignatures(result.nodes),
+        issues.map(({ outcome, reason, first, last }) => ({
+          outcome,
+          reason,
+          range: `[0, ${first}] - [0, ${last}]`,
+        })),
+        source,
+      );
+      for (const { reason, first, last, child } of issues) {
+        const owner = result.nodes.findIndex(
+          (node) => node.kind === reason && node.startByte === first,
+        );
+        assert.deepEqual(
+          result.nodes
+            .filter((node) => node.parent === owner)
+            .map(({ kind, startByte, endByte }) => [kind, startByte, endByte]),
+          [[child, first, last]],
+          source,
+        );
+      }
+      assertIncrementalContract(
+        result,
+        parseSuccessfully(grammar.scope, `p\n${source}`, [
+          { byte: 0, deleteBytes: 2, insert: "" },
+        ]),
+        source,
+      );
+    }
+  });
+
+  test(`${grammar.name}: write separators depend on the following command on the same line`, () => {
+    for (const { source, range } of [
+      { source: "s/a/b/w file;p", range: "[0, 12] - [0, 13]" },
+      { source: "s/a/b/w file; \t;p", range: "[0, 12] - [0, 13]" },
+      { source: "{s/a/b/w file;p;}", range: "[0, 13] - [0, 14]" },
+      { source: "s/a/b/w file;#x", range: "[0, 12] - [0, 13]" },
+      { source: "s/a/b/w file;", range: null },
+      { source: "s/a/b/w file; \t", range: null },
+      { source: "s/a/b/w file;\np", range: null },
+      { source: "{s/a/b/w file;}", range: null },
+    ]) {
+      const result = parseSuccessfully(grammar.scope, source);
+      assert.deepEqual(
+        issueSignatures(result.nodes),
+        range === null
+          ? []
+          : [
+              {
+                outcome: "undefined_syntax",
+                reason: "forbidden_command_separator",
+                range,
+              },
+            ],
+        source,
+      );
+      if (range !== null) {
+        const reason = result.nodes.findIndex(
+          ({ kind }) => kind === "forbidden_command_separator",
+        );
+        assert.deepEqual(
+          result.nodes
+            .filter(({ parent }) => parent === reason)
+            .map((node) => [node.kind, nodeRange(node)]),
+          [["command_separator", range]],
+          source,
+        );
+      }
+    }
+  });
+
+  test(`${grammar.name}: EOF reclassification follows appended source in fresh and incremental parses`, () => {
+    for (const { source, suffix, reason, outcome } of [
+      {
+        source: "/[[=]",
+        suffix: "x=]]/p",
+        reason: "invalid_equivalence_class_element",
+        outcome: null,
+      },
+      {
+        source: "/[[=-",
+        suffix: "x=]]/p",
+        reason: "invalid_equivalence_class_element",
+        outcome: null,
+      },
+      {
+        source: "/[[=-=",
+        suffix: "x=]]/p",
+        reason: "invalid_equivalence_class_element",
+        outcome: null,
+      },
+      {
+        source: "/[[=-",
+        suffix: "=]]/p",
+        reason: "invalid_equivalence_class_element",
+        outcome: "undefined_syntax",
+      },
+      {
+        source: "/[[=]",
+        suffix: "\n",
+        reason: "invalid_equivalence_class_element",
+        outcome: "undefined_syntax",
+      },
+      {
+        source: "p ",
+        suffix: "}",
+        reason: "unexpected_command_text",
+        outcome: null,
+      },
+      {
+        source: "p \t",
+        suffix: "\n",
+        reason: "unexpected_command_text",
+        outcome: "nonconforming_syntax",
+      },
+      {
+        source: "p ",
+        suffix: "x",
+        reason: "unexpected_command_text",
+        outcome: "nonconforming_syntax",
+      },
+    ]) {
+      const original = parseSuccessfully(grammar.scope, source);
+      assert.deepEqual(
+        issueSignatures(original.nodes)
+          .filter((issue) => issue.reason === reason)
+          .map((issue) => issue.outcome),
+        ["incomplete_syntax"],
+        source,
+      );
+      const completed = parseSuccessfully(grammar.scope, source + suffix);
+      assert.deepEqual(
+        issueSignatures(completed.nodes)
+          .filter((issue) => issue.reason === reason)
+          .map((issue) => issue.outcome),
+        outcome === null ? [] : [outcome],
+        source + suffix,
+      );
+      assertIncrementalContract(
+        completed,
+        parseSuccessfully(grammar.scope, source, [
+          { byte: source.length, deleteBytes: 0, insert: suffix },
+        ]),
+        source + suffix,
+      );
+      assertIncrementalContract(
+        original,
+        parseSuccessfully(grammar.scope, source + suffix, [
+          { byte: source.length, deleteBytes: suffix.length, insert: "" },
+        ]),
+        source,
+      );
+    }
+    for (const { source, edit, expected } of [
+      {
+        source: "s/a/b/w file;",
+        edit: { byte: 13, deleteBytes: 0, insert: "p" },
+        expected: "s/a/b/w file;p",
+      },
+      {
+        source: "s/a/b/w file;p",
+        edit: { byte: 13, deleteBytes: 1, insert: "" },
+        expected: "s/a/b/w file;",
+      },
+      {
+        source: "s/a/b/2g",
+        edit: { byte: 6, deleteBytes: 1, insert: "" },
+        expected: "s/a/b/g",
+      },
+      {
+        source: "s/a/b/g",
+        edit: { byte: 6, deleteBytes: 0, insert: "2" },
+        expected: "s/a/b/2g",
+      },
+      {
+        source: "s/a/b/2wg file",
+        edit: { byte: 6, deleteBytes: 1, insert: "" },
+        expected: "s/a/b/wg file",
+      },
+    ]) {
+      assert.deepEqual(applyEdits(source, [edit]), Buffer.from(expected));
+      assertIncrementalContract(
+        parseSuccessfully(grammar.scope, expected),
+        parseSuccessfully(grammar.scope, source, [edit]),
+        expected,
+      );
+    }
+  });
+}
+
+for (const grammar of grammars) {
   test(`${grammar.name}: empty regex groups have delimiters without an expression body`, () => {
     const [owner, opening, closing, width] =
       grammar.name === "sed"
@@ -1476,7 +1915,7 @@ for (const grammar of grammars) {
       ["r \té\uFFFD \\x;\t}", "rfile", "file_literal", 3, 14],
       ["w   é\uFFFD \\x;\t}", "wfile", "file_literal", 4, 15],
       ["s/a/b/w é\uFFFD \\x\t}", "wfile", "file_literal", 8, 18],
-      ["s/a/b/w é\uFFFD \\x\t};q", "wfile", "file_literal", 8, 18],
+      ["s/a/b/w é\uFFFD \\x\t};\nq", "wfile", "file_literal", 8, 18],
     ];
     for (const [command, ownerKind, literalKind, start, end] of cases) {
       for (const suffix of ["", "\n"]) {
@@ -2266,7 +2705,7 @@ for (const testCase of regularExpressionEofCases) {
   });
 }
 
-test("sed: a malformed interval ends before a following construct", () => {
+test("sed: a malformed interval ends only before a following construct", () => {
   const cases = [
     {
       scope: "source.sed",
@@ -2332,6 +2771,30 @@ test("sed: a malformed interval ends before a following construct", () => {
         },
       ],
       nodes: ['")"'],
+    },
+    {
+      scope: "source.sed.ere",
+      source: "/a{1)}/p\n",
+      issues: [
+        {
+          outcome: "undefined_syntax",
+          reason: "invalid_interval_character",
+          range: "[0, 4] - [0, 5]",
+        },
+      ],
+      nodes: ['"}"'],
+    },
+    {
+      scope: "source.sed.ere",
+      source: "/a{)}/p\n",
+      issues: [
+        {
+          outcome: "undefined_syntax",
+          reason: "invalid_interval_character",
+          range: "[0, 3] - [0, 4]",
+        },
+      ],
+      nodes: ['"}"'],
     },
   ];
   for (const testCase of cases) {
@@ -3767,6 +4230,7 @@ const nulPayloadCases = [
   },
   {
     name: "substitution write file ends before its semicolon",
+    separatorRange: "[0, 11] - [0, 12]",
     source: "s/a/b/w \0 a;q\n",
     nulRanges: ["[0, 8] - [0, 9]"],
     types: ["wfile", "file_literal", "nul_character"],
@@ -3870,6 +4334,16 @@ for (const grammar of grammars) {
       parseSuccessfully(grammar.scope, "q\n").nodes,
     )[0].nodes;
     for (const testCase of nulPayloadCases) {
+      const separatorIssues =
+        testCase.separatorRange === undefined
+          ? []
+          : [
+              {
+                outcome: "undefined_syntax",
+                reason: "forbidden_command_separator",
+                range: testCase.separatorRange,
+              },
+            ];
       const expectedIssues = [
         ...(testCase.outerIssue === undefined ? [] : [testCase.outerIssue]),
         ...testCase.nulRanges.map((range) => ({
@@ -3877,6 +4351,7 @@ for (const grammar of grammars) {
           reason: "nul_character",
           range,
         })),
+        ...separatorIssues,
       ];
       const firstNul = testCase.source.indexOf("\0");
       const history = `${testCase.source.slice(0, firstNul)}x${testCase.source.slice(firstNul)}`;
@@ -3918,7 +4393,8 @@ for (const grammar of grammars) {
         Buffer.from(repaired),
       );
       const repairedFresh = parseSuccessfully(grammar.scope, repaired);
-      assertNoNodes(repairedFresh.nodes, "syntax_issue", "ERROR", "MISSING");
+      assertNoNodes(repairedFresh.nodes, "ERROR", "MISSING");
+      assert.deepEqual(issueSignatures(repairedFresh.nodes), separatorIssues);
       assertIncrementalContract(
         repairedFresh,
         parse(grammar.scope, testCase.source, repairs),

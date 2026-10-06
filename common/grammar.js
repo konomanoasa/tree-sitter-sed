@@ -116,6 +116,12 @@ const functionDefinitions = [
   },
   { rule: "substitute_function", spelling: "s", form: "substitute" },
   {
+    rule: "_write_substitute_function",
+    spelling: "s",
+    form: "substitute",
+    writeTerminated: true,
+  },
+  {
     rule: "test_function",
     spelling: "t",
     form: "optionalLabel",
@@ -158,27 +164,87 @@ const unknownFunctionCharacter = new RegExp(
     .join("")}]`,
 );
 
-// String-only flag rules share verb tokens and would wrap anonymous leaves.
-const letterSubstitutionFlags = {
-  global_flag: "g",
-  case_insensitive_flag: "i",
-  print_flag: "p",
-};
-
-function nonWriteSubstitutionFlags($) {
-  return [
-    $.occurrence_flag,
-    ...Object.entries(letterSubstitutionFlags).map(([rule, spelling]) =>
-      alias(spelling, $[rule]),
-    ),
-  ];
+function substitutionFlag($, kind, seen) {
+  if ((kind === 1 && seen & 2) || (kind === 2 && seen & 1)) {
+    return issueField(
+      $,
+      kind === 1 ? "conflicting_global_flag" : "conflicting_occurrence_flag",
+    );
+  }
+  return kind === 1 ? alias("g", $.global_flag) : $.occurrence_flag;
 }
 
-function postWriteSubstitutionFlagChoice($) {
-  return choice(
-    ...nonWriteSubstitutionFlags($),
-    alias("w", $.substitution_flag),
-  );
+function substitutionFlagRules() {
+  const rules = {};
+  for (const ending of ["plain", "write", "postwrite"]) {
+    for (const seen of [0, 1, 2, 3]) {
+      rules[`_flags_${ending}_${seen}`] = ($) => {
+        const steady = [
+          alias("i", $.case_insensitive_flag),
+          alias("p", $.print_flag),
+          ...(ending === "postwrite"
+            ? [
+                choice(
+                  alias("w", $.substitution_flag),
+                  issueField($, "nonfinal_write_flag"),
+                ),
+              ]
+            : [
+                issueField($, "invalid_substitution_flag"),
+                issueField($, "invalid_encoding"),
+              ]),
+        ];
+        const transitions = [];
+        for (const kind of [1, 2]) {
+          const flag = substitutionFlag($, kind, seen);
+          if (seen & kind) {
+            steady.push(flag);
+          } else {
+            const tail = $[`_flags_${ending}_${seen | kind}`];
+            transitions.push(
+              seq(flag, ending === "write" ? tail : optional(tail)),
+            );
+          }
+        }
+        if (ending === "write") {
+          return prec.right(
+            seq(
+              repeat(choice(...steady)),
+              choice(
+                alias($[`_write_flag_${seen}`], $.write_flag),
+                ...transitions,
+              ),
+            ),
+          );
+        }
+        return prec.right(
+          transitions.length === 0
+            ? repeat1(choice(...steady))
+            : choice(
+                repeat1(choice(...steady)),
+                seq(repeat(choice(...steady)), choice(...transitions)),
+              ),
+        );
+      };
+    }
+  }
+  for (const seen of [0, 1, 2, 3]) {
+    rules[`_write_flag_${seen}`] = ($) => {
+      const wfile = field("wfile", alias($._substitution_wfile, $.wfile));
+      return choice(
+        seq(
+          field("verb", alias("w", $.substitution_flag)),
+          choice(...fileOperandForms($, "wfile", wfile)),
+        ),
+        seq(
+          issueField($, "nonfinal_write_flag"),
+          $[`_flags_postwrite_${seen}`],
+          blankSeparatedFileOperand($, "wfile", wfile),
+        ),
+      );
+    };
+  }
+  return rules;
 }
 
 function delimiter($, name) {
@@ -211,6 +277,18 @@ function newlineSeparator($) {
 
 function semicolonSeparator($) {
   return alias(";", $.command_separator);
+}
+
+function writeCommandUnit($) {
+  return seq(
+    editingCommand($, "write_terminated"),
+    choice(
+      newlineSeparator($),
+      alias($._write_terminal_separator, $.command_separator),
+      issueField($, "undefined_write_command_separator"),
+      issueField($, "missing_separator_before_unmatched_brace"),
+    ),
+  );
 }
 
 function commandListRules() {
@@ -268,6 +346,7 @@ function commandListRules() {
 
     _command_unit: ($) =>
       choice(
+        writeCommandUnit($),
         seq(
           $._separable_command_item,
           choice(
@@ -300,6 +379,7 @@ function commandListRules() {
         $._separable_command_item,
         $._unmatched_closing_brace_item,
         editingCommand($, "line_terminated"),
+        editingCommand($, "write_terminated"),
       ),
 
     _unmatched_closing_brace_item: ($) =>
@@ -325,6 +405,7 @@ function commandListRules() {
 
     _block_unit: ($) =>
       choice(
+        writeCommandUnit($),
         seq(
           $._separable_command_item,
           choice(semicolonSeparator($), newlineSeparator($)),
@@ -334,7 +415,11 @@ function commandListRules() {
       ),
 
     _block_item: ($) =>
-      choice($._separable_command_item, editingCommand($, "line_terminated")),
+      choice(
+        $._separable_command_item,
+        editingCommand($, "line_terminated"),
+        editingCommand($, "write_terminated"),
+      ),
 
     empty_command: ($) => seq(optional($._blanks), $._empty_command_marker),
 
@@ -506,14 +591,6 @@ function delimitedFunction($, spelling, name, first, middleReason, rest) {
 function operandRules(mode) {
   const expression = mode === "bre" ? "basic_reg_exp" : "extended_reg_exp";
 
-  function substitutionFlagChoice($) {
-    return choice(
-      ...nonWriteSubstitutionFlags($),
-      issueField($, "invalid_substitution_flag"),
-      issueField($, "invalid_encoding"),
-    );
-  }
-
   return {
     substitute_function: ($) =>
       delimitedFunction(
@@ -528,10 +605,7 @@ function operandRules(mode) {
             seq(
               field("closing", delimiter($, "substitute_end")),
               optional(
-                field(
-                  "flags",
-                  alias($._substitution_flags, $.substitution_flags),
-                ),
+                field("flags", alias($._flags_plain_0, $.substitution_flags)),
               ),
             ),
             unterminatedDelimiter($, "replacement"),
@@ -565,30 +639,20 @@ function operandRules(mode) {
 
     escaped_newline: ($) => $._replacement_escaped_newline,
 
-    _substitution_flags: ($) =>
-      prec.right(
-        choice(
-          repeat1(substitutionFlagChoice($)),
-          seq(repeat(substitutionFlagChoice($)), $.write_flag),
-        ),
+    _write_substitute_function: ($) =>
+      seq(
+        functionVerb($, "s"),
+        field("opening", delimiter($, "substitute_start")),
+        optional(field("expression", $[expression])),
+        field("middle", delimiter($, "substitute_middle")),
+        optional(field("replacement", $.replacement)),
+        field("closing", delimiter($, "substitute_end")),
+        field("flags", alias($._flags_write_0, $.substitution_flags)),
       ),
 
-    occurrence_flag: () => /[0-9]+/,
+    ...substitutionFlagRules(),
 
-    write_flag: ($) => {
-      const wfile = field("wfile", alias($._substitution_wfile, $.wfile));
-      return seq(
-        field("verb", alias("w", $.substitution_flag)),
-        choice(
-          seq(
-            $._flag_after_write_marker,
-            repeat1(postWriteSubstitutionFlagChoice($)),
-            blankSeparatedFileOperand($, "wfile", wfile),
-          ),
-          ...fileOperandForms($, "wfile", wfile),
-        ),
-      );
-    },
+    occurrence_flag: () => /[0-9]+/,
 
     translate_function: ($) =>
       delimitedFunction(
@@ -744,7 +808,12 @@ function functionRules() {
 function commandTail($) {
   return seq(
     repeat(issueField($, "invalid_encoding")),
-    optional(issueField($, "unexpected_command_text")),
+    optional(
+      choice(
+        issueField($, "unexpected_command_text"),
+        issueField($, "incomplete_command_text"),
+      ),
+    ),
   );
 }
 
@@ -768,12 +837,19 @@ function editingCommandRules() {
   for (const [kind, isLineTerminated] of [
     ["chainable", false],
     ["line_terminated", true],
+    ["write_terminated", false],
   ]) {
     for (const maximum of [0, 1, 2]) {
       const names = functionDefinitions
         .filter(
-          ({ lineTerminated = false, maxAddresses = 2 }) =>
-            lineTerminated === isLineTerminated && maxAddresses === maximum,
+          ({
+            lineTerminated = false,
+            writeTerminated = false,
+            maxAddresses = 2,
+          }) =>
+            writeTerminated === (kind === "write_terminated") &&
+            lineTerminated === isLineTerminated &&
+            maxAddresses === maximum,
         )
         .map(({ rule }) => rule);
       if (names.length > 0) {
@@ -817,6 +893,9 @@ function editingCommandRules() {
   const rules = {
     _chainable_editing_command: ($) =>
       seq(addressedForms($, "chainable"), commandTail($)),
+
+    _write_terminated_editing_command: ($) =>
+      seq(addressedForms($, "write_terminated"), commandTail($)),
 
     _line_terminated_editing_command: ($) =>
       seq(addressedForms($, "line_terminated"), commandTail($)),
@@ -865,7 +944,14 @@ function editingCommandRules() {
   };
 
   for (const { name, names } of wrappers) {
-    rules[name] = ($) => choice(...names.map((name) => $[name]));
+    rules[name] = ($) =>
+      choice(
+        ...names.map((name) =>
+          name === "_write_substitute_function"
+            ? alias($[name], $.substitute_function)
+            : $[name],
+        ),
+      );
   }
 
   return rules;
@@ -948,6 +1034,13 @@ function issueDefinitions(mode) {
       reason: "invalid_equivalence_class_element",
       outcome: "undefined_syntax",
       rule: ($) => namedExternal($, $._regex_meta_char, "meta_character"),
+    },
+    {
+      id: "incomplete_equivalence_class_meta_character",
+      reason: "invalid_equivalence_class_element",
+      outcome: "incomplete_syntax",
+      rule: ($) =>
+        namedExternal($, $._regex_incomplete_meta_char, "meta_character"),
     },
     {
       reason: "missing_bracket_term_payload",
@@ -1058,7 +1151,15 @@ function issueDefinitions(mode) {
     {
       reason: "unexpected_interval_separator",
       outcome: "undefined_syntax",
-      rule: ($) => alias($._regex_interval_separator, ","),
+      rule: ($) =>
+        choice(
+          alias($._regex_interval_separator, ","),
+          namedExternal(
+            $,
+            $._regex_interval_escaped_separator,
+            "escaped_delimiter",
+          ),
+        ),
     },
     ...["minimum", "close"].flatMap((part) => [
       {
@@ -1283,6 +1384,12 @@ function issueDefinitions(mode) {
       rule: ($) => alias(token.immediate(";"), $.command_separator),
     },
     {
+      id: "incomplete_command_text",
+      reason: "unexpected_command_text",
+      outcome: "incomplete_syntax",
+      rule: ($) => $._incomplete_command_text,
+    },
+    {
       reason: "blanks_around_address_separator",
       outcome: "nonconforming_syntax",
       rule: ($) => alias($._blanks_around_address_separator, $.blank),
@@ -1318,6 +1425,33 @@ function issueDefinitions(mode) {
       reason: "missing_command_separator",
       outcome: "nonconforming_syntax",
       rule: missing("missing_separator_after_unmatched_brace"),
+    },
+    {
+      id: "undefined_write_command_separator",
+      reason: "forbidden_command_separator",
+      outcome: "undefined_syntax",
+      rule: ($) => alias($._write_following_separator, $.command_separator),
+    },
+    {
+      reason: "nonfinal_write_flag",
+      outcome: "undefined_syntax",
+      rule: ($) =>
+        seq(
+          field("verb", alias("w", $.substitution_flag)),
+          $._flag_after_write_marker,
+        ),
+    },
+    {
+      id: "conflicting_global_flag",
+      reason: "conflicting_substitution_flag",
+      outcome: "unspecified_syntax",
+      rule: ($) => alias("g", $.global_flag),
+    },
+    {
+      id: "conflicting_occurrence_flag",
+      reason: "conflicting_substitution_flag",
+      outcome: "unspecified_syntax",
+      rule: ($) => $.occurrence_flag,
     },
     {
       reason: "invalid_substitution_flag",
@@ -1505,6 +1639,8 @@ function externalTokens($, mode) {
       : []),
     $._regex_interval_open,
     $._regex_dup_count,
+    $._regex_interval_escaped_count,
+    $._regex_interval_escaped_separator,
     $._regex_interval_separator,
     $._regex_interval_close,
     ...(mode === "bre" ? [$._regex_backreference] : []),
@@ -1531,6 +1667,7 @@ function externalTokens($, mode) {
     $._regex_coll_elem_single,
     $._regex_coll_elem_multi,
     $._regex_meta_char,
+    $._regex_incomplete_meta_char,
     $._regex_dot_close,
     $._regex_open_equal,
     $._regex_equal_close,
@@ -1564,6 +1701,8 @@ function externalTokens($, mode) {
     $._translate_unterminated_destination,
     $._invalid_substitution_flag,
     $._flag_after_write_marker,
+    $._write_terminal_separator,
+    $._write_following_separator,
     $._text_command_start,
     $._text_incomplete_introducer,
     $._text_literal,
@@ -1595,6 +1734,7 @@ function externalTokens($, mode) {
     $._blanks_around_address_separator,
     ...missingMarkerNames(mode).map((name) => $[`_${name}_marker`]),
     $._unexpected_command_text,
+    $._incomplete_command_text,
     $._error_sentinel,
   ];
 }

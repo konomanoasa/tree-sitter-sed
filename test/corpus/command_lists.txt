@@ -208,3 +208,21 @@ p
         (print_function
           (function_verb))))
     (command_separator)))
+
+==================
+keeps trailing command blanks incomplete at EOF
+:language(sed)
+:language(sed_ere)
+==================
+p 
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (print_function
+          (function_verb)))
+      (syntax_issue
+        (incomplete_syntax
+          (unexpected_command_text))))))

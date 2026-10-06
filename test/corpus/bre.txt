@@ -937,3 +937,56 @@ s)\(a
           (syntax_issue
             (incomplete_syntax
               (unterminated_regular_expression))))))))
+
+==================
+recognizes escaped interval comma and count in BRE
+:language(sed)
+==================
+s,a\{1\,2\},b,
+s1a\{\12\}1b1
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character)))
+                  (bre_dupl_symbol
+                    (duplication_count)
+                    (escaped_delimiter)
+                    (duplication_count))))))
+          (delimiter)
+          (replacement
+            (replacement_literal))
+          (delimiter))))
+    (command_separator)
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (basic_reg_exp
+            (bre_branch
+              (bre_expression
+                (simple_bre
+                  (nondupl_bre
+                    (one_char_or_coll_elem_bre
+                      (ordinary_character)))
+                  (bre_dupl_symbol
+                    (escaped_delimiter)
+                    (duplication_count))))))
+          (delimiter)
+          (replacement
+            (replacement_literal))
+          (delimiter))))
+    (command_separator)))
