@@ -319,11 +319,8 @@ function commandListRules() {
     _block_commands: ($) =>
       choice(
         repeat1($._block_unit),
-        seq(
-          repeat($._block_unit),
-          optional($._block_item),
-          missingCommandSeparator($),
-        ),
+        seq(repeat($._block_unit), $._block_item, missingCommandSeparator($)),
+        missingCommandSeparator($),
       ),
 
     _block_unit: ($) =>
@@ -679,7 +676,7 @@ function functionRules() {
         seq(functionVerb($, "#"), optional(field("comment", $.comment))),
       ),
 
-    closing_brace: ($) => $._right_brace,
+    closing_brace: () => token("}"),
   };
 
   function fileForm(form) {
@@ -908,8 +905,6 @@ function missingMarkerNames(mode) {
     "omitted_address",
     "incomplete_omitted_address",
     "omitted_first_address",
-    "empty_subexpression",
-    "missing_subexpression",
     ...(mode === "ere" ? ["empty_alternative"] : []),
     "missing_function",
     "missing_label",
@@ -925,7 +920,6 @@ function missingMarkerNames(mode) {
     "missing_separator_before_unmatched_brace",
     "missing_separator_after_unmatched_brace",
     ...boundaryMissingReasons.map((reason) => `nonconforming_${reason}`),
-    "missing_subexpression_placeholder",
     "incomplete_bracket_list",
     "incomplete_bracket_expression",
     ...(mode === "ere" ? ["incomplete_alternative"] : []),
@@ -1037,11 +1031,6 @@ function issueDefinitions(mode) {
       reason: "ordinary_character_escape",
       outcome: "undefined_syntax",
       rule: ($) => $._regex_nonportable_escape,
-    },
-    {
-      reason: "empty_subexpression",
-      outcome: "undefined_syntax",
-      rule: missing("empty_subexpression"),
     },
     {
       reason: "unclosed_subexpression",
@@ -1404,12 +1393,6 @@ function issueDefinitions(mode) {
       rule: rule ?? missing(reason),
     })),
     {
-      id: "missing_subexpression",
-      reason: "empty_subexpression",
-      outcome: "incomplete_syntax",
-      rule: missing("missing_subexpression"),
-    },
-    {
       id: "incomplete_unclosed_subexpression",
       reason: "unclosed_subexpression",
       outcome: "incomplete_syntax",
@@ -1620,7 +1603,6 @@ function externalTokens($, mode) {
     $._substitution_wfile_continuation,
     $._line_word,
     $._argument_separator,
-    $._right_brace,
     $._brace_leading_blanks,
     $._block_trailing_blanks,
     $._empty_command_marker,

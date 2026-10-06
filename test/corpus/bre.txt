@@ -381,7 +381,7 @@ rejects optional BRE anchors while preserving implementation-defined escapes
     (command_separator)))
 
 ==================
-classifies empty BRE subexpressions inside the POSIX hierarchy
+accepts empty BRE groups without an expression or issue
 :language(sed)
 ==================
 /\(\)/p
@@ -401,9 +401,6 @@ classifies empty BRE subexpressions inside the POSIX hierarchy
                   (simple_bre
                     (nondupl_bre
                       (back_open_parenthesis)
-                      (syntax_issue
-                        (undefined_syntax
-                          (empty_subexpression)))
                       (back_close_parenthesis))))))
             (delimiter))))
       (function
@@ -584,9 +581,6 @@ classifies malformed BRE interval recovery inside the POSIX hierarchy
                       (simple_bre
                         (nondupl_bre
                           (back_open_parenthesis)
-                          (syntax_issue
-                            (undefined_syntax
-                              (empty_subexpression)))
                           (back_close_parenthesis)))))
                   (bre_expression
                     (simple_bre

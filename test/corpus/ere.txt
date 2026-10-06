@@ -167,7 +167,7 @@ preserves adjacent and leading ERE duplication structures
     (command_separator)))
 
 ==================
-classifies empty ERE subexpressions and alternatives inside the POSIX hierarchy
+accepts empty ERE groups and classifies empty alternatives
 :language(sed_ere)
 ==================
 /()a||b/p
@@ -188,9 +188,6 @@ classifies empty ERE subexpressions and alternatives inside the POSIX hierarchy
                     (ere_branch
                       (ere_expression
                         (open_parenthesis)
-                        (syntax_issue
-                          (undefined_syntax
-                            (empty_subexpression)))
                         (close_parenthesis)))
                     (ere_expression
                       (one_char_or_coll_elem_ere

@@ -677,11 +677,6 @@
     "fields": {}
   },
   {
-    "type": "closing_brace",
-    "named": true,
-    "fields": {}
-  },
-  {
     "type": "collating_element",
     "named": true,
     "fields": {}
@@ -973,11 +968,6 @@
   },
   {
     "type": "empty_command",
-    "named": true,
-    "fields": {}
-  },
-  {
-    "type": "empty_subexpression",
     "named": true,
     "fields": {}
   },
@@ -1439,10 +1429,6 @@
       "multiple": false,
       "required": true,
       "types": [
-        {
-          "type": "empty_subexpression",
-          "named": true
-        },
         {
           "type": "incomplete_regular_expression_escape",
           "named": true
@@ -2081,7 +2067,7 @@
         ]
       },
       "issue": {
-        "multiple": true,
+        "multiple": false,
         "required": false,
         "types": [
           {
@@ -3029,10 +3015,6 @@
           "named": true
         },
         {
-          "type": "empty_subexpression",
-          "named": true
-        },
-        {
           "type": "invalid_character_class_name",
           "named": true
         },
@@ -3492,6 +3474,10 @@
   },
   {
     "type": "class_name",
+    "named": true
+  },
+  {
+    "type": "closing_brace",
     "named": true
   },
   {

@@ -669,8 +669,7 @@ static void test_regex_closers_at_source_boundaries(void) {
   }
 }
 
-static void
-test_group_body_omission_is_independent_of_closer_availability(void) {
+static void test_empty_group_only_requires_a_closer(void) {
   ScannerState state = {
     .delimiter = ')',
     .mode = MODE_SUBSTITUTE_PATTERN,
@@ -680,16 +679,6 @@ test_group_body_omission_is_independent_of_closer_availability(void) {
   };
   MockLexer mock = make_mock_lexer("");
   bool valid_symbols[ERROR_SENTINEL + 1] = {false};
-  valid_symbols[MISSING_SUBEXPRESSION_MARKER] = true;
-  valid_symbols[MISSING_SUBEXPRESSION_PLACEHOLDER_MARKER] = true;
-
-  assert(sed_scanner_scan(&state, &mock.lexer, valid_symbols));
-  assert(mock.lexer.result_symbol == MISSING_SUBEXPRESSION_MARKER);
-  assert(mock.mark == 0);
-  assert(state.regex_group_depth == 1);
-
-  valid_symbols[MISSING_SUBEXPRESSION_MARKER] = false;
-  valid_symbols[MISSING_SUBEXPRESSION_PLACEHOLDER_MARKER] = false;
   valid_symbols[REGEX_INCOMPLETE_GROUP] = true;
   valid_symbols[REGEX_UNCLOSED_GROUP] = true;
 
@@ -800,7 +789,7 @@ int main(void) {
   test_bracket_term_delimiter_leaf_ranges();
   test_bracket_term_payload_owns_embedded_closing_brackets();
   test_regex_closers_at_source_boundaries();
-  test_group_body_omission_is_independent_of_closer_availability();
+  test_empty_group_only_requires_a_closer();
   test_brace_leading_blanks_require_a_closer();
 #if !SED_REGEX_EXTENDED
   test_bre_interval_backslash_requires_a_completable_closer();

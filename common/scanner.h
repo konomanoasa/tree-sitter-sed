@@ -133,7 +133,6 @@ enum TokenType {
   SUBSTITUTION_WFILE_CONTINUATION,
   LINE_WORD,
   ARGUMENT_SEPARATOR,
-  RIGHT_BRACE,
   BRACE_LEADING_BLANKS,
   BLOCK_TRAILING_BLANKS,
   EMPTY_COMMAND_MARKER,
@@ -151,8 +150,6 @@ enum TokenType {
   OMITTED_ADDRESS_MARKER,
   INCOMPLETE_OMITTED_ADDRESS_MARKER,
   OMITTED_FIRST_ADDRESS_MARKER,
-  EMPTY_SUBEXPRESSION_MARKER,
-  MISSING_SUBEXPRESSION_MARKER,
 #if SED_REGEX_EXTENDED
   EMPTY_ALTERNATIVE_MARKER,
 #endif
@@ -175,7 +172,6 @@ enum TokenType {
   NONCONFORMING_MISSING_WFILE_MARKER,
   NONCONFORMING_MISSING_TEXT_INTRODUCER_MARKER,
   NONCONFORMING_MISSING_OPENING_DELIMITER_MARKER,
-  MISSING_SUBEXPRESSION_PLACEHOLDER_MARKER,
   INCOMPLETE_BRACKET_LIST_MARKER,
   INCOMPLETE_BRACKET_EXPRESSION_MARKER,
 #if SED_REGEX_EXTENDED
@@ -1619,29 +1615,6 @@ static bool scan_regex_escape_after_backslash(
   );
 }
 
-#if !SED_REGEX_EXTENDED
-static bool scan_regex_after_backslash(
-  TSLexer *lexer,
-  ScannerState *state,
-  const bool *valid_symbols,
-  TSSymbol *symbol
-) {
-  if (
-    lexer->lookahead ==
-    ')' &&
-    state->delimiter !=
-    ')' &&
-    valid_symbols[EMPTY_SUBEXPRESSION_MARKER]
-  ) {
-    *symbol = EMPTY_SUBEXPRESSION_MARKER;
-    return true;
-  }
-
-  lexer->mark_end(lexer);
-  return scan_regex_escape_after_backslash(lexer, state, valid_symbols, symbol);
-}
-#endif
-
 static bool scan_regex_dup_count(
   TSLexer *lexer,
   const ScannerState *state,
@@ -1760,31 +1733,21 @@ static bool scan_regex_interval(
 }
 
 #if SED_REGEX_EXTENDED
-static bool scan_empty_regex_construct(
+static bool scan_empty_alternative(
   TSLexer *lexer,
   const ScannerState *state,
   const bool *valid_symbols,
   TSSymbol *symbol
 ) {
   if (
-    state->regex_group_depth >
-    0 &&
-    lexer->lookahead ==
-    ')' &&
-    valid_symbols[EMPTY_SUBEXPRESSION_MARKER]
-  ) {
-    return emit_marker(
-      lexer,
-      valid_symbols,
-      EMPTY_SUBEXPRESSION_MARKER,
-      symbol
-    );
-  }
-  if (
     valid_symbols[EMPTY_ALTERNATIVE_MARKER] &&
     (lexer->lookahead ==
       '|' ||
-      (state->regex_group_depth > 0 && lexer->lookahead == ')'))
+      (state->regex_group_depth >
+        0 &&
+        lexer->lookahead ==
+        ')' &&
+        state->regex_position == REGEX_AFTER_ALTERNATION))
   ) {
     return emit_marker(lexer, valid_symbols, EMPTY_ALTERNATIVE_MARKER, symbol);
   }
@@ -2000,13 +1963,19 @@ static bool scan_regex_token(
         *symbol = marker;
         return true;
       }
-      return scan_regex_after_backslash(lexer, state, valid_symbols, symbol);
+      lexer->mark_end(lexer);
+      return scan_regex_escape_after_backslash(
+        lexer,
+        state,
+        valid_symbols,
+        symbol
+      );
     }
 #endif
   }
 
 #if SED_REGEX_EXTENDED
-  if (scan_empty_regex_construct(lexer, state, valid_symbols, symbol)) {
+  if (scan_empty_alternative(lexer, state, valid_symbols, symbol)) {
     return true;
   }
 #endif
@@ -2235,29 +2204,6 @@ static bool scan_regex_recovery_marker(
   TSSymbol *symbol
 ) {
   const bool at_line_boundary = lexer->eof(lexer) || lexer->lookahead == '\n';
-  const bool at_regex_end =
-    at_line_boundary || lexer->lookahead == state->delimiter;
-
-  if (
-    state->regex_state ==
-    REGEX_OUTSIDE_BRACKET &&
-    state->regex_group_depth >
-    0 &&
-#if SED_REGEX_EXTENDED
-    state->regex_position !=
-    REGEX_AFTER_ALTERNATION &&
-#endif
-    at_regex_end &&
-    emit_marker(
-      lexer,
-      valid_symbols,
-      lexer->eof(lexer) ? MISSING_SUBEXPRESSION_MARKER
-                        : MISSING_SUBEXPRESSION_PLACEHOLDER_MARKER,
-      symbol
-    )
-  ) {
-    return true;
-  }
 
   if (
     (state->regex_state ==
@@ -2328,7 +2274,7 @@ static bool scan_regex_recovery_marker(
     REGEX_OUTSIDE_BRACKET &&
     state->regex_position ==
     REGEX_AFTER_ALTERNATION &&
-    at_regex_end &&
+    (at_line_boundary || lexer->lookahead == state->delimiter) &&
     emit_marker(
       lexer,
       valid_symbols,
@@ -2684,12 +2630,6 @@ static bool scan_command_token(
 
   if (valid_symbols[BRACE_LEADING_BLANKS] && is_blank(lexer->lookahead)) {
     return scan_brace_leading_blanks(lexer, valid_symbols, symbol);
-  }
-
-  if (valid_symbols[RIGHT_BRACE] && lexer->lookahead == '}') {
-    consume(lexer);
-    *symbol = RIGHT_BRACE;
-    return true;
   }
 
   return scan_command_recovery(lexer, valid_symbols, symbol);

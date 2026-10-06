@@ -73,6 +73,70 @@ const bracketDelimiterConvergenceCases = grammars.flatMap((grammar) => [
 
 const explicitConvergenceCases = [
   ...bracketDelimiterConvergenceCases,
+  ...grammars.flatMap((grammar) => {
+    const [opening, closing] =
+      grammar.name === "sed" ? ["\\(", "\\)"] : ["(", ")"];
+    const bodyStart = 2 + opening.length;
+    return [
+      {
+        name: "empty regex groups converge after deleting their body or restoring their closer",
+        scope: grammar.scope,
+        source: `s/${opening}${closing}/x/\n`,
+        issues: [],
+        histories: [
+          {
+            source: `s/${opening}a${closing}/x/\n`,
+            edits: [{ byte: bodyStart, deleteBytes: 1, insert: "" }],
+          },
+          {
+            source: `s/${opening}/x/\n`,
+            edits: [{ byte: bodyStart, deleteBytes: 0, insert: closing }],
+          },
+          {
+            source: `s/${opening}`,
+            edits: [
+              { byte: bodyStart, deleteBytes: 0, insert: `${closing}/x/\n` },
+            ],
+          },
+        ],
+      },
+      {
+        name: "inserting a regex group body restores its expression field",
+        scope: grammar.scope,
+        source: `s/${opening}a${closing}/x/\n`,
+        issues: [],
+        histories: [
+          {
+            source: `s/${opening}${closing}/x/\n`,
+            edits: [{ byte: bodyStart, deleteBytes: 0, insert: "a" }],
+          },
+        ],
+      },
+    ];
+  }),
+  ...[
+    { source: "/a|/p", offsets: [3] },
+    { source: "/|a/p", offsets: [1] },
+    { source: "/(|a)/p", offsets: [2] },
+    { source: "/(a|)/p", offsets: [4] },
+    { source: "/(|)/p", offsets: [2, 3] },
+    { source: "/(a||b)/p", offsets: [4] },
+  ].map(({ source, offsets }) => ({
+    name: `empty alternatives remain issues after deleting a group from ${source}`,
+    scope: "source.sed.ere",
+    source,
+    issues: offsets.map((offset) => ({
+      outcome: "undefined_syntax",
+      reason: "empty_alternative",
+      range: `[0, ${offset}] - [0, ${offset}]`,
+    })),
+    histories: [
+      {
+        source: `${source.slice(0, offsets[0])}()${source.slice(offsets[0])}`,
+        edits: [{ byte: offsets[0], deleteBytes: 2, insert: "" }],
+      },
+    ],
+  })),
   {
     name: "recovery-free substitution",
     scope: "source.sed",

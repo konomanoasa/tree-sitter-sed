@@ -1,14 +1,5 @@
 import { issueField, namedExternal } from "./dsl.js";
 
-function subexpressionBody($, expression) {
-  return choice(
-    field("expression", expression),
-    issueField($, "empty_subexpression"),
-    issueField($, "missing_subexpression"),
-    $._missing_subexpression_placeholder_marker,
-  );
-}
-
 function intervalExpression($, openingName, closingName) {
   const piece = (name) =>
     choice(
@@ -441,7 +432,7 @@ export function breRules() {
             "opening",
             namedExternal($, $._regex_group_open, "back_open_parenthesis"),
           ),
-          subexpressionBody($, $.basic_reg_exp),
+          optional(field("expression", $.basic_reg_exp)),
           subexpressionClose($, "back_close_parenthesis"),
         ),
         $.backreference,
@@ -519,7 +510,7 @@ export function ereRules() {
             "opening",
             namedExternal($, $._regex_group_open, "open_parenthesis"),
           ),
-          subexpressionBody($, $.extended_reg_exp),
+          optional(field("expression", $.extended_reg_exp)),
           subexpressionClose($, "close_parenthesis"),
         ),
         prec.left(

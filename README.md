@@ -7,6 +7,11 @@
 [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) grammars for
 POSIX.1-2024 sed.
 
+## Syntax Issues
+
+The parser detects syntax issues, including missing syntax, while preserving the surrounding structure.
+These issues are represented as `syntax_issue` nodes.
+
 ## Installation
 
 ```sh

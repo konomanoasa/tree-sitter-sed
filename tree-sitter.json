@@ -16,6 +16,7 @@
       "title": "POSIX sed (ERE)",
       "scope": "source.sed.ere",
       "path": "sed_ere",
+      "injection-regex": "^sed_ere$",
       "highlights": "sed_ere/queries/highlights.scm",
       "external-files": ["common/scanner.h"]
     }

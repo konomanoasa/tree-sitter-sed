@@ -53,6 +53,83 @@ const verbOperands = {
 const addressPrefixes = ["1 ", "1\t", "1!", "1 !", "$ ", "/x/ ", "\\,x, "];
 
 for (const grammar of grammars) {
+  test(`${grammar.name}: empty regex groups own only their delimiters`, () => {
+    const [owner, opening, closing, width] =
+      grammar.name === "sed"
+        ? ["nondupl_bre", "back_open_parenthesis", "back_close_parenthesis", 2]
+        : ["ere_expression", "open_parenthesis", "close_parenthesis", 1];
+    const cases =
+      grammar.name === "sed"
+        ? [
+            { source: String.raw`/\(\)/p`, start: 1 },
+            { source: String.raw`s/\(\)/x/`, start: 2 },
+            { source: String.raw`/\(\(\)\)/p`, start: 3 },
+            { source: String.raw`/\(\)*/p`, start: 1 },
+            { source: String.raw`/a\(\)b/p`, start: 2 },
+            { source: String.raw`/\(\)\1/p`, start: 1 },
+          ]
+        : [
+            { source: "/()/p", start: 1 },
+            { source: "s/()/x/", start: 2 },
+            { source: "/(())/p", start: 2 },
+            { source: "/()*?/p", start: 1 },
+            { source: "/a()b/p", start: 2 },
+            { source: "/()|a/p", start: 1 },
+            { source: "/(a|())/p", start: 4 },
+            { source: "/())/p", start: 1 },
+          ];
+    for (const { source, start } of cases) {
+      const result = parseSuccessfully(grammar.scope, source);
+      assert.deepEqual(issueSignatures(result.nodes), [], source);
+      const group = result.nodes.findIndex(
+        ({ kind, startByte, endByte }) =>
+          kind === owner &&
+          startByte === start &&
+          endByte === start + 2 * width,
+      );
+      assert.notEqual(group, -1, source);
+      assert.deepEqual(
+        result.nodes
+          .filter(({ parent }) => parent === group)
+          .map(({ field, kind, startByte, endByte }) => [
+            field,
+            kind,
+            startByte,
+            endByte,
+          ]),
+        [
+          ["opening", opening, start, start + width],
+          ["closing", closing, start + width, start + 2 * width],
+        ],
+        source,
+      );
+    }
+  });
+
+  test(`${grammar.name}: a bodyless regex group still requires its closing delimiter`, () => {
+    const opening = grammar.name === "sed" ? "\\(" : "(";
+    const end = 2 + opening.length;
+    for (const suffix of ["", "/x/"]) {
+      const source = `s/${opening}${suffix}`;
+      const result = parseSuccessfully(grammar.scope, source);
+      const expected = [
+        {
+          outcome: suffix === "" ? "incomplete_syntax" : "undefined_syntax",
+          reason: "unclosed_subexpression",
+          range: `[0, ${end}] - [0, ${end}]`,
+        },
+      ];
+      if (suffix === "") {
+        expected.push({
+          outcome: "incomplete_syntax",
+          reason: "unterminated_regular_expression",
+          range: `[0, ${end}] - [0, ${end}]`,
+        });
+      }
+      assert.deepEqual(issueSignatures(result.nodes), expected, source);
+    }
+  });
+
   test(`${grammar.name}: interval faults retain counts and independent separators`, () => {
     const [opening, closing] =
       grammar.name === "sed" ? ["\\{", "\\}"] : ["{", "}"];
@@ -1177,16 +1254,26 @@ const boundaryCases = [
     nodes: ["bracket_expression", "print_function"],
   },
   {
-    name: "empty BRE subexpression at source end",
+    name: "unclosed empty BRE group at source end",
     scope: "source.sed",
     source: "/\\(",
     issues: [
-      "incomplete_syntax/empty_subexpression",
       "incomplete_syntax/unclosed_subexpression",
       "incomplete_syntax/unterminated_regular_expression",
       "incomplete_syntax/missing_function",
     ],
     nodes: ["back_open_parenthesis"],
+  },
+  {
+    name: "unclosed empty ERE group at source end",
+    scope: "source.sed.ere",
+    source: "/(",
+    issues: [
+      "incomplete_syntax/unclosed_subexpression",
+      "incomplete_syntax/unterminated_regular_expression",
+      "incomplete_syntax/missing_function",
+    ],
+    nodes: ["open_parenthesis"],
   },
   {
     name: "unfinished ERE alternative and group at source end",
@@ -2038,15 +2125,14 @@ const regularExpressionEofCases = [
     outcome: "undefined_syntax",
     reason: "unclosed_subexpression",
     range: "[0, 3] - [0, 3]",
-    missingBody: true,
-    repaired: "s/(a)//",
+    repaired: "s/()//",
     damage: [
       { byte: 1, deleteBytes: 1, insert: ")" },
-      { byte: 3, deleteBytes: 4, insert: "" },
+      { byte: 3, deleteBytes: 3, insert: "" },
     ],
     repair: [
       { byte: 1, deleteBytes: 1, insert: "/" },
-      { byte: 3, deleteBytes: 0, insert: "a)//" },
+      { byte: 3, deleteBytes: 0, insert: ")//" },
     ],
   },
   {
@@ -2056,15 +2142,14 @@ const regularExpressionEofCases = [
     outcome: "undefined_syntax",
     reason: "unclosed_subexpression",
     range: "[0, 4] - [0, 4]",
-    missingBody: true,
-    repaired: "s/\\(a\\)//",
+    repaired: "s/\\(\\)//",
     damage: [
       { byte: 1, deleteBytes: 1, insert: ")" },
-      { byte: 4, deleteBytes: 5, insert: "" },
+      { byte: 4, deleteBytes: 4, insert: "" },
     ],
     repair: [
       { byte: 1, deleteBytes: 1, insert: "/" },
-      { byte: 4, deleteBytes: 0, insert: "a\\)//" },
+      { byte: 4, deleteBytes: 0, insert: "\\)//" },
     ],
   },
   {
@@ -2110,13 +2195,6 @@ for (const testCase of regularExpressionEofCases) {
     const result = parseSuccessfully(testCase.scope, testCase.source);
     const end = testCase.source.length;
     const expected = [];
-    if (testCase.missingBody) {
-      expected.push({
-        outcome: "incomplete_syntax",
-        reason: "empty_subexpression",
-        range: testCase.range,
-      });
-    }
     if (testCase.missingMinimum) {
       expected.push({
         outcome: "undefined_syntax",

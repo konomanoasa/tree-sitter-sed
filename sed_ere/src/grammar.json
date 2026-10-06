@@ -510,16 +510,8 @@
               }
             },
             {
-              "type": "CHOICE",
-              "members": [
-                {
-                  "type": "SYMBOL",
-                  "name": "_block_item"
-                },
-                {
-                  "type": "BLANK"
-                }
-              ]
+              "type": "SYMBOL",
+              "name": "_block_item"
             },
             {
               "type": "CHOICE",
@@ -551,6 +543,37 @@
                   }
                 }
               ]
+            }
+          ]
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "issue",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_missing_command_separator_issue"
+                },
+                "named": true,
+                "value": "syntax_issue"
+              }
+            },
+            {
+              "type": "FIELD",
+              "name": "issue",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_incomplete_missing_command_separator_issue"
+                },
+                "named": true,
+                "value": "syntax_issue"
+              }
             }
           ]
         }
@@ -3132,8 +3155,11 @@
       }
     },
     "closing_brace": {
-      "type": "SYMBOL",
-      "name": "_right_brace"
+      "type": "TOKEN",
+      "content": {
+        "type": "STRING",
+        "value": "}"
+      }
     },
     "delete_function": {
       "type": "FIELD",
@@ -6831,34 +6857,7 @@
                   }
                 },
                 {
-                  "type": "FIELD",
-                  "name": "issue",
-                  "content": {
-                    "type": "ALIAS",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "_empty_subexpression_issue"
-                    },
-                    "named": true,
-                    "value": "syntax_issue"
-                  }
-                },
-                {
-                  "type": "FIELD",
-                  "name": "issue",
-                  "content": {
-                    "type": "ALIAS",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "_missing_subexpression_issue"
-                    },
-                    "named": true,
-                    "value": "syntax_issue"
-                  }
-                },
-                {
-                  "type": "SYMBOL",
-                  "name": "_missing_subexpression_placeholder_marker"
+                  "type": "BLANK"
                 }
               ]
             },
@@ -7974,28 +7973,6 @@
       "content": {
         "type": "SYMBOL",
         "name": "_ordinary_character_escape_outcome"
-      },
-      "named": true,
-      "value": "undefined_syntax"
-    },
-    "_empty_subexpression_reason": {
-      "type": "SYMBOL",
-      "name": "_empty_subexpression_marker"
-    },
-    "_empty_subexpression_outcome": {
-      "type": "ALIAS",
-      "content": {
-        "type": "SYMBOL",
-        "name": "_empty_subexpression_reason"
-      },
-      "named": true,
-      "value": "empty_subexpression"
-    },
-    "_empty_subexpression_issue": {
-      "type": "ALIAS",
-      "content": {
-        "type": "SYMBOL",
-        "name": "_empty_subexpression_outcome"
       },
       "named": true,
       "value": "undefined_syntax"
@@ -9787,28 +9764,6 @@
       "named": true,
       "value": "incomplete_syntax"
     },
-    "_missing_subexpression_reason": {
-      "type": "SYMBOL",
-      "name": "_missing_subexpression_marker"
-    },
-    "_missing_subexpression_outcome": {
-      "type": "ALIAS",
-      "content": {
-        "type": "SYMBOL",
-        "name": "_missing_subexpression_reason"
-      },
-      "named": true,
-      "value": "empty_subexpression"
-    },
-    "_missing_subexpression_issue": {
-      "type": "ALIAS",
-      "content": {
-        "type": "SYMBOL",
-        "name": "_missing_subexpression_outcome"
-      },
-      "named": true,
-      "value": "incomplete_syntax"
-    },
     "_incomplete_unclosed_subexpression_reason": {
       "type": "SYMBOL",
       "name": "_regex_incomplete_group"
@@ -10570,10 +10525,6 @@
     },
     {
       "type": "SYMBOL",
-      "name": "_right_brace"
-    },
-    {
-      "type": "SYMBOL",
       "name": "_brace_leading_blanks"
     },
     {
@@ -10639,14 +10590,6 @@
     {
       "type": "SYMBOL",
       "name": "_omitted_first_address_marker"
-    },
-    {
-      "type": "SYMBOL",
-      "name": "_empty_subexpression_marker"
-    },
-    {
-      "type": "SYMBOL",
-      "name": "_missing_subexpression_marker"
     },
     {
       "type": "SYMBOL",
@@ -10727,10 +10670,6 @@
     {
       "type": "SYMBOL",
       "name": "_nonconforming_missing_opening_delimiter_marker"
-    },
-    {
-      "type": "SYMBOL",
-      "name": "_missing_subexpression_placeholder_marker"
     },
     {
       "type": "SYMBOL",
