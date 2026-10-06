@@ -59,7 +59,6 @@ function renderedCaptures(html, source) {
 function createHighlighter({ directory, root, run, captureNames }) {
   const parserDirectory = join(directory, "parsers");
   mkdirSync(parserDirectory);
-  // CLI discovery requires a tree-sitter-* entry even when the checkout is renamed.
   symlinkSync(root, join(parserDirectory, "tree-sitter-test"), "junction");
   const configPath = join(directory, "highlight.json");
   const capturePath = join(directory, "captures.txt");
@@ -126,7 +125,6 @@ function assertCaptures(source, actual, ranges) {
     expected.fill(capture, start, end);
     previousEnd = end;
   }
-  // HTML emits line breaks outside spans.
   for (const [index, byte] of bytes.entries()) {
     if (byte !== 10)
       assert.equal(
@@ -316,7 +314,6 @@ const lineOperandFragments = [
   },
 ];
 
-// HTML replaces malformed UTF-8.
 const invalidEncodingCases = [
   {
     name: "invalid encoding splits comment text",

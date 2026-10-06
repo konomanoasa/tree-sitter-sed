@@ -1,72 +1,6 @@
 import { defineIssueRules, issueField, namedExternal } from "./dsl.js";
 import { breRules, ereRules } from "./regex.js";
 
-function missingAtEndOrBoundary($, reason) {
-  return choice(
-    issueField($, reason),
-    issueField($, `nonconforming_${reason}`),
-  );
-}
-
-function blankSeparatedFileOperand($, name, operand) {
-  return seq(
-    $._blanks,
-    choice(operand, missingAtEndOrBoundary($, `missing_${name}`)),
-  );
-}
-
-function fileOperandForms($, name, operand) {
-  return [
-    blankSeparatedFileOperand($, name, operand),
-    seq(issueField($, "omitted_file_separator"), operand),
-    missingAtEndOrBoundary($, `missing_${name}`),
-  ];
-}
-
-function sourcePiece($, external, leaf) {
-  return choice(
-    namedExternal($, external, leaf),
-    issueField($, "nul_character"),
-    issueField($, "invalid_encoding"),
-  );
-}
-
-function sourcePieces($, leaf, external) {
-  return prec.right(repeat1(sourcePiece($, external, leaf)));
-}
-
-function lineOperand($, first, rest) {
-  return prec.right(
-    seq(
-      sourcePiece($, first, "file_literal"),
-      repeat(sourcePiece($, rest, "file_literal")),
-    ),
-  );
-}
-
-function operandAtoms($, literal, ...atoms) {
-  return repeat1(
-    choice(
-      literal,
-      seq($._escape_prefix, issueField($, "invalid_encoding")),
-      issueField($, "nul_character"),
-      issueField($, "invalid_encoding"),
-      ...atoms,
-    ),
-  );
-}
-
-function missingCommandSeparator($) {
-  return choice(
-    issueField($, "missing_command_separator"),
-    issueField($, "incomplete_missing_command_separator"),
-  );
-}
-
-function functionVerb($, spelling) {
-  return field("verb", alias(spelling, $.function_verb));
-}
-
 const functionDefinitions = [
   { rule: "block_function", spelling: "{", form: "block" },
   {
@@ -156,13 +90,73 @@ const functionDefinitions = [
   },
 ];
 
-// Matching known verbs here creates GLR branches that compete with valid
-// commands.
 const unknownFunctionCharacter = new RegExp(
   `[^ \\t0-9$\\/\\\\!;}\\n${functionDefinitions
     .map(({ spelling }) => spelling)
     .join("")}]`,
 );
+
+function missingAtEndOrBoundary($, reason) {
+  return choice(
+    issueField($, reason),
+    issueField($, `nonconforming_${reason}`),
+  );
+}
+
+function blankSeparatedFileOperand($, name, operand) {
+  return seq(
+    $._blanks,
+    choice(operand, missingAtEndOrBoundary($, `missing_${name}`)),
+  );
+}
+
+function fileOperandForms($, name, operand) {
+  return [
+    blankSeparatedFileOperand($, name, operand),
+    seq(issueField($, "omitted_file_separator"), operand),
+    missingAtEndOrBoundary($, `missing_${name}`),
+  ];
+}
+
+function sourcePiece($, external, leaf) {
+  return choice(
+    namedExternal($, external, leaf),
+    issueField($, "nul_character"),
+    issueField($, "invalid_encoding"),
+  );
+}
+
+function lineOperand($, first, rest) {
+  return prec.right(
+    seq(
+      sourcePiece($, first, "file_literal"),
+      repeat(sourcePiece($, rest, "file_literal")),
+    ),
+  );
+}
+
+function operandAtoms($, literal, ...atoms) {
+  return repeat1(
+    choice(
+      literal,
+      seq($._escape_prefix, issueField($, "invalid_encoding")),
+      issueField($, "nul_character"),
+      issueField($, "invalid_encoding"),
+      ...atoms,
+    ),
+  );
+}
+
+function missingCommandSeparator($) {
+  return choice(
+    issueField($, "missing_command_separator"),
+    issueField($, "incomplete_missing_command_separator"),
+  );
+}
+
+function functionVerb($, spelling) {
+  return field("verb", alias(spelling, $.function_verb));
+}
 
 function substitutionFlag($, kind, seen) {
   if ((kind === 1 && seen & 2) || (kind === 2 && seen & 1)) {
@@ -338,8 +332,7 @@ function commandListRules() {
         repeat(sourcePiece($, $._comment_text, "comment_text")),
       ),
 
-    // Explicit recursion makes cursor traversal quadratic; repeat keeps lists
-    // balanced.
+    // Explicit recursion makes cursor traversal quadratic.
     _command_list: ($) =>
       choice(
         seq(
@@ -753,7 +746,8 @@ function functionRules() {
         ),
       ),
 
-    comment: ($) => sourcePieces($, "comment_text", $._comment_text),
+    comment: ($) =>
+      prec.right(repeat1(sourcePiece($, $._comment_text, "comment_text"))),
 
     comment_function: ($) =>
       prec.right(
@@ -851,8 +845,7 @@ function editingCommandRules() {
     2: ($) => $.address_clause,
   };
 
-  // Keep address, issue, and function rules separate by address maximum so
-  // GLR paths cannot merge before the function verb.
+  // Separate address limits to prevent GLR merging before the verb.
   const wrappers = [];
   for (const [kind, isLineTerminated] of [
     ["chainable", false],

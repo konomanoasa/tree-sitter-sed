@@ -1,5 +1,7 @@
 import { issueField, namedExternal } from "./dsl.js";
 
+const nonportableRangeClasses = ["character_class", "equivalence_class"];
+
 function intervalExpression($, opening, closing) {
   const piece = (name) =>
     choice(
@@ -66,13 +68,13 @@ function compoundBracketExpression(
   closingExternal,
   ...payloadIssues
 ) {
+  const closingIssues = [
+    issueField($, "missing_bracket_term_close"),
+    issueField($, "incomplete_bracket_term"),
+  ];
   const closing = seq(
     alias(closingExternal, marker),
-    choice(
-      "]",
-      issueField($, "missing_bracket_term_close"),
-      issueField($, "incomplete_bracket_term"),
-    ),
+    choice("]", ...closingIssues),
   );
   const payload = repeat1(
     choice(
@@ -90,17 +92,13 @@ function compoundBracketExpression(
       issueField($, "missing_bracket_term_payload"),
       issueField($, "incomplete_bracket_term_payload"),
     ),
-    choice(
-      closing,
-      issueField($, "missing_bracket_term_close"),
-      issueField($, "incomplete_bracket_term"),
-    ),
+    choice(closing, ...closingIssues),
   );
 }
 
-function bracketListBody($) {
+function bracketListBody($, list) {
   return choice(
-    $.bracket_list,
+    list,
     issueField($, "missing_bracket_list"),
     issueField($, "incomplete_missing_bracket_list"),
   );
@@ -117,11 +115,7 @@ function subexpressionClose($, closing) {
 function bracketExpression($, ambiguous) {
   return seq(
     alias($._regex_bracket_open, "["),
-    choice(
-      choice($.matching_list, $.nonmatching_list),
-      issueField($, "missing_bracket_list"),
-      issueField($, "incomplete_missing_bracket_list"),
-    ),
+    bracketListBody($, choice($.matching_list, $.nonmatching_list)),
     ...(ambiguous ? [$._ambiguous_bracket_expression_marker] : []),
     choice(
       alias($._regex_bracket_close, "]"),
@@ -130,8 +124,6 @@ function bracketExpression($, ambiguous) {
     ),
   );
 }
-
-const nonportableRangeClasses = ["character_class", "equivalence_class"];
 
 function rangeOperator($) {
   return alias($._regex_bracket_hyphen, "-");
@@ -164,7 +156,10 @@ function bracketRules() {
     matching_list: ($) => $.bracket_list,
 
     nonmatching_list: ($) =>
-      seq(alias($._regex_bracket_negation, "^"), bracketListBody($)),
+      seq(
+        alias($._regex_bracket_negation, "^"),
+        bracketListBody($, $.bracket_list),
+      ),
 
     bracket_list: ($) =>
       seq(
@@ -310,10 +305,6 @@ function commonRegularExpressionRules() {
   };
 }
 
-function breDuplicationSymbol($) {
-  return choice(alias($._regex_zero_or_more, "*"), $._bre_interval);
-}
-
 export function breRules() {
   return {
     ...commonRegularExpressionRules(),
@@ -368,19 +359,11 @@ export function breRules() {
         issueField($, "bre_subexpression_left_anchor"),
       ),
 
-    bre_dupl_symbol: ($) => breDuplicationSymbol($),
+    bre_dupl_symbol: ($) =>
+      choice(alias($._regex_zero_or_more, "*"), $._bre_interval),
 
     _bre_interval: ($) => intervalExpression($, "\\{", "\\}"),
   };
-}
-
-function ereDuplicationSymbol($) {
-  return choice(
-    alias($._regex_zero_or_more, "*"),
-    alias($._regex_one_or_more, "+"),
-    alias($._regex_zero_or_one, "?"),
-    $._ere_interval,
-  );
 }
 
 export function ereRules() {
@@ -436,7 +419,12 @@ export function ereRules() {
 
     ere_dupl_symbol: ($) =>
       seq(
-        ereDuplicationSymbol($),
+        choice(
+          alias($._regex_zero_or_more, "*"),
+          alias($._regex_one_or_more, "+"),
+          alias($._regex_zero_or_one, "?"),
+          $._ere_interval,
+        ),
         optional(field("modifier", $.repetition_modifier)),
       ),
 
