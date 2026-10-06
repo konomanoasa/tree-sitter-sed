@@ -296,6 +296,12 @@ const lineOperandFragments = [
       [0, 2],
       [3, 6],
     ],
+    labelRanges: [
+      [0, 1],
+      [1, 2],
+      [3, 5],
+      [5, 6],
+    ],
   },
   {
     name: "Unicode and literal replacement characters beside an issue",
@@ -382,7 +388,10 @@ const invalidEncodingCases = [
         Buffer.from("\n"),
       ]),
       capture: context.capture,
-      ranges: fragment.ranges.map(([start, end]) => [
+      ranges: (context.capture === "label"
+        ? (fragment.labelRanges ?? fragment.ranges)
+        : fragment.ranges
+      ).map(([start, end]) => [
         0,
         context.prefix.length + start,
         0,
@@ -440,6 +449,18 @@ for (const grammar of grammars) {
 }
 
 const finalCaptureCases = [
+  {
+    name: "label captures survive length and character issues",
+    source: ":abcdefghi\nb a@#$b\nt é\n",
+    captures: [
+      [0, 1, "keyword"],
+      [1, 10, "label"],
+      [11, 12, "keyword"],
+      [13, 18, "label"],
+      [19, 20, "keyword"],
+      [21, 23, "label"],
+    ],
+  },
   {
     name: "HTML-sensitive Unicode literals retain source bytes and captures",
     source: `s/é😀<&>"'/x/\n`,

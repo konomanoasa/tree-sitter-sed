@@ -74,6 +74,10 @@ b }x
           (function_verb)
           (argument_separator)
           (label
+            (syntax_issue
+              (unspecified_syntax
+                (nonportable_label_character
+                  (label_literal))))
             (label_literal)))))
     (command_separator)))
 
@@ -94,7 +98,10 @@ t }
           (function_verb)
           (argument_separator)
           (label
-            (label_literal)))))
+            (syntax_issue
+              (unspecified_syntax
+                (nonportable_label_character
+                  (label_literal))))))))
     (command_separator)))
 
 ==================
@@ -120,9 +127,102 @@ keeps a closing brace as a branch label inside a block
                   (function_verb)
                   (argument_separator)
                   (label
-                    (label_literal)))))
+                    (syntax_issue
+                      (unspecified_syntax
+                        (nonportable_label_character
+                          (label_literal))))))))
             (command_separator))
           (closing_brace))))
+    (command_separator)))
+
+==================
+accepts an eight-character portable label
+:language(sed)
+:language(sed_ere)
+==================
+:Ab0._-xy
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (label_function
+          (function_verb)
+          (label
+            (label_literal)))))
+    (command_separator)))
+
+==================
+retains an overlong portable label inside its length issue
+:language(sed)
+:language(sed_ere)
+==================
+b abcdefghi
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (branch_function
+          (function_verb)
+          (argument_separator)
+          (label
+            (syntax_issue
+              (unspecified_syntax
+                (nonportable_label_length
+                  (label_literal))))))))
+    (command_separator)))
+
+==================
+groups adjacent nonportable label characters and retains surrounding letters
+:language(sed)
+:language(sed_ere)
+==================
+t ab@#$cd
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (test_function
+          (function_verb)
+          (argument_separator)
+          (label
+            (label_literal)
+            (syntax_issue
+              (unspecified_syntax
+                (nonportable_label_character
+                  (label_literal))))
+            (label_literal)))))
+    (command_separator)))
+
+==================
+omits length classification when a label contains a nonportable character
+:language(sed)
+:language(sed_ere)
+==================
+:abcdefghi@
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (label_function
+          (function_verb)
+          (label
+            (label_literal)
+            (syntax_issue
+              (unspecified_syntax
+                (nonportable_label_character
+                  (label_literal))))))))
     (command_separator)))
 
 ==================

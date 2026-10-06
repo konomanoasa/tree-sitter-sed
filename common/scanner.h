@@ -122,6 +122,7 @@ enum TokenType {
   INVALID_SUBSTITUTION_FLAG,
   FLAG_AFTER_WRITE_MARKER,
   WRITE_TERMINAL_SEPARATOR,
+  WRITE_BLOCK_TERMINAL_SEPARATOR,
   WRITE_FOLLOWING_SEPARATOR,
   TEXT_COMMAND_START,
   TEXT_INCOMPLETE_INTRODUCER,
@@ -137,6 +138,10 @@ enum TokenType {
   SUBSTITUTION_WFILE_ARGUMENT,
   SUBSTITUTION_WFILE_CONTINUATION,
   LINE_WORD,
+  LABEL_START,
+  LONG_LABEL_START,
+  LABEL_LITERAL,
+  NONPORTABLE_LABEL_CHARACTER,
   ARGUMENT_SEPARATOR,
   BRACE_LEADING_BLANKS,
   BLOCK_TRAILING_BLANKS,
@@ -163,6 +168,7 @@ enum TokenType {
   MISSING_RFILE_MARKER,
   MISSING_WFILE_MARKER,
   OMITTED_FILE_SEPARATOR_MARKER,
+  INCOMPLETE_OMITTED_FILE_SEPARATOR_MARKER,
   MISSING_TEXT_INTRODUCER_MARKER,
   MISSING_TEXT_MARKER,
   MISSING_COMMAND_SEPARATOR_MARKER,
@@ -595,6 +601,63 @@ static bool scan_line_rest(TSLexer *lexer, bool ends_at_semicolon) {
 static bool scan_file_argument(TSLexer *lexer, bool ends_at_semicolon) {
   return !is_blank(lexer->lookahead) &&
     scan_line_rest(lexer, ends_at_semicolon);
+}
+
+static bool portable_label_character(int32_t character) {
+  return (character >= 'a' && character <= 'z') ||
+    (character >= 'A' && character <= 'Z') ||
+    is_digit(character) ||
+    character ==
+    '.' ||
+    character ==
+    '_' ||
+    character == '-';
+}
+
+static bool
+scan_label_start(TSLexer *lexer, const bool *valid_symbols, TSSymbol *symbol) {
+  lexer->mark_end(lexer);
+  unsigned length = 0;
+  while (!lexer->eof(lexer) && lexer->lookahead != '\n') {
+    if (!portable_label_character(lexer->lookahead)) {
+      return emit_symbol(valid_symbols, LABEL_START, symbol);
+    }
+    if (length <= 8)
+      length++;
+    advance(lexer);
+  }
+  return emit_symbol(
+    valid_symbols,
+    length > 8 ? LONG_LABEL_START : LABEL_START,
+    symbol
+  );
+}
+
+static bool
+scan_label_piece(TSLexer *lexer, const bool *valid_symbols, TSSymbol *symbol) {
+  if (
+    lexer->eof(lexer) ||
+    lexer->lookahead ==
+    '\n' ||
+    !source_character_is_valid(lexer->lookahead)
+  ) {
+    return false;
+  }
+  const bool portable = portable_label_character(lexer->lookahead);
+  do {
+    consume(lexer);
+  } while (
+    !lexer->eof(lexer) &&
+    lexer->lookahead !=
+    '\n' &&
+    source_character_is_valid(lexer->lookahead) &&
+    portable_label_character(lexer->lookahead) == portable
+  );
+  return emit_symbol(
+    valid_symbols,
+    portable ? LABEL_LITERAL : NONPORTABLE_LABEL_CHARACTER,
+    symbol
+  );
 }
 
 static bool scan_unexpected_command_text(
@@ -1680,6 +1743,9 @@ static bool scan_regex_interval(
       interval_escape_ends_content(state, lexer->lookahead);
 #endif
   }
+  // A final backslash can still become an escaped digit delimiter count.
+  const bool minimum_may_follow =
+    at_eof || (prefix && lexer->eof(lexer) && is_digit(state->delimiter));
   if (
     (boundary ||
       closing ||
@@ -1687,8 +1753,8 @@ static bool scan_regex_interval(
       (lexer->lookahead == ',' && (!escaped || state->delimiter == ','))) &&
     emit_symbol(
       valid_symbols,
-      at_eof ? REGEX_INCOMPLETE_INTERVAL_MINIMUM
-             : REGEX_MISSING_INTERVAL_MINIMUM,
+      minimum_may_follow ? REGEX_INCOMPLETE_INTERVAL_MINIMUM
+                         : REGEX_MISSING_INTERVAL_MINIMUM,
       symbol
     )
   ) {
@@ -1725,6 +1791,14 @@ static bool scan_regex_interval(
   }
   if (escaped) {
     lexer->mark_end(lexer);
+#if SED_REGEX_EXTENDED
+    if (
+      lexer->eof(lexer) &&
+      (is_digit(state->delimiter) || state->delimiter == ',')
+    ) {
+      return emit_symbol(valid_symbols, REGEX_INCOMPLETE_ESCAPE, symbol);
+    }
+#endif
     if (lexer->eof(lexer) || lexer->lookahead == '\n') {
       return emit_symbol(valid_symbols, REGEX_INVALID_INTERVAL, symbol);
     }
@@ -2496,19 +2570,37 @@ static bool scan_command_token(
   TSSymbol *symbol
 ) {
   if (
+    (valid_symbols[LABEL_START] || valid_symbols[LONG_LABEL_START]) &&
+    !lexer->eof(lexer) &&
+    lexer->lookahead != '\n'
+  ) {
+    return scan_label_start(lexer, valid_symbols, symbol);
+  }
+
+  if (
     lexer->lookahead ==
     ';' &&
     (valid_symbols[WRITE_TERMINAL_SEPARATOR] ||
+      valid_symbols[WRITE_BLOCK_TERMINAL_SEPARATOR] ||
       valid_symbols[WRITE_FOLLOWING_SEPARATOR])
   ) {
+    const bool block = valid_symbols[WRITE_BLOCK_TERMINAL_SEPARATOR];
     consume(lexer);
-    while (is_blank(lexer->lookahead) || lexer->lookahead == ';') {
+    while (
+      is_blank(lexer->lookahead) ||
+      lexer->lookahead ==
+      ';' ||
+      (!block && lexer->lookahead == '}')
+    ) {
       advance(lexer);
     }
     return emit_symbol(
       valid_symbols,
-      lexer->eof(lexer) || lexer->lookahead == '\n' || lexer->lookahead == '}'
-        ? WRITE_TERMINAL_SEPARATOR
+      lexer->eof(lexer) ||
+          lexer->lookahead ==
+          '\n' ||
+          (block && lexer->lookahead == '}')
+        ? block ? WRITE_BLOCK_TERMINAL_SEPARATOR : WRITE_TERMINAL_SEPARATOR
         : WRITE_FOLLOWING_SEPARATOR,
       symbol
     );
@@ -2574,6 +2666,12 @@ static bool scan_command_token(
     return true;
   }
 
+  if (
+    valid_symbols[LABEL_LITERAL] || valid_symbols[NONPORTABLE_LABEL_CHARACTER]
+  ) {
+    return scan_label_piece(lexer, valid_symbols, symbol);
+  }
+
   // Recovery markers can steal the separator before a label starting with '}'.
   if (valid_symbols[ARGUMENT_SEPARATOR] && lexer->lookahead == ' ') {
     consume(lexer);
@@ -2590,7 +2688,12 @@ static bool scan_command_token(
       *symbol = FLAG_AFTER_WRITE_MARKER;
       return true;
     case FLAG_AFTER_WRITE_FALLBACK:
-      return emit_symbol(valid_symbols, OMITTED_FILE_SEPARATOR_MARKER, symbol);
+      return emit_symbol(
+        valid_symbols,
+        lexer->eof(lexer) ? INCOMPLETE_OMITTED_FILE_SEPARATOR_MARKER
+                          : OMITTED_FILE_SEPARATOR_MARKER,
+        symbol
+      );
     case FLAG_AFTER_WRITE_NONE:
       break;
     }

@@ -500,3 +500,43 @@ s///gw2 file
               (wfile
                 (file_literal)))))))
     (command_separator)))
+
+==================
+classifies a write separator across an unmatched closing brace before a following command
+:language(sed)
+:language(sed_ere)
+==================
+s//b/w f;};p
+
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (delimiter)
+          (replacement
+            (replacement_literal))
+          (delimiter)
+          (substitution_flags
+            (write_flag
+              (substitution_flag)
+              (wfile
+                (file_literal)))))))
+    (syntax_issue
+      (undefined_syntax
+        (forbidden_command_separator
+          (command_separator))))
+    (syntax_issue
+      (nonconforming_syntax
+        (unmatched_closing_brace
+          (closing_brace))))
+    (command_separator)
+    (editing_command
+      (function
+        (print_function
+          (function_verb))))
+    (command_separator)))

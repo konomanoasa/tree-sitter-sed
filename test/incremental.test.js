@@ -878,12 +878,36 @@ test("sed: fixed-seed generated histories converge", (context) => {
 for (const grammar of grammars) {
   test(`${grammar.name}: every byte inside a Unicode payload can be deleted and repaired through an edit history`, () => {
     const brokenPayloads = [
-      [0xa9, 0xf0, 0x9f, 0x98, 0x80],
-      [0xc3, 0xf0, 0x9f, 0x98, 0x80],
-      [0xc3, 0xa9, 0x9f, 0x98, 0x80],
-      [0xc3, 0xa9, 0xf0, 0x98, 0x80],
-      [0xc3, 0xa9, 0xf0, 0x9f, 0x80],
-      [0xc3, 0xa9, 0xf0, 0x9f, 0x98],
+      {
+        bytes: [0xa9, 0xf0, 0x9f, 0x98, 0x80],
+        invalid: [0, 1],
+        decoded: [1, 5],
+      },
+      {
+        bytes: [0xc3, 0xf0, 0x9f, 0x98, 0x80],
+        invalid: [0, 1],
+        decoded: [1, 5],
+      },
+      {
+        bytes: [0xc3, 0xa9, 0x9f, 0x98, 0x80],
+        invalid: [2, 5],
+        decoded: [0, 2],
+      },
+      {
+        bytes: [0xc3, 0xa9, 0xf0, 0x98, 0x80],
+        invalid: [2, 5],
+        decoded: [0, 2],
+      },
+      {
+        bytes: [0xc3, 0xa9, 0xf0, 0x9f, 0x80],
+        invalid: [2, 5],
+        decoded: [0, 2],
+      },
+      {
+        bytes: [0xc3, 0xa9, 0xf0, 0x9f, 0x98],
+        invalid: [2, 5],
+        decoded: [0, 2],
+      },
     ];
     for (const { source, changed, payloadByte, owner, literal, suffix } of [
       {
@@ -944,7 +968,10 @@ for (const grammar of grammars) {
       },
     ]) {
       const prefix = Buffer.from(source).subarray(0, payloadByte);
-      for (const [removedByte, brokenPayload] of brokenPayloads.entries()) {
+      for (const [
+        removedByte,
+        { bytes, invalid, decoded },
+      ] of brokenPayloads.entries()) {
         const edits = [
           { byte: payloadByte + removedByte, deleteBytes: 1, insert: "" },
           { byte: payloadByte, deleteBytes: 5, insert: "é😀" },
@@ -954,7 +981,7 @@ for (const grammar of grammars) {
         const expected = [
           Buffer.concat([
             Buffer.from(prefix),
-            Buffer.from(brokenPayload),
+            Buffer.from(bytes),
             Buffer.from(suffix),
           ]),
           Buffer.from(source),
@@ -971,16 +998,51 @@ for (const grammar of grammars) {
           for (const result of [fresh, incremental]) {
             const issues = issueSignatures(result.nodes);
             if (step === 0) {
-              assert.ok(issues.length > 0, label);
-              for (const issue of issues) {
-                assert.equal(issue.outcome, "invalid_syntax", label);
-                assert.equal(issue.reason, "invalid_encoding", label);
-              }
+              const expectedIssues = [
+                {
+                  outcome: "invalid_syntax",
+                  reason: "invalid_encoding",
+                  range: invalid,
+                },
+                ...(owner === "label"
+                  ? [
+                      {
+                        outcome: "unspecified_syntax",
+                        reason: "nonportable_label_character",
+                        range: decoded,
+                      },
+                    ]
+                  : []),
+              ].sort((left, right) => left.range[0] - right.range[0]);
+              assert.deepEqual(
+                issues,
+                expectedIssues.map(
+                  ({ outcome, reason, range: [start, end] }) => ({
+                    outcome,
+                    reason,
+                    range: `[0, ${payloadByte + start}] - [0, ${payloadByte + end}]`,
+                  }),
+                ),
+                label,
+              );
               continue;
             }
             assert.equal(result.status, 0, label);
-            assertNoNodes(result.nodes, "syntax_issue", "ERROR", "MISSING");
+            assertNoNodes(result.nodes, "ERROR", "MISSING");
             const end = payloadByte + (step === 2 ? 1 : 6);
+            assert.deepEqual(
+              issues,
+              owner === "label" && step !== 2
+                ? [
+                    {
+                      outcome: "unspecified_syntax",
+                      reason: "nonportable_label_character",
+                      range: `[0, ${payloadByte}] - [0, ${end}]`,
+                    },
+                  ]
+                : [],
+              label,
+            );
             assert.deepEqual(
               syntaxSignatures(result.nodes, [owner, literal]),
               [
@@ -1004,7 +1066,7 @@ for (const grammar of grammars) {
     ["expression", "/a", "b/p\n"],
     ["replacement", "s/a/", "/\n"],
     ["translation", "y/a", "/b/\n"],
-    ["label", ": a", "b\n"],
+    ["label", ":a", "b\n"],
     ["file", "r a", "b\n"],
     ["character class", "/[[:a", "b:]]/p\n"],
   ]) {

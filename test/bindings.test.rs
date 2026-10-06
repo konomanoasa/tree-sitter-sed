@@ -675,6 +675,19 @@ fn decoding_issues_split_operands_and_escapes_and_disappear_after_repair() {
                 )
               })
               .collect()
+          } else if owner_kind == Some("label")
+            && replacement == "\u{fffd}".as_bytes()
+          {
+            vec![(
+              "unspecified_syntax".to_owned(),
+              "nonportable_label_character".to_owned(),
+              Range {
+                start_byte: start,
+                end_byte: start + replacement.len(),
+                start_point: Point::new(row, column),
+                end_point: Point::new(row, column + replacement.len()),
+              },
+            )]
           } else {
             Vec::new()
           };
@@ -704,7 +717,7 @@ fn decoding_issues_split_operands_and_escapes_and_disappear_after_repair() {
                   end_point: Point::new(row, column + replacement.len() + 1),
                 };
                 assert_eq!(node.range(), owner_range, "{context}");
-                let expected_children = if step == 0 {
+                let expected_children = if !ranges.is_empty() {
                   let mut children = vec![(
                     normal_kind,
                     Range {
@@ -987,6 +1000,39 @@ fn balanced_regex_groups_preserve_depth_across_the_16_bit_boundary() {
       }
       assert_eq!(openings, depth, "{mode}, depth {depth}");
       assert_eq!(closings, depth, "{mode}, depth {depth}");
+    }
+  }
+}
+
+#[test]
+fn label_portability_uses_decoded_characters_for_utf16_input() {
+  for language in [grammar::LANGUAGE, grammar::LANGUAGE_ERE] {
+    let mut parser = Parser::new();
+    parser.set_language(&language.into()).unwrap();
+    for (source, reason, start, end) in [
+      (":abcdefgh", None, 0, 0),
+      (":abcdefghi", Some("nonportable_label_length"), 2, 20),
+      (":abcdefghi@", Some("nonportable_label_character"), 20, 22),
+      (":ééééé", Some("nonportable_label_character"), 2, 12),
+    ] {
+      let input: Vec<_> = source.encode_utf16().collect();
+      let tree = parser.parse_utf16_le(&input, None).unwrap();
+      assert!(!tree.root_node().has_error(), "{source}");
+      let expected = reason
+        .map(|reason| {
+          vec![(
+            "unspecified_syntax".to_owned(),
+            reason.to_owned(),
+            Range {
+              start_byte: start,
+              end_byte: end,
+              start_point: Point::new(0, start),
+              end_point: Point::new(0, end),
+            },
+          )]
+        })
+        .unwrap_or_default();
+      assert_eq!(issue_signatures(&tree), expected, "{source}");
     }
   }
 }

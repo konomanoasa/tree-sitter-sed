@@ -53,6 +53,203 @@ const verbOperands = {
 const addressPrefixes = ["1 ", "1\t", "1!", "1 !", "$ ", "/x/ ", "\\,x, "];
 
 for (const grammar of grammars) {
+  test(`${grammar.name}: label portability preserves source leaves and limits length checks to portable characters`, () => {
+    for (const { label, issues, pieces } of [
+      { label: "Ab0._-xy", issues: [], pieces: [[0, 8]] },
+      {
+        label: "abcdefghi",
+        issues: [
+          {
+            outcome: "unspecified_syntax",
+            reason: "nonportable_label_length",
+            start: 0,
+            end: 9,
+          },
+        ],
+        pieces: [[0, 9]],
+      },
+      {
+        label: "a@#$b",
+        issues: [
+          {
+            outcome: "unspecified_syntax",
+            reason: "nonportable_label_character",
+            start: 1,
+            end: 4,
+          },
+        ],
+        pieces: [
+          [0, 1],
+          [1, 4],
+          [4, 5],
+        ],
+      },
+      {
+        label: "é日本語",
+        issues: [
+          {
+            outcome: "unspecified_syntax",
+            reason: "nonportable_label_character",
+            start: 0,
+            end: 11,
+          },
+        ],
+        pieces: [[0, 11]],
+      },
+      {
+        label: "é\uFFFD \\x;\t}",
+        issues: [
+          {
+            outcome: "unspecified_syntax",
+            reason: "nonportable_label_character",
+            start: 0,
+            end: 7,
+          },
+          {
+            outcome: "unspecified_syntax",
+            reason: "nonportable_label_character",
+            start: 8,
+            end: 11,
+          },
+        ],
+        pieces: [
+          [0, 7],
+          [7, 8],
+          [8, 11],
+        ],
+      },
+      {
+        label: "abcdefghi@",
+        issues: [
+          {
+            outcome: "unspecified_syntax",
+            reason: "nonportable_label_character",
+            start: 9,
+            end: 10,
+          },
+        ],
+        pieces: [
+          [0, 9],
+          [9, 10],
+        ],
+      },
+      {
+        label: "abcdefghi\0",
+        issues: [
+          {
+            outcome: "nonconforming_syntax",
+            reason: "nul_character",
+            start: 9,
+            end: 10,
+          },
+        ],
+        pieces: [[0, 9]],
+      },
+      {
+        label: Buffer.from([97, 98, 99, 100, 101, 102, 103, 104, 105, 255]),
+        issues: [
+          {
+            outcome: "invalid_syntax",
+            reason: "invalid_encoding",
+            start: 9,
+            end: 10,
+          },
+        ],
+        pieces: [[0, 9]],
+      },
+    ]) {
+      for (const prefix of [":", "b ", "t "]) {
+        const source = Buffer.concat([Buffer.from(prefix), Buffer.from(label)]);
+        const result = parseSuccessfully(grammar.scope, source);
+        assert.deepEqual(
+          issueSignatures(result.nodes),
+          issues.map(({ outcome, reason, start, end }) => ({
+            outcome,
+            reason,
+            range: `[0, ${prefix.length + start}] - [0, ${prefix.length + end}]`,
+          })),
+          source.toString("hex"),
+        );
+        assert.deepEqual(
+          result.nodes
+            .filter(({ kind }) => kind === "label_literal")
+            .map(({ startByte, endByte }) => [
+              startByte - prefix.length,
+              endByte - prefix.length,
+            ]),
+          pieces,
+          source.toString("hex"),
+        );
+        for (const [index, node] of result.nodes.entries()) {
+          if (!node.kind.startsWith("nonportable_label_")) continue;
+          assert.deepEqual(
+            result.nodes
+              .filter(({ parent }) => parent === index)
+              .map(({ kind, startByte, endByte }) => [
+                kind,
+                startByte,
+                endByte,
+              ]),
+            [["label_literal", node.startByte, node.endByte]],
+            source.toString("hex"),
+          );
+        }
+      }
+    }
+  });
+
+  test(`${grammar.name}: label length and character classification follow edits to the whole operand`, () => {
+    for (const { source, edit, expected } of [
+      {
+        source: ":abcdefgh",
+        edit: { byte: 9, deleteBytes: 0, insert: "i" },
+        expected: ":abcdefghi",
+      },
+      {
+        source: ":abcdefghi",
+        edit: { byte: 9, deleteBytes: 1, insert: "" },
+        expected: ":abcdefgh",
+      },
+      {
+        source: ":abcdefghi",
+        edit: { byte: 10, deleteBytes: 0, insert: "@" },
+        expected: ":abcdefghi@",
+      },
+      {
+        source: ":abcdefghi@",
+        edit: { byte: 10, deleteBytes: 1, insert: "" },
+        expected: ":abcdefghi",
+      },
+      {
+        source: ":abcdefghi",
+        edit: { byte: 5, deleteBytes: 1, insert: "é" },
+        expected: ":abcdéfghi",
+      },
+      {
+        source: ":abcdéfghi",
+        edit: { byte: 5, deleteBytes: 2, insert: "e" },
+        expected: ":abcdefghi",
+      },
+      {
+        source: "b abcdefghi\np",
+        edit: { byte: 11, deleteBytes: 0, insert: "@" },
+        expected: "b abcdefghi@\np",
+      },
+      {
+        source: "t abcdefghi@\np",
+        edit: { byte: 11, deleteBytes: 1, insert: "" },
+        expected: "t abcdefghi\np",
+      },
+    ]) {
+      assert.deepEqual(applyEdits(source, [edit]), Buffer.from(expected));
+      assertIncrementalContract(
+        parseSuccessfully(grammar.scope, expected),
+        parseSuccessfully(grammar.scope, source, [edit]),
+        expected,
+      );
+    }
+  });
+
   test(`${grammar.name}: delimiter escapes keep interval roles and source leaves`, () => {
     const [opening, closing] =
       grammar.name === "sed" ? ["\\{", "\\}"] : ["{", "}"];
@@ -333,7 +530,7 @@ for (const grammar of grammars) {
   });
 
   test(`${grammar.name}: write separators depend on the following command on the same line`, () => {
-    for (const { source, range } of [
+    for (const { source, range, unmatched = [], missing } of [
       { source: "s/a/b/w file;p", range: "[0, 12] - [0, 13]" },
       { source: "s/a/b/w file; \t;p", range: "[0, 12] - [0, 13]" },
       { source: "{s/a/b/w file;p;}", range: "[0, 13] - [0, 14]" },
@@ -342,19 +539,63 @@ for (const grammar of grammars) {
       { source: "s/a/b/w file; \t", range: null },
       { source: "s/a/b/w file;\np", range: null },
       { source: "{s/a/b/w file;}", range: null },
+      { source: "{s/a/b/w file;};p", range: null },
+      { source: "{{s/a/b/w file;};};p", range: null },
+      {
+        source: "s/a/b/w file;}p",
+        range: "[0, 12] - [0, 13]",
+        unmatched: ["[0, 13] - [0, 14]"],
+        missing: "[0, 14] - [0, 14]",
+      },
+      {
+        source: "s/a/b/w file;};p",
+        range: "[0, 12] - [0, 13]",
+        unmatched: ["[0, 13] - [0, 14]"],
+      },
+      {
+        source: "s/a/b/w file;};};p",
+        range: "[0, 12] - [0, 13]",
+        unmatched: ["[0, 13] - [0, 14]", "[0, 15] - [0, 16]"],
+      },
+      {
+        source: "s/a/b/w file;}",
+        range: null,
+        unmatched: ["[0, 13] - [0, 14]"],
+      },
+      {
+        source: "s/a/b/w file;}\np",
+        range: null,
+        unmatched: ["[0, 13] - [0, 14]"],
+      },
     ]) {
       const result = parseSuccessfully(grammar.scope, source);
       assert.deepEqual(
         issueSignatures(result.nodes),
-        range === null
-          ? []
-          : [
-              {
-                outcome: "undefined_syntax",
-                reason: "forbidden_command_separator",
-                range,
-              },
-            ],
+        [
+          ...(range === null
+            ? []
+            : [
+                {
+                  outcome: "undefined_syntax",
+                  reason: "forbidden_command_separator",
+                  range,
+                },
+              ]),
+          ...unmatched.map((range) => ({
+            outcome: "nonconforming_syntax",
+            reason: "unmatched_closing_brace",
+            range,
+          })),
+          ...(missing === undefined
+            ? []
+            : [
+                {
+                  outcome: "nonconforming_syntax",
+                  reason: "missing_command_separator",
+                  range: missing,
+                },
+              ]),
+        ],
         source,
       );
       if (range !== null) {
@@ -422,6 +663,34 @@ for (const grammar of grammars) {
         reason: "unexpected_command_text",
         outcome: "nonconforming_syntax",
       },
+      {
+        source: "s/a/b/wp",
+        suffix: " file",
+        reason: "omitted_file_separator",
+        outcome: null,
+      },
+      {
+        source: "s/a/b/wp",
+        suffix: "\n",
+        reason: "omitted_file_separator",
+        outcome: "nonconforming_syntax",
+      },
+      ...(grammar.name === "sed"
+        ? [
+            {
+              source: "s1a\\{\\",
+              suffix: "1\\}1b1",
+              reason: "missing_interval_minimum",
+              outcome: null,
+            },
+            {
+              source: "s1a\\{\\",
+              suffix: "\n",
+              reason: "missing_interval_minimum",
+              outcome: "undefined_syntax",
+            },
+          ]
+        : []),
     ]) {
       const original = parseSuccessfully(grammar.scope, source);
       assert.deepEqual(
@@ -466,6 +735,26 @@ for (const grammar of grammars) {
         expected: "s/a/b/w file;",
       },
       {
+        source: "s/a/b/w file;}",
+        edit: { byte: 14, deleteBytes: 0, insert: "p" },
+        expected: "s/a/b/w file;}p",
+      },
+      {
+        source: "s/a/b/w file;}p",
+        edit: { byte: 14, deleteBytes: 1, insert: "" },
+        expected: "s/a/b/w file;}",
+      },
+      {
+        source: "s/a/b/w file;};p",
+        edit: { byte: 0, deleteBytes: 0, insert: "{" },
+        expected: "{s/a/b/w file;};p",
+      },
+      {
+        source: "{s/a/b/w file;};p",
+        edit: { byte: 0, deleteBytes: 1, insert: "" },
+        expected: "s/a/b/w file;};p",
+      },
+      {
         source: "s/a/b/2g",
         edit: { byte: 6, deleteBytes: 1, insert: "" },
         expected: "s/a/b/g",
@@ -490,6 +779,92 @@ for (const grammar of grammars) {
     }
   });
 }
+
+test("sed_ere: a trailing interval escape waits only for a usable delimiter at EOF", () => {
+  for (const { source, suffix, range } of [
+    { source: "s1a{\\", suffix: "1}1b1", range: "[0, 4] - [0, 5]" },
+    { source: "s,a{1\\", suffix: ",2},b,", range: "[0, 5] - [0, 6]" },
+    { source: "s2a{1,\\", suffix: "2}2b2", range: "[0, 6] - [0, 7]" },
+  ]) {
+    const original = parseSuccessfully("source.sed.ere", source);
+    const interval = original.nodes.findIndex(
+      ({ kind }) => kind === "ere_dupl_symbol",
+    );
+    assert.notEqual(interval, -1, source);
+    assert.deepEqual(
+      issueSignatures(original.nodes, interval),
+      [
+        {
+          outcome: "incomplete_syntax",
+          reason: "incomplete_regular_expression_escape",
+          range,
+        },
+        {
+          outcome: "incomplete_syntax",
+          reason: "missing_interval_close",
+          range: `[0, ${source.length}] - [0, ${source.length}]`,
+        },
+      ],
+      source,
+    );
+    const completed = parseSuccessfully("source.sed.ere", source + suffix);
+    assert.deepEqual(issueSignatures(completed.nodes), [], source + suffix);
+    assertIncrementalContract(
+      completed,
+      parseSuccessfully("source.sed.ere", source, [
+        { byte: source.length, deleteBytes: 0, insert: suffix },
+      ]),
+      source + suffix,
+    );
+    assertIncrementalContract(
+      original,
+      parseSuccessfully("source.sed.ere", source + suffix, [
+        { byte: source.length, deleteBytes: suffix.length, insert: "" },
+      ]),
+      source,
+    );
+    const terminated = parseSuccessfully("source.sed.ere", `${source}\n`);
+    assert.deepEqual(
+      issueSignatures(terminated.nodes).filter(({ reason }) =>
+        [
+          "incomplete_regular_expression_escape",
+          "invalid_interval_character",
+        ].includes(reason),
+      ),
+      [
+        {
+          outcome: "undefined_syntax",
+          reason: "invalid_interval_character",
+          range,
+        },
+      ],
+      source,
+    );
+    assertIncrementalContract(
+      terminated,
+      parseSuccessfully("source.sed.ere", source, [
+        { byte: source.length, deleteBytes: 0, insert: "\n" },
+      ]),
+      source,
+    );
+  }
+  const invalid = parseSuccessfully("source.sed.ere", "s/a{1\\");
+  assert.deepEqual(
+    issueSignatures(invalid.nodes).filter(({ reason }) =>
+      [
+        "incomplete_regular_expression_escape",
+        "invalid_interval_character",
+      ].includes(reason),
+    ),
+    [
+      {
+        outcome: "undefined_syntax",
+        reason: "invalid_interval_character",
+        range: "[0, 5] - [0, 6]",
+      },
+    ],
+  );
+});
 
 for (const grammar of grammars) {
   test(`${grammar.name}: empty regex groups have delimiters without an expression body`, () => {
@@ -1909,9 +2284,9 @@ const omittedFileSeparatorCases = [
 for (const grammar of grammars) {
   test(`${grammar.name}: healthy line operands expose one literal with their exact source range`, () => {
     const cases = [
-      [":é\uFFFD \\x;\t}", "label", "label_literal", 1, 12],
-      ["b é\uFFFD \\x;\t}", "label", "label_literal", 2, 13],
-      ["t é\uFFFD \\x;\t}", "label", "label_literal", 2, 13],
+      [":Ab0._-xy", "label", "label_literal", 1, 9],
+      ["b Ab0._-xy", "label", "label_literal", 2, 10],
+      ["t Ab0._-xy", "label", "label_literal", 2, 10],
       ["r \té\uFFFD \\x;\t}", "rfile", "file_literal", 3, 14],
       ["w   é\uFFFD \\x;\t}", "wfile", "file_literal", 4, 15],
       ["s/a/b/w é\uFFFD \\x\t}", "wfile", "file_literal", 8, 18],
@@ -4533,7 +4908,7 @@ for (const grammar of grammars) {
       suffix: "/a/\n",
       owner: "translation_string",
     },
-    { name: "label", prefix: ": ab", suffix: "cd\n", owner: "label" },
+    { name: "label", prefix: ":ab", suffix: "cd\n", owner: "label" },
     { name: "read file", prefix: "r ab", suffix: "cd\n", owner: "rfile" },
     { name: "write file", prefix: "w ab", suffix: "cd\n", owner: "wfile" },
     {

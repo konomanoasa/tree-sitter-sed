@@ -397,3 +397,64 @@ s1a{\12}1b1
             (replacement_literal))
           (delimiter))))
     (command_separator)))
+
+==================
+classifies a trailing interval escape as incomplete before an escaped digit delimiter
+:language(sed_ere)
+==================
+s1a{\
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (extended_reg_exp
+            (ere_branch
+              (ere_expression
+                (one_char_or_coll_elem_ere
+                  (ordinary_character))
+                (ere_dupl_symbol
+                  (syntax_issue
+                    (incomplete_syntax
+                      (incomplete_regular_expression_escape)))
+                  (syntax_issue
+                    (incomplete_syntax
+                      (missing_interval_close)))))))
+          (syntax_issue
+            (incomplete_syntax
+              (unterminated_regular_expression))))))))
+
+==================
+classifies a trailing interval escape as incomplete before an escaped comma delimiter
+:language(sed_ere)
+==================
+s,a{1\
+---
+
+(script
+  (command_list
+    (editing_command
+      (function
+        (substitute_function
+          (function_verb)
+          (delimiter)
+          (extended_reg_exp
+            (ere_branch
+              (ere_expression
+                (one_char_or_coll_elem_ere
+                  (ordinary_character))
+                (ere_dupl_symbol
+                  (duplication_count)
+                  (syntax_issue
+                    (incomplete_syntax
+                      (incomplete_regular_expression_escape)))
+                  (syntax_issue
+                    (incomplete_syntax
+                      (missing_interval_close)))))))
+          (syntax_issue
+            (incomplete_syntax
+              (unterminated_regular_expression))))))))

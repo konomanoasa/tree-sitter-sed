@@ -234,7 +234,10 @@ function substitutionFlagRules() {
       return choice(
         seq(
           field("verb", alias("w", $.substitution_flag)),
-          choice(...fileOperandForms($, "wfile", wfile)),
+          choice(
+            ...fileOperandForms($, "wfile", wfile),
+            seq(issueField($, "incomplete_omitted_file_separator"), wfile),
+          ),
         ),
         seq(
           issueField($, "nonfinal_write_flag"),
@@ -279,12 +282,15 @@ function semicolonSeparator($) {
   return alias(";", $.command_separator);
 }
 
-function writeCommandUnit($) {
+function writeCommandUnit($, block = false) {
   return seq(
     editingCommand($, "write_terminated"),
     choice(
       newlineSeparator($),
-      alias($._write_terminal_separator, $.command_separator),
+      alias(
+        block ? $._write_block_terminal_separator : $._write_terminal_separator,
+        $.command_separator,
+      ),
       issueField($, "undefined_write_command_separator"),
       issueField($, "missing_separator_before_unmatched_brace"),
     ),
@@ -405,7 +411,7 @@ function commandListRules() {
 
     _block_unit: ($) =>
       choice(
-        writeCommandUnit($),
+        writeCommandUnit($, true),
         seq(
           $._separable_command_item,
           choice(semicolonSeparator($), newlineSeparator($)),
@@ -731,7 +737,21 @@ function functionRules() {
         $._substitution_wfile_continuation,
       ),
 
-    label: ($) => sourcePieces($, "label_literal", $._line_word),
+    label: ($) =>
+      choice(
+        seq($._label_start, $._label_body),
+        issueField($, "nonportable_label_length"),
+      ),
+
+    _label_body: ($) =>
+      prec.right(
+        repeat1(
+          choice(
+            sourcePiece($, $._label_literal, "label_literal"),
+            issueField($, "nonportable_label_character"),
+          ),
+        ),
+      ),
 
     comment: ($) => sourcePieces($, "comment_text", $._comment_text),
 
@@ -997,6 +1017,7 @@ function missingMarkerNames(mode) {
     "missing_rfile",
     "missing_wfile",
     "omitted_file_separator",
+    "incomplete_omitted_file_separator",
     "missing_text_introducer",
     "missing_text",
     "missing_command_separator",
@@ -1019,6 +1040,17 @@ function issueDefinitions(mode) {
   }
 
   return [
+    {
+      reason: "nonportable_label_character",
+      outcome: "unspecified_syntax",
+      rule: ($) => alias($._nonportable_label_character, $.label_literal),
+    },
+    {
+      reason: "nonportable_label_length",
+      outcome: "unspecified_syntax",
+      rule: ($) =>
+        seq($._long_label_start, alias($._label_literal, $.label_literal)),
+    },
     {
       reason: "missing_bracket_term_close",
       outcome: "undefined_syntax",
@@ -1332,6 +1364,12 @@ function issueDefinitions(mode) {
       reason: "omitted_file_separator",
       outcome: "nonconforming_syntax",
       rule: missing("omitted_file_separator"),
+    },
+    {
+      id: "incomplete_omitted_file_separator",
+      reason: "omitted_file_separator",
+      outcome: "incomplete_syntax",
+      rule: missing("incomplete_omitted_file_separator"),
     },
     {
       reason: "excess_address",
@@ -1702,6 +1740,7 @@ function externalTokens($, mode) {
     $._invalid_substitution_flag,
     $._flag_after_write_marker,
     $._write_terminal_separator,
+    $._write_block_terminal_separator,
     $._write_following_separator,
     $._text_command_start,
     $._text_incomplete_introducer,
@@ -1717,6 +1756,10 @@ function externalTokens($, mode) {
     $._substitution_wfile_argument,
     $._substitution_wfile_continuation,
     $._line_word,
+    $._label_start,
+    $._long_label_start,
+    $._label_literal,
+    $._nonportable_label_character,
     $._argument_separator,
     $._brace_leading_blanks,
     $._block_trailing_blanks,

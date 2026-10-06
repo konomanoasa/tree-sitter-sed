@@ -9,6 +9,9 @@ function intervalExpression($, opening, closing) {
         namedExternal($, $._regex_interval_escaped_count, "escaped_delimiter"),
       ),
       issueField($, "invalid_interval_character"),
+      ...(opening === "{"
+        ? [issueField($, "incomplete_regular_expression_escape")]
+        : []),
       issueField($, "invalid_regular_expression_character"),
       issueField($, "invalid_encoding"),
       seq(
