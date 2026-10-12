@@ -7,11 +7,6 @@
 [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) grammars for
 POSIX.1-2024 sed.
 
-## Syntax Issues
-
-The parser detects syntax issues, including missing syntax, while preserving the surrounding structure.
-These issues are represented as `syntax_issue` nodes.
-
 ## Installation
 
 ```sh
@@ -19,6 +14,8 @@ npm install tree-sitter-sed
 ```
 
 ## Grammars
+
+BRE and ERE have different syntax, so we use separate grammars.
 
 | Grammar   | Description               |
 | --------- | ------------------------- |
@@ -39,6 +36,10 @@ npm test
 
 - [POSIX.1-2024 sed](https://pubs.opengroup.org/onlinepubs/9799919799.2024edition/utilities/sed.html)
 - [POSIX.1-2024 regular expressions](https://pubs.opengroup.org/onlinepubs/9799919799.2024edition/basedefs/V1_chap09.html)
+
+## Used By
+
+[sed-ts-mode](https://github.com/konomanoasa/sed-ts-mode): Emacs major mode.
 
 ## License
 

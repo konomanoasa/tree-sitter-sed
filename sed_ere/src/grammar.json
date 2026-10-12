@@ -699,19 +699,6 @@
                     "named": true,
                     "value": "syntax_issue"
                   }
-                },
-                {
-                  "type": "FIELD",
-                  "name": "issue",
-                  "content": {
-                    "type": "ALIAS",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "_missing_separator_before_unmatched_brace_issue"
-                    },
-                    "named": true,
-                    "value": "syntax_issue"
-                  }
                 }
               ]
             }
@@ -10206,32 +10193,6 @@
                 "named": true,
                 "value": "syntax_issue"
               }
-            },
-            {
-              "type": "FIELD",
-              "name": "issue",
-              "content": {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_invalid_interval_close_issue"
-                },
-                "named": true,
-                "value": "syntax_issue"
-              }
-            },
-            {
-              "type": "FIELD",
-              "name": "issue",
-              "content": {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_incomplete_interval_close_issue"
-                },
-                "named": true,
-                "value": "syntax_issue"
-              }
             }
           ]
         }
@@ -10492,7 +10453,7 @@
     },
     "_escaped_nul_character_reason": {
       "type": "SYMBOL",
-      "name": "_escaped_nul_character"
+      "name": "_single_nul_character"
     },
     "_escaped_nul_character_outcome": {
       "type": "ALIAS",
@@ -10514,7 +10475,7 @@
     },
     "_escaped_invalid_regular_expression_character_reason": {
       "type": "SYMBOL",
-      "name": "_escaped_nul_character"
+      "name": "_single_nul_character"
     },
     "_escaped_invalid_regular_expression_character_outcome": {
       "type": "ALIAS",
@@ -10927,50 +10888,6 @@
       },
       "named": true,
       "value": "undefined_syntax"
-    },
-    "_invalid_interval_close_reason": {
-      "type": "SYMBOL",
-      "name": "_regex_invalid_interval_close"
-    },
-    "_invalid_interval_close_outcome": {
-      "type": "ALIAS",
-      "content": {
-        "type": "SYMBOL",
-        "name": "_invalid_interval_close_reason"
-      },
-      "named": true,
-      "value": "invalid_interval_close"
-    },
-    "_invalid_interval_close_issue": {
-      "type": "ALIAS",
-      "content": {
-        "type": "SYMBOL",
-        "name": "_invalid_interval_close_outcome"
-      },
-      "named": true,
-      "value": "undefined_syntax"
-    },
-    "_incomplete_interval_close_reason": {
-      "type": "SYMBOL",
-      "name": "_regex_incomplete_interval_close"
-    },
-    "_incomplete_interval_close_outcome": {
-      "type": "ALIAS",
-      "content": {
-        "type": "SYMBOL",
-        "name": "_incomplete_interval_close_reason"
-      },
-      "named": true,
-      "value": "invalid_interval_close"
-    },
-    "_incomplete_interval_close_issue": {
-      "type": "ALIAS",
-      "content": {
-        "type": "SYMBOL",
-        "name": "_incomplete_interval_close_outcome"
-      },
-      "named": true,
-      "value": "incomplete_syntax"
     },
     "_leading_duplication_symbol_reason": {
       "type": "SEQ",
@@ -11774,7 +11691,7 @@
         },
         {
           "type": "SYMBOL",
-          "name": "_nul_character"
+          "name": "_single_nul_character"
         }
       ]
     },
@@ -12238,17 +12155,8 @@
       "value": "unspecified_syntax"
     },
     "_invalid_substitution_flag_reason": {
-      "type": "CHOICE",
-      "members": [
-        {
-          "type": "SYMBOL",
-          "name": "_invalid_substitution_flag"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "_nul_character"
-        }
-      ]
+      "type": "SYMBOL",
+      "name": "_invalid_substitution_flag"
     },
     "_invalid_substitution_flag_outcome": {
       "type": "ALIAS",
@@ -12280,7 +12188,7 @@
         },
         {
           "type": "SYMBOL",
-          "name": "_nul_character"
+          "name": "_single_nul_character"
         }
       ]
     },
@@ -13123,7 +13031,7 @@
     },
     {
       "type": "SYMBOL",
-      "name": "_escaped_nul_character"
+      "name": "_single_nul_character"
     },
     {
       "type": "SYMBOL",
@@ -13236,14 +13144,6 @@
     {
       "type": "SYMBOL",
       "name": "_regex_missing_interval_close"
-    },
-    {
-      "type": "SYMBOL",
-      "name": "_regex_invalid_interval_close"
-    },
-    {
-      "type": "SYMBOL",
-      "name": "_regex_incomplete_interval_close"
     },
     {
       "type": "SYMBOL",

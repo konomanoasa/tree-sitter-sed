@@ -7,7 +7,7 @@ nests a command list inside a block function
   d;
 }
 
----
+------------------
 
 (script
   (command_list
@@ -45,7 +45,7 @@ terminates an empty block command before a closing brace
 ==================
 {;}
 
----
+------------------
 
 (script
   (command_list
@@ -65,7 +65,7 @@ accepts blanks after nested closing braces before separators
 ==================
 {{p;}	 ;} 	;q
 
----
+------------------
 
 (script
   (command_list
@@ -100,7 +100,7 @@ recovers a block whose leading empty command precedes a missing separator
 ==================
 {;p}
 
----
+------------------
 
 (script
   (command_list
@@ -127,7 +127,7 @@ classifies a missing command separator before a closing brace
 ==================
 {p}
 
----
+------------------
 
 (script
   (command_list
@@ -147,28 +147,31 @@ classifies a missing command separator before a closing brace
     (command_separator)))
 
 ==================
-classifies a missing closing brace after a command newline
+A command newline does not close its block
 :language(sed)
+:language(sed_ere)
+:cst
 ==================
 {p
 
----
+------------------
 
-(script
-  (command_list
-    (editing_command
-      (function
-        (block_function
-          (function_verb)
-          (command_list
-            (editing_command
-              (function
-                (print_function
-                  (function_verb))))
-            (command_separator))
-          (syntax_issue
-            (incomplete_syntax
-              (missing_closing_brace))))))))
+0:0 - 1:0   script
+0:0 - 1:0     command_list
+0:0 - 1:0       editing_command
+0:0 - 1:0         function: function
+0:0 - 1:0           block_function
+0:0 - 0:1             verb: function_verb `{`
+0:1 - 1:0             commands: command_list
+0:1 - 0:2               editing_command
+0:1 - 0:2                 function: function
+0:1 - 0:2                   print_function
+0:1 - 0:2                     verb: function_verb `p`
+0:2 - 1:0               command_separator
+0:2 - 0:3                 `\n`
+1:0 - 1:0             issue: syntax_issue
+1:0 - 1:0               incomplete_syntax
+1:0 - 1:0                 missing_closing_brace
 
 ==================
 classifies a blank-separated closing brace inside a block
@@ -176,7 +179,7 @@ classifies a blank-separated closing brace inside a block
 ==================
 { }
 
----
+------------------
 
 (script
   (command_list
@@ -192,27 +195,30 @@ classifies a blank-separated closing brace inside a block
     (command_separator)))
 
 ==================
-recovers an unmatched closing brace before a top-level command
+A missing separator after an unmatched brace belongs to the command list
 :language(sed)
+:language(sed_ere)
+:cst
 ==================
 }p
 
----
+------------------
 
-(script
-  (command_list
-    (syntax_issue
-      (nonconforming_syntax
-        (unmatched_closing_brace
-          (closing_brace))))
-    (syntax_issue
-      (nonconforming_syntax
-        (missing_command_separator)))
-    (editing_command
-      (function
-        (print_function
-          (function_verb))))
-    (command_separator)))
+0:0 - 1:0   script
+0:0 - 1:0     command_list
+0:0 - 0:1       issue: syntax_issue
+0:0 - 0:1         nonconforming_syntax
+0:0 - 0:1           unmatched_closing_brace
+0:0 - 0:1             closing_brace `}`
+0:1 - 0:1       issue: syntax_issue
+0:1 - 0:1         nonconforming_syntax
+0:1 - 0:1           missing_command_separator
+0:1 - 0:2       editing_command
+0:1 - 0:2         function: function
+0:1 - 0:2           print_function
+0:1 - 0:2             verb: function_verb `p`
+0:2 - 1:0       command_separator
+0:2 - 0:3         `\n`
 
 ==================
 recovers an unmatched closing brace after a missing text introducer
@@ -220,7 +226,7 @@ recovers an unmatched closing brace after a missing text introducer
 ==================
 a}
 
----
+------------------
 
 (script
   (command_list
@@ -246,7 +252,7 @@ recovers an unmatched closing brace before a following separated command
 ==================
 p};p
 
----
+------------------
 
 (script
   (command_list
@@ -267,3 +273,471 @@ p};p
         (print_function
           (function_verb))))
     (command_separator)))
+
+==================
+An unterminated block requires a separator and closing brace
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+{p
+------------------
+
+0:0 - 0:2   script
+0:0 - 0:2     command_list
+0:0 - 0:2       editing_command
+0:0 - 0:2         function: function
+0:0 - 0:2           block_function
+0:0 - 0:1             verb: function_verb `{`
+0:1 - 0:2             commands: command_list
+0:1 - 0:2               editing_command
+0:1 - 0:2                 function: function
+0:1 - 0:2                   print_function
+0:1 - 0:2                     verb: function_verb `p`
+0:2 - 0:2               issue: syntax_issue
+0:2 - 0:2                 incomplete_syntax
+0:2 - 0:2                   missing_command_separator
+0:2 - 0:2             issue: syntax_issue
+0:2 - 0:2               incomplete_syntax
+0:2 - 0:2                 missing_closing_brace
+
+==================
+A leading empty block command does not close an unfinished block
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+{;p
+------------------
+
+0:0 - 0:3   script
+0:0 - 0:3     command_list
+0:0 - 0:3       editing_command
+0:0 - 0:3         function: function
+0:0 - 0:3           block_function
+0:0 - 0:1             verb: function_verb `{`
+0:1 - 0:3             commands: command_list
+0:1 - 0:1               empty_command
+0:1 - 0:2               command_separator `;`
+0:2 - 0:3               editing_command
+0:2 - 0:3                 function: function
+0:2 - 0:3                   print_function
+0:2 - 0:3                     verb: function_verb `p`
+0:3 - 0:3               issue: syntax_issue
+0:3 - 0:3                 incomplete_syntax
+0:3 - 0:3                   missing_command_separator
+0:3 - 0:3             issue: syntax_issue
+0:3 - 0:3               incomplete_syntax
+0:3 - 0:3                 missing_closing_brace
+
+==================
+A blank-only unfinished block still requires a separator
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+{ 
+------------------
+
+0:0 - 0:2   script
+0:0 - 0:2     command_list
+0:0 - 0:2       editing_command
+0:0 - 0:2         function: function
+0:0 - 0:2           block_function
+0:0 - 0:1             verb: function_verb `{`
+0:1 - 0:1             commands: command_list
+0:1 - 0:1               issue: syntax_issue
+0:1 - 0:1                 incomplete_syntax
+0:1 - 0:1                   missing_command_separator
+0:2 - 0:2             issue: syntax_issue
+0:2 - 0:2               incomplete_syntax
+0:2 - 0:2                 missing_closing_brace
+
+==================
+A block separator does not invent an empty command before its brace
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+{p;}
+------------------
+
+0:0 - 0:4   script
+0:0 - 0:4     command_list
+0:0 - 0:4       editing_command
+0:0 - 0:4         function: function
+0:0 - 0:4           block_function
+0:0 - 0:1             verb: function_verb `{`
+0:1 - 0:3             commands: command_list
+0:1 - 0:2               editing_command
+0:1 - 0:2                 function: function
+0:1 - 0:2                   print_function
+0:1 - 0:2                     verb: function_verb `p`
+0:2 - 0:3               command_separator `;`
+0:3 - 0:4             closing: closing_brace `}`
+
+==================
+Blanks before a block closer form no empty command
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+{p; }
+
+------------------
+
+0:0 - 1:0   script
+0:0 - 1:0     command_list
+0:0 - 0:5       editing_command
+0:0 - 0:5         function: function
+0:0 - 0:5           block_function
+0:0 - 0:1             verb: function_verb `{`
+0:1 - 0:3             commands: command_list
+0:1 - 0:2               editing_command
+0:1 - 0:2                 function: function
+0:1 - 0:2                   print_function
+0:1 - 0:2                     verb: function_verb `p`
+0:2 - 0:3               command_separator `;`
+0:4 - 0:5             closing: closing_brace `}`
+0:5 - 1:0       command_separator
+0:5 - 0:6         `\n`
+
+==================
+An empty block requires a command separator
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+{}
+------------------
+
+0:0 - 0:2   script
+0:0 - 0:2     command_list
+0:0 - 0:2       editing_command
+0:0 - 0:2         function: function
+0:0 - 0:2           block_function
+0:0 - 0:1             verb: function_verb `{`
+0:1 - 0:1             commands: command_list
+0:1 - 0:1               issue: syntax_issue
+0:1 - 0:1                 nonconforming_syntax
+0:1 - 0:1                   missing_command_separator
+0:1 - 0:2             closing: closing_brace `}`
+
+==================
+A closing brace is a direct leaf
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+{p;}
+
+------------------
+
+0:0 - 1:0   script
+0:0 - 1:0     command_list
+0:0 - 0:4       editing_command
+0:0 - 0:4         function: function
+0:0 - 0:4           block_function
+0:0 - 0:1             verb: function_verb `{`
+0:1 - 0:3             commands: command_list
+0:1 - 0:2               editing_command
+0:1 - 0:2                 function: function
+0:1 - 0:2                   print_function
+0:1 - 0:2                     verb: function_verb `p`
+0:2 - 0:3               command_separator `;`
+0:3 - 0:4             closing: closing_brace `}`
+0:4 - 1:0       command_separator
+0:4 - 0:5         `\n`
+
+==================
+A block owns permitted trailing blanks before source end
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+{p;} 	
+------------------
+
+0:0 - 0:6   script
+0:0 - 0:6     command_list
+0:0 - 0:6       editing_command
+0:0 - 0:6         function: function
+0:0 - 0:6           block_function
+0:0 - 0:1             verb: function_verb `{`
+0:1 - 0:3             commands: command_list
+0:1 - 0:2               editing_command
+0:1 - 0:2                 function: function
+0:1 - 0:2                   print_function
+0:1 - 0:2                     verb: function_verb `p`
+0:2 - 0:3               command_separator `;`
+0:3 - 0:4             closing: closing_brace `}`
+
+==================
+A block owns permitted trailing blanks before newline
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+{p;}	 
+
+------------------
+
+0:0 - 1:0   script
+0:0 - 1:0     command_list
+0:0 - 0:6       editing_command
+0:0 - 0:6         function: function
+0:0 - 0:6           block_function
+0:0 - 0:1             verb: function_verb `{`
+0:1 - 0:3             commands: command_list
+0:1 - 0:2               editing_command
+0:1 - 0:2                 function: function
+0:1 - 0:2                   print_function
+0:1 - 0:2                     verb: function_verb `p`
+0:2 - 0:3               command_separator `;`
+0:3 - 0:4             closing: closing_brace `}`
+0:6 - 1:0       command_separator
+0:6 - 0:7         `\n`
+
+==================
+A block owns permitted trailing blanks before semicolon
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+{p;} 	;q
+
+------------------
+
+0:0 - 1:0   script
+0:0 - 1:0     command_list
+0:0 - 0:6       editing_command
+0:0 - 0:6         function: function
+0:0 - 0:6           block_function
+0:0 - 0:1             verb: function_verb `{`
+0:1 - 0:3             commands: command_list
+0:1 - 0:2               editing_command
+0:1 - 0:2                 function: function
+0:1 - 0:2                   print_function
+0:1 - 0:2                     verb: function_verb `p`
+0:2 - 0:3               command_separator `;`
+0:3 - 0:4             closing: closing_brace `}`
+0:6 - 0:7       command_separator `;`
+0:7 - 0:8       editing_command
+0:7 - 0:8         function: function
+0:7 - 0:8           quit_function
+0:7 - 0:8             verb: function_verb `q`
+0:8 - 1:0       command_separator
+0:8 - 0:9         `\n`
+
+==================
+A block owns permitted trailing blanks before nested block
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+{{p;}	 ;} 
+
+------------------
+
+0:0  - 1:0    script
+0:0  - 1:0      command_list
+0:0  - 0:10       editing_command
+0:0  - 0:10         function: function
+0:0  - 0:10           block_function
+0:0  - 0:1              verb: function_verb `{`
+0:1  - 0:8              commands: command_list
+0:1  - 0:7                editing_command
+0:1  - 0:7                  function: function
+0:1  - 0:7                    block_function
+0:1  - 0:2                      verb: function_verb `{`
+0:2  - 0:4                      commands: command_list
+0:2  - 0:3                        editing_command
+0:2  - 0:3                          function: function
+0:2  - 0:3                            print_function
+0:2  - 0:3                              verb: function_verb `p`
+0:3  - 0:4                        command_separator `;`
+0:4  - 0:5                      closing: closing_brace `}`
+0:7  - 0:8                command_separator `;`
+0:8  - 0:9              closing: closing_brace `}`
+0:10 - 1:0        command_separator
+0:10 - 0:11         `\n`
+
+==================
+Unexpected block command text excludes trailing blanks
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+{p;} 	q
+
+------------------
+
+0:0 - 1:0   script
+0:0 - 1:0     command_list
+0:0 - 0:7       editing_command
+0:0 - 0:6         function: function
+0:0 - 0:6           block_function
+0:0 - 0:1             verb: function_verb `{`
+0:1 - 0:3             commands: command_list
+0:1 - 0:2               editing_command
+0:1 - 0:2                 function: function
+0:1 - 0:2                   print_function
+0:1 - 0:2                     verb: function_verb `p`
+0:2 - 0:3               command_separator `;`
+0:3 - 0:4             closing: closing_brace `}`
+0:6 - 0:7         issue: syntax_issue
+0:6 - 0:7           nonconforming_syntax
+0:6 - 0:7             unexpected_command_text `q`
+0:7 - 1:0       command_separator
+0:7 - 0:8         `\n`
+
+==================
+Blanks before a closing brace do not form a command
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+{p; 	}
+
+------------------
+
+0:0 - 1:0   script
+0:0 - 1:0     command_list
+0:0 - 0:6       editing_command
+0:0 - 0:6         function: function
+0:0 - 0:6           block_function
+0:0 - 0:1             verb: function_verb `{`
+0:1 - 0:3             commands: command_list
+0:1 - 0:2               editing_command
+0:1 - 0:2                 function: function
+0:1 - 0:2                   print_function
+0:1 - 0:2                     verb: function_verb `p`
+0:2 - 0:3               command_separator `;`
+0:5 - 0:6             closing: closing_brace `}`
+0:6 - 1:0       command_separator
+0:6 - 0:7         `\n`
+
+==================
+Blanks before a closing brace after a missing separator do not form a command
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+{ 	}
+
+------------------
+
+0:0 - 1:0   script
+0:0 - 1:0     command_list
+0:0 - 0:4       editing_command
+0:0 - 0:4         function: function
+0:0 - 0:4           block_function
+0:0 - 0:1             verb: function_verb `{`
+0:1 - 0:1             commands: command_list
+0:1 - 0:1               issue: syntax_issue
+0:1 - 0:1                 nonconforming_syntax
+0:1 - 0:1                   missing_command_separator
+0:3 - 0:4             closing: closing_brace `}`
+0:4 - 1:0       command_separator
+0:4 - 0:5         `\n`
+
+==================
+Blanks before a missing closing brace do not form a command
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+{p; 	
+------------------
+
+0:0 - 0:5   script
+0:0 - 0:5     command_list
+0:0 - 0:5       editing_command
+0:0 - 0:5         function: function
+0:0 - 0:5           block_function
+0:0 - 0:1             verb: function_verb `{`
+0:1 - 0:3             commands: command_list
+0:1 - 0:2               editing_command
+0:1 - 0:2                 function: function
+0:1 - 0:2                   print_function
+0:1 - 0:2                     verb: function_verb `p`
+0:2 - 0:3               command_separator `;`
+0:5 - 0:5             issue: syntax_issue
+0:5 - 0:5               incomplete_syntax
+0:5 - 0:5                 missing_closing_brace
+
+==================
+Blanks before a unmatched closing brace at source start do not form a command
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+ 	}p
+
+------------------
+
+0:0 - 1:0   script
+0:0 - 1:0     command_list
+0:2 - 0:3       issue: syntax_issue
+0:2 - 0:3         nonconforming_syntax
+0:2 - 0:3           unmatched_closing_brace
+0:2 - 0:3             closing_brace `}`
+0:3 - 0:3       issue: syntax_issue
+0:3 - 0:3         nonconforming_syntax
+0:3 - 0:3           missing_command_separator
+0:3 - 0:4       editing_command
+0:3 - 0:4         function: function
+0:3 - 0:4           print_function
+0:3 - 0:4             verb: function_verb `p`
+0:4 - 1:0       command_separator
+0:4 - 0:5         `\n`
+
+==================
+Blanks before a unmatched closing brace after a separator do not form a command
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+p; 	}
+
+------------------
+
+0:0 - 1:0   script
+0:0 - 1:0     command_list
+0:0 - 0:1       editing_command
+0:0 - 0:1         function: function
+0:0 - 0:1           print_function
+0:0 - 0:1             verb: function_verb `p`
+0:1 - 0:2       command_separator `;`
+0:4 - 0:5       issue: syntax_issue
+0:4 - 0:5         nonconforming_syntax
+0:4 - 0:5           unmatched_closing_brace
+0:4 - 0:5             closing_brace `}`
+0:5 - 1:0       command_separator
+0:5 - 0:6         `\n`
+
+==================
+Blanks before a unmatched closing brace after a missing separator do not form a command
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+p 	}
+
+------------------
+
+0:0 - 1:0   script
+0:0 - 1:0     command_list
+0:0 - 0:1       editing_command
+0:0 - 0:1         function: function
+0:0 - 0:1           print_function
+0:0 - 0:1             verb: function_verb `p`
+0:1 - 0:1       issue: syntax_issue
+0:1 - 0:1         nonconforming_syntax
+0:1 - 0:1           missing_command_separator
+0:3 - 0:4       issue: syntax_issue
+0:3 - 0:4         nonconforming_syntax
+0:3 - 0:4           unmatched_closing_brace
+0:3 - 0:4             closing_brace `}`
+0:4 - 1:0       command_separator
+0:4 - 0:5         `\n`

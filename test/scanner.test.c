@@ -7,6 +7,16 @@
 
 #include "../common/scanner.h"
 
+enum {
+  SERIALIZATION_GUARD_BYTE = 0x5a,
+  SERIALIZATION_GROUP_DEPTH = 37,
+};
+
+static const struct {
+  int32_t character;
+  TSSymbol symbol;
+} encoding_issues[] = {{-1, INVALID_CHARACTER}, {0, NUL_CHARACTER}};
+
 #ifdef TREE_SITTER_REUSE_ALLOCATOR
 static size_t reuse_calloc_calls;
 static size_t reuse_free_calls;
@@ -129,7 +139,7 @@ static ScannerState make_regex_state(void) {
 #else
     .regex_position = REGEX_AFTER_ANCHOR,
 #endif
-    .regex_group_depth = UINT32_C(37),
+    .regex_group_depth = SERIALIZATION_GROUP_DEPTH,
   };
 }
 
@@ -138,13 +148,13 @@ static void serialize_state(
   char buffer[TREE_SITTER_SERIALIZATION_BUFFER_SIZE]
 ) {
   char guarded[TREE_SITTER_SERIALIZATION_BUFFER_SIZE + 2];
-  memset(guarded, 0x5a, sizeof(guarded));
+  memset(guarded, SERIALIZATION_GUARD_BYTE, sizeof(guarded));
   const unsigned length = sed_scanner_serialize(state, guarded + 1);
   assert(length == SCANNER_SERIALIZED_STATE_SIZE);
   assert(length <= TREE_SITTER_SERIALIZATION_BUFFER_SIZE);
-  assert(guarded[0] == 0x5a);
+  assert(guarded[0] == SERIALIZATION_GUARD_BYTE);
   for (size_t index = length + 1; index < sizeof(guarded); index++) {
-    assert(guarded[index] == 0x5a);
+    assert(guarded[index] == SERIALIZATION_GUARD_BYTE);
   }
   memcpy(buffer, guarded + 1, length);
 }
@@ -173,9 +183,9 @@ static void test_lifecycle(void) {
 
 static void test_serialization_round_trip(void) {
   static const uint32_t depths[] = {
-    UINT32_C(37),
-    UINT32_C(65535),
-    UINT32_C(65536),
+    SERIALIZATION_GROUP_DEPTH,
+    UINT16_MAX,
+    (uint32_t)UINT16_MAX + 1,
     UINT32_C(0x12345678),
     UINT32_MAX,
   };
@@ -279,17 +289,14 @@ static void test_encoding_issues_preserve_construct_state(void) {
       false},
     {MODE_TEXT, REGEX_OUTSIDE_BRACKET, REGEX_BRACKET_TERM_NONE, false},
   };
-  static const struct {
-    int32_t character;
-    TSSymbol symbol;
-  } issues[] = {{-1, INVALID_CHARACTER}, {0, NUL_CHARACTER}};
-
   for (
     size_t context = 0; context < sizeof(contexts) / sizeof(contexts[0]);
     context++
   ) {
     for (
-      size_t issue = 0; issue < sizeof(issues) / sizeof(issues[0]); issue++
+      size_t issue = 0;
+      issue < sizeof(encoding_issues) / sizeof(encoding_issues[0]);
+      issue++
     ) {
       ScannerState state = {
         .delimiter = '/',
@@ -301,23 +308,24 @@ static void test_encoding_issues_preserve_construct_state(void) {
         .regex_group_depth = 3,
       };
       ScannerState initial = state;
-      const int32_t source[] = {issues[issue].character, 'a'};
-      MockLexer mock = make_character_lexer(source, 2);
+      const int32_t source[] = {encoding_issues[issue].character, 'a'};
+      MockLexer mock =
+        make_character_lexer(source, sizeof(source) / sizeof(source[0]));
       bool valid_symbols[ERROR_SENTINEL + 1] = {false};
       valid_symbols[REGEX_CLASS_NAME] =
         contexts[context].term_state != REGEX_BRACKET_TERM_NONE;
 
       assert(!sed_scanner_scan(&state, &mock.lexer, valid_symbols));
       assert_same_state(&initial, &state);
-      mock = make_character_lexer(source, 2);
-      valid_symbols[issues[issue].symbol] = true;
+      mock = make_character_lexer(source, sizeof(source) / sizeof(source[0]));
+      valid_symbols[encoding_issues[issue].symbol] = true;
       assert(sed_scanner_scan(&state, &mock.lexer, valid_symbols));
-      assert(mock.lexer.result_symbol == issues[issue].symbol);
+      assert(mock.lexer.result_symbol == encoding_issues[issue].symbol);
       assert(mock.mark == 1);
       assert(source[mock.mark] == 'a');
       assert(state.mode == initial.mode);
       assert(state.delimiter == '/');
-      assert(state.regex_group_depth == 3);
+      assert(state.regex_group_depth == initial.regex_group_depth);
       assert(state.regex_in_interval == initial.regex_in_interval);
       if (is_regex_mode(state.mode)) {
         assert(state.regex_position == REGEX_AFTER_ATOM);
@@ -362,21 +370,20 @@ static void test_opaque_literals_split_at_encoding_issues(void) {
     {MODE_TRANSLATE_DESTINATION, TRANSLATE_LITERAL},
     {MODE_TEXT, TEXT_LITERAL},
   };
-  static const struct {
-    int32_t character;
-    TSSymbol symbol;
-  } issues[] = {{-1, INVALID_CHARACTER}, {0, NUL_CHARACTER}};
-
   for (
     size_t context = 0; context < sizeof(contexts) / sizeof(contexts[0]);
     context++
   ) {
     for (
-      size_t issue = 0; issue < sizeof(issues) / sizeof(issues[0]); issue++
+      size_t issue = 0;
+      issue < sizeof(encoding_issues) / sizeof(encoding_issues[0]);
+      issue++
     ) {
       ScannerState state = {.mode = contexts[context].mode, .delimiter = '/'};
-      const int32_t source[] = {'a', issues[issue].character, 'b', '\n'};
-      MockLexer mock = make_character_lexer(source, 4);
+      const int32_t source[] =
+        {'a', encoding_issues[issue].character, 'b', '\n'};
+      MockLexer mock =
+        make_character_lexer(source, sizeof(source) / sizeof(source[0]));
       bool valid_symbols[ERROR_SENTINEL + 1] = {false};
       valid_symbols[contexts[context].literal] = true;
       valid_symbols[INVALID_CHARACTER] = true;
@@ -384,10 +391,13 @@ static void test_opaque_literals_split_at_encoding_issues(void) {
 
       const TSSymbol expected[] = {
         contexts[context].literal,
-        issues[issue].symbol,
+        encoding_issues[issue].symbol,
         contexts[context].literal
       };
-      for (size_t token = 0; token < 3; token++) {
+      for (
+        size_t token = 0; token < sizeof(expected) / sizeof(expected[0]);
+        token++
+      ) {
         assert(sed_scanner_scan(&state, &mock.lexer, valid_symbols));
         assert(mock.lexer.result_symbol == expected[token]);
         assert(mock.mark == token + 1);
@@ -407,18 +417,16 @@ static void test_escape_prefixes_stop_before_encoding_issues(void) {
     MODE_TRANSLATE_DESTINATION,
     MODE_TEXT
   };
-  static const struct {
-    int32_t character;
-    TSSymbol symbol;
-  } issues[] = {{-1, INVALID_CHARACTER}, {0, NUL_CHARACTER}};
-
   for (size_t mode = 0; mode < sizeof(modes) / sizeof(modes[0]); mode++) {
     for (
-      size_t issue = 0; issue < sizeof(issues) / sizeof(issues[0]); issue++
+      size_t issue = 0;
+      issue < sizeof(encoding_issues) / sizeof(encoding_issues[0]);
+      issue++
     ) {
       ScannerState state = {.mode = modes[mode], .delimiter = '/'};
-      const int32_t source[] = {'\\', issues[issue].character, 'a'};
-      MockLexer mock = make_character_lexer(source, 3);
+      const int32_t source[] = {'\\', encoding_issues[issue].character, 'a'};
+      MockLexer mock =
+        make_character_lexer(source, sizeof(source) / sizeof(source[0]));
       bool valid_symbols[ERROR_SENTINEL + 1] = {false};
       valid_symbols[ESCAPE_PREFIX] = true;
       valid_symbols[INVALID_CHARACTER] = true;
@@ -427,10 +435,10 @@ static void test_escape_prefixes_stop_before_encoding_issues(void) {
       assert(sed_scanner_scan(&state, &mock.lexer, valid_symbols));
       assert(mock.lexer.result_symbol == ESCAPE_PREFIX);
       assert(mock.mark == 1);
-      assert(mock.lexer.lookahead == issues[issue].character);
+      assert(mock.lexer.lookahead == encoding_issues[issue].character);
       mock_resume_at_token_end(&mock);
       assert(sed_scanner_scan(&state, &mock.lexer, valid_symbols));
-      assert(mock.lexer.result_symbol == issues[issue].symbol);
+      assert(mock.lexer.result_symbol == encoding_issues[issue].symbol);
       assert(mock.mark == 2);
       assert(source[mock.mark] == 'a');
     }
@@ -439,20 +447,28 @@ static void test_escape_prefixes_stop_before_encoding_issues(void) {
 
 static void test_unexpected_text_after_failed_blank_recovery(void) {
   const int32_t source[] = {' ', 'a', -1, 'b', ';', 'q'};
-  MockLexer mock = make_character_lexer(source, 6);
+  MockLexer mock =
+    make_character_lexer(source, sizeof(source) / sizeof(source[0]));
   ScannerState state = {0};
   bool valid_symbols[ERROR_SENTINEL + 1] = {false};
   valid_symbols[MISSING_ADDRESS_SEPARATOR_MARKER] = true;
   valid_symbols[UNEXPECTED_COMMAND_TEXT] = true;
   valid_symbols[INVALID_CHARACTER] = true;
 
-  const TSSymbol expected[] =
-    {UNEXPECTED_COMMAND_TEXT, INVALID_CHARACTER, UNEXPECTED_COMMAND_TEXT};
-  const size_t marks[] = {2, 3, 4};
-  for (size_t token = 0; token < 3; token++) {
+  const struct {
+    TSSymbol symbol;
+    size_t mark;
+  } expected[] = {
+    {UNEXPECTED_COMMAND_TEXT, 2},
+    {INVALID_CHARACTER, 3},
+    {UNEXPECTED_COMMAND_TEXT, 4},
+  };
+  for (
+    size_t token = 0; token < sizeof(expected) / sizeof(expected[0]); token++
+  ) {
     assert(sed_scanner_scan(&state, &mock.lexer, valid_symbols));
-    assert(mock.lexer.result_symbol == expected[token]);
-    assert(mock.mark == marks[token]);
+    assert(mock.lexer.result_symbol == expected[token].symbol);
+    assert(mock.mark == expected[token].mark);
     mock_resume_at_token_end(&mock);
   }
   assert(!sed_scanner_scan(&state, &mock.lexer, valid_symbols));

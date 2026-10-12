@@ -19,6 +19,10 @@ import {
   root,
 } from "../scripts/tree-sitter.js";
 
+const commandTimeoutMs = 60_000;
+const archiveTimeoutMs = 120_000;
+const archiveOutputLimitBytes = 64 * 1024 * 1024;
+
 const configuration = JSON.parse(
   readFileSync(join(root, "tree-sitter.json"), "utf8"),
 );
@@ -56,7 +60,7 @@ test(`${language}: generated checks reject stale and missing files without rewri
         {
           cwd: directory,
           encoding: "utf8",
-          timeout: 60_000,
+          timeout: commandTimeoutMs,
           killSignal: "SIGKILL",
         },
       );
@@ -68,11 +72,16 @@ test(`${language}: generated checks reject stale and missing files without rewri
     assert.equal(clean.status, 0, clean.stdout + clean.stderr);
     const changedFiles = [];
     const missingFiles = [];
+    const tokenHeader = join("common", "tokens.h");
+    for (const path of [
+      tokenHeader,
+      ...grammars.map(({ path }) => join(path, "src", "node-types.json")),
+    ]) {
+      const changed = `${readFileSync(join(directory, path), "utf8")}\n`;
+      writeFileSync(join(directory, path), changed);
+      changedFiles.push([path, changed]);
+    }
     for (const { path } of grammars) {
-      const nodeTypes = join(path, "src", "node-types.json");
-      const changed = `${readFileSync(join(directory, nodeTypes), "utf8")}\n`;
-      writeFileSync(join(directory, nodeTypes), changed);
-      changedFiles.push([nodeTypes, changed]);
       const parser = join(path, "src", "parser.c");
       rmSync(join(directory, parser));
       missingFiles.push(parser);
@@ -88,6 +97,12 @@ test(`${language}: generated checks reject stale and missing files without rewri
       assert.ok(stale.stderr.includes(path), stale.stderr);
       assert.equal(existsSync(join(directory, path)), false);
     }
+
+    rmSync(join(directory, tokenHeader));
+    const missing = check();
+    assert.equal(missing.status, 1, missing.stdout + missing.stderr);
+    assert.ok(missing.stderr.includes(tokenHeader), missing.stderr);
+    assert.equal(existsSync(join(directory, tokenHeader)), false);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -163,7 +178,7 @@ syncBuiltinESMExports();
         ["--import", pathToFileURL(preload).href, script, "fuzz-all"],
         {
           encoding: "utf8",
-          timeout: 60_000,
+          timeout: commandTimeoutMs,
           killSignal: "SIGKILL",
         },
       );
@@ -208,8 +223,8 @@ function run(command, arguments_, cwd = root) {
   const result = spawnSync(command, arguments_, {
     cwd,
     encoding: "utf8",
-    timeout: 120000,
-    maxBuffer: 64 * 1024 * 1024,
+    timeout: archiveTimeoutMs,
+    maxBuffer: archiveOutputLimitBytes,
     killSignal: "SIGKILL",
   });
   assert.ifError(result.error);

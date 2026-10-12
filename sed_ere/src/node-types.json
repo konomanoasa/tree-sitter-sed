@@ -1322,10 +1322,6 @@
           "named": true
         },
         {
-          "type": "invalid_interval_close",
-          "named": true
-        },
-        {
           "type": "missing_bracket_list",
           "named": true
         },
@@ -1504,11 +1500,6 @@
   },
   {
     "type": "invalid_interval_character",
-    "named": true,
-    "fields": {}
-  },
-  {
-    "type": "invalid_interval_close",
     "named": true,
     "fields": {}
   },
@@ -2788,10 +2779,6 @@
         },
         {
           "type": "invalid_interval_character",
-          "named": true
-        },
-        {
-          "type": "invalid_interval_close",
           "named": true
         },
         {

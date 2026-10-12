@@ -28,4 +28,5 @@ fn main() {
       .compile(library);
   }
   println!("cargo::rerun-if-changed=common/scanner.h");
+  println!("cargo::rerun-if-changed=common/tokens.h");
 }

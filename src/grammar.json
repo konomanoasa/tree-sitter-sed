@@ -699,19 +699,6 @@
                     "named": true,
                     "value": "syntax_issue"
                   }
-                },
-                {
-                  "type": "FIELD",
-                  "name": "issue",
-                  "content": {
-                    "type": "ALIAS",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "_missing_separator_before_unmatched_brace_issue"
-                    },
-                    "named": true,
-                    "value": "syntax_issue"
-                  }
                 }
               ]
             }
@@ -10520,7 +10507,7 @@
     },
     "_escaped_nul_character_reason": {
       "type": "SYMBOL",
-      "name": "_escaped_nul_character"
+      "name": "_single_nul_character"
     },
     "_escaped_nul_character_outcome": {
       "type": "ALIAS",
@@ -10542,7 +10529,7 @@
     },
     "_escaped_invalid_regular_expression_character_reason": {
       "type": "SYMBOL",
-      "name": "_escaped_nul_character"
+      "name": "_single_nul_character"
     },
     "_escaped_invalid_regular_expression_character_outcome": {
       "type": "ALIAS",
@@ -11934,7 +11921,7 @@
         },
         {
           "type": "SYMBOL",
-          "name": "_nul_character"
+          "name": "_single_nul_character"
         }
       ]
     },
@@ -12398,17 +12385,8 @@
       "value": "unspecified_syntax"
     },
     "_invalid_substitution_flag_reason": {
-      "type": "CHOICE",
-      "members": [
-        {
-          "type": "SYMBOL",
-          "name": "_invalid_substitution_flag"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "_nul_character"
-        }
-      ]
+      "type": "SYMBOL",
+      "name": "_invalid_substitution_flag"
     },
     "_invalid_substitution_flag_outcome": {
       "type": "ALIAS",
@@ -12440,7 +12418,7 @@
         },
         {
           "type": "SYMBOL",
-          "name": "_nul_character"
+          "name": "_single_nul_character"
         }
       ]
     },
@@ -13261,7 +13239,7 @@
     },
     {
       "type": "SYMBOL",
-      "name": "_escaped_nul_character"
+      "name": "_single_nul_character"
     },
     {
       "type": "SYMBOL",

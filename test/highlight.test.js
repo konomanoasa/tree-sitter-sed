@@ -17,6 +17,10 @@ import {
   root,
 } from "../scripts/tree-sitter.js";
 
+const highlightTimeoutMs = 60_000;
+const firstCaptureColor = 17;
+const newlineByte = 0x0a;
+
 function decodeEntities(text) {
   return text
     .replaceAll("&lt;", "<")
@@ -67,7 +71,7 @@ function createHighlighter({ directory, root, run, captureNames }) {
     JSON.stringify({
       "parser-directories": [parserDirectory],
       theme: Object.fromEntries(
-        captureNames.map((name, index) => [name, index + 17]),
+        captureNames.map((name, index) => [name, index + firstCaptureColor]),
       ),
     }),
   );
@@ -126,7 +130,7 @@ function assertCaptures(source, actual, ranges) {
     previousEnd = end;
   }
   for (const [index, byte] of bytes.entries()) {
-    if (byte !== 10)
+    if (byte !== newlineByte)
       assert.equal(
         actual[index],
         expected[index],
@@ -184,7 +188,7 @@ after(() => {
 
 function assertCommand(arguments_) {
   const result = runner.run(arguments_, {
-    timeout: 60_000,
+    timeout: highlightTimeoutMs,
   });
   assert.ifError(result.error);
   assert.equal(result.status, 0, result.stdout + result.stderr);
@@ -243,7 +247,7 @@ const lineOperandFragments = [
   {
     name: "middle issue",
     nulSource: "a\u0000b",
-    invalidSource: [97, 255, 98],
+    invalidSource: Buffer.from("a\xffb", "latin1"),
     ranges: [
       [0, 1],
       [2, 3],
@@ -252,19 +256,19 @@ const lineOperandFragments = [
   {
     name: "leading issue",
     nulSource: "\u0000ab",
-    invalidSource: [255, 97, 98],
+    invalidSource: Buffer.from("\xffab", "latin1"),
     ranges: [[1, 3]],
   },
   {
     name: "trailing issue",
     nulSource: "ab\u0000",
-    invalidSource: [97, 98, 255],
+    invalidSource: Buffer.from("ab\xff", "latin1"),
     ranges: [[0, 2]],
   },
   {
     name: "consecutive issues",
     nulSource: "a\u0000\u0000b",
-    invalidSource: [97, 255, 255, 98],
+    invalidSource: Buffer.from("a\xff\xffb", "latin1"),
     ranges: [
       [0, 1],
       [3, 4],
@@ -273,7 +277,7 @@ const lineOperandFragments = [
   {
     name: "separated issues",
     nulSource: "a\u0000b\u0000c",
-    invalidSource: [97, 255, 98, 255, 99],
+    invalidSource: Buffer.from("a\xffb\xffc", "latin1"),
     ranges: [
       [0, 1],
       [2, 3],
@@ -283,13 +287,13 @@ const lineOperandFragments = [
   {
     name: "only issues",
     nulSource: "\u0000\u0000",
-    invalidSource: [255, 255],
+    invalidSource: Buffer.from([0xff, 0xff]),
     ranges: [],
   },
   {
     name: "whitespace beside an issue",
     nulSource: "a \u0000\t b",
-    invalidSource: [97, 32, 255, 9, 32, 98],
+    invalidSource: Buffer.from("a \xff\t b", "latin1"),
     ranges: [
       [0, 2],
       [3, 6],
@@ -304,9 +308,11 @@ const lineOperandFragments = [
   {
     name: "Unicode and literal replacement characters beside an issue",
     nulSource: "é\ufffd\u0000\ufffd😀",
-    invalidSource: [
-      195, 169, 239, 191, 189, 255, 239, 191, 189, 240, 159, 152, 128,
-    ],
+    invalidSource: Buffer.concat([
+      Buffer.from("é\ufffd"),
+      Buffer.from([0xff]),
+      Buffer.from("\ufffd😀"),
+    ]),
     ranges: [
       [0, 5],
       [6, 13],
@@ -317,7 +323,7 @@ const lineOperandFragments = [
 const invalidEncodingCases = [
   {
     name: "invalid encoding splits comment text",
-    source: Buffer.from([35, 97, 255, 98, 10]),
+    source: Buffer.from("#a\xffb\n", "latin1"),
     capture: "comment",
     ranges: [
       [0, 0, 0, 1],
@@ -327,7 +333,7 @@ const invalidEncodingCases = [
   },
   {
     name: "invalid encoding splits replacement literals",
-    source: Buffer.from([115, 47, 97, 47, 120, 255, 121, 47, 10]),
+    source: Buffer.from("s/a/x\xffy/\n", "latin1"),
     capture: "string",
     ranges: [
       [0, 4, 0, 5],
@@ -336,7 +342,7 @@ const invalidEncodingCases = [
   },
   {
     name: "invalid encoding splits translation literals",
-    source: Buffer.from([121, 47, 120, 255, 121, 47, 47, 10]),
+    source: Buffer.from("y/x\xffy//\n", "latin1"),
     capture: "string",
     ranges: [
       [0, 2, 0, 3],
@@ -345,7 +351,7 @@ const invalidEncodingCases = [
   },
   {
     name: "invalid encoding splits text literals",
-    source: Buffer.from([97, 92, 10, 120, 255, 121, 10]),
+    source: Buffer.from("a\\\nx\xffy\n", "latin1"),
     capture: "string",
     ranges: [
       [1, 0, 1, 1],
@@ -354,25 +360,25 @@ const invalidEncodingCases = [
   },
   {
     name: "invalid encoding does not become a replacement escape",
-    source: Buffer.from([115, 47, 97, 47, 92, 255, 47, 10]),
+    source: Buffer.from("s/a/\\\xff/\n", "latin1"),
     capture: "string.escape",
     ranges: [],
   },
   {
     name: "invalid encoding does not become a translation escape",
-    source: Buffer.from([121, 47, 92, 255, 47, 47, 10]),
+    source: Buffer.from("y/\\\xff//\n", "latin1"),
     capture: "string.escape",
     ranges: [],
   },
   {
     name: "invalid encoding does not become a text escape",
-    source: Buffer.from([97, 92, 10, 92, 255, 10]),
+    source: Buffer.from("a\\\n\\\xff\n", "latin1"),
     capture: "string.escape",
     ranges: [],
   },
   {
     name: "invalid UTF-8 after a backslash",
-    source: Buffer.from([47, 92, 255, 47, 112, 10]),
+    source: Buffer.from("/\\\xff/p\n", "latin1"),
     capture: "string.escape",
     ranges: [],
   },

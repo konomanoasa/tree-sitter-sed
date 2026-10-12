@@ -9,7 +9,7 @@
       "file-types": ["sed"],
       "injection-regex": "^sed$",
       "highlights": "queries/highlights.scm",
-      "external-files": ["common/scanner.h"]
+      "external-files": ["common/scanner.h", "common/tokens.h"]
     },
     {
       "name": "sed_ere",
@@ -18,7 +18,7 @@
       "path": "sed_ere",
       "injection-regex": "^sed_ere$",
       "highlights": "sed_ere/queries/highlights.scm",
-      "external-files": ["common/scanner.h"]
+      "external-files": ["common/scanner.h", "common/tokens.h"]
     }
   ],
   "metadata": {

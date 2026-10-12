@@ -4,195 +4,12 @@
 #ifndef SED_REGEX_EXTENDED
 #error "SED_REGEX_EXTENDED must be defined before including scanner.h"
 #endif
+#include "tokens.h"
 #include "tree_sitter/alloc.h"
 #include "tree_sitter/parser.h"
 
 #include <stdbool.h>
 #include <stdint.h>
-
-enum TokenType {
-  REGEX_ADDRESS_START,
-  ESCAPED_REGEX_ADDRESS_START,
-  REGEX_ADDRESS_END,
-  SUBSTITUTE_START,
-  SUBSTITUTE_MIDDLE,
-  SUBSTITUTE_END,
-  TRANSLATE_START,
-  TRANSLATE_MIDDLE,
-  TRANSLATE_END,
-  REGEX_LITERAL,
-  INVALID_CHARACTER,
-  NUL_CHARACTER,
-  ESCAPED_NUL_CHARACTER,
-  REGEX_BEGINNING_ANCHOR,
-  REGEX_END_ANCHOR,
-  REGEX_PERIOD,
-  REGEX_QUOTED_ESCAPE,
-  ESCAPE_PREFIX,
-  REGEX_NEWLINE_ESCAPE,
-  REGEX_ESCAPED_DELIMITER,
-  REGEX_SPECIAL_ESCAPED_DELIMITER,
-  REGEX_GROUP_OPEN,
-  REGEX_GROUP_CLOSE,
-  REGEX_UNCLOSED_GROUP,
-#if !SED_REGEX_EXTENDED
-  REGEX_UNMATCHED_GROUP_CLOSE,
-  REGEX_BRE_VERTICAL_LINE_ESCAPE,
-  REGEX_BRE_QUESTION_MARK_ESCAPE,
-  REGEX_BRE_PLUS_ESCAPE,
-  REGEX_BRE_SUBEXPRESSION_CARET,
-  REGEX_BRE_SUBEXPRESSION_DOLLAR,
-  REGEX_UNMATCHED_INTERVAL_CLOSE,
-#endif
-#if SED_REGEX_EXTENDED
-  REGEX_ALTERNATION_OPERATOR,
-#endif
-  REGEX_LEADING_DUPLICATION_MARKER,
-  REGEX_ADJACENT_DUPLICATION_MARKER,
-  REGEX_ZERO_OR_MORE,
-#if SED_REGEX_EXTENDED
-  REGEX_ONE_OR_MORE,
-  REGEX_ZERO_OR_ONE,
-  REGEX_REPETITION_MODIFIER,
-#endif
-  REGEX_INTERVAL_OPEN,
-  REGEX_DUP_COUNT,
-  REGEX_INTERVAL_ESCAPED_COUNT,
-  REGEX_INTERVAL_ESCAPED_SEPARATOR,
-  REGEX_INTERVAL_SEPARATOR,
-  REGEX_INTERVAL_CLOSE,
-#if !SED_REGEX_EXTENDED
-  REGEX_BACKREFERENCE,
-#endif
-  REGEX_INVALID_INTERVAL,
-  REGEX_MISSING_INTERVAL_MINIMUM,
-  REGEX_INCOMPLETE_INTERVAL_MINIMUM,
-  REGEX_MISSING_INTERVAL_CLOSE,
-  REGEX_INVALID_INTERVAL_CLOSE,
-  REGEX_INCOMPLETE_INTERVAL_CLOSE,
-  REGEX_NONPORTABLE_ESCAPE,
-  REGEX_INCOMPLETE_ESCAPE,
-  REGEX_BRACKET_OPEN,
-  REGEX_BRACKET_CLOSE,
-  REGEX_BRACKET_LITERAL,
-  REGEX_BRACKET_NEGATION,
-  REGEX_BRACKET_HYPHEN,
-  REGEX_BRACKET_RANGE_END_HYPHEN,
-  REGEX_BRACKET_TRAILING_HYPHEN,
-  REGEX_OPEN_COLON,
-  REGEX_CLASS_NAME,
-  REGEX_INVALID_CLASS_NAME,
-  REGEX_COLON_CLOSE,
-  REGEX_OPEN_DOT,
-  REGEX_COLL_ELEM_SINGLE,
-  REGEX_COLL_ELEM_MULTI,
-  REGEX_META_CHAR,
-  REGEX_INCOMPLETE_META_CHAR,
-  REGEX_DOT_CLOSE,
-  REGEX_OPEN_EQUAL,
-  REGEX_EQUAL_CLOSE,
-  REGEX_MISSING_BRACKET_TERM_CLOSE,
-  REGEX_MISSING_BRACKET_TERM_PAYLOAD,
-  REGEX_INCOMPLETE_BRACKET_TERM_PAYLOAD,
-  REGEX_SHARED_RANGE_ENDPOINT,
-  AMBIGUOUS_BRACKET_EXPRESSION_MARKER,
-  MISSING_BRACKET_LIST_MARKER,
-  UNCLOSED_BRACKET_EXPRESSION_MARKER,
-  NONPORTABLE_RANGE_START_MARKER,
-  NONPORTABLE_RANGE_END_MARKER,
-  REGEX_UNTERMINATED_ADDRESS,
-  REGEX_UNTERMINATED_SUBSTITUTE,
-  REPLACEMENT_LITERAL,
-  REPLACEMENT_MATCH_REFERENCE,
-  REPLACEMENT_BACKREFERENCE,
-  REPLACEMENT_ESCAPED_DELIMITER,
-  REPLACEMENT_AMPERSAND_ESCAPED_DELIMITER,
-  REPLACEMENT_ESCAPE_SEQUENCE,
-  REPLACEMENT_NONPORTABLE_ESCAPE,
-  REPLACEMENT_ESCAPED_NEWLINE,
-  REPLACEMENT_INCOMPLETE_ESCAPE,
-  REPLACEMENT_UNTERMINATED,
-  TRANSLATE_LITERAL,
-  TRANSLATE_ESCAPED_DELIMITER,
-  TRANSLATE_ESCAPE,
-  TRANSLATE_NONPORTABLE_ESCAPE,
-  TRANSLATE_INCOMPLETE_ESCAPE,
-  TRANSLATE_UNTERMINATED_SOURCE,
-  TRANSLATE_UNTERMINATED_DESTINATION,
-  INVALID_SUBSTITUTION_FLAG,
-  FLAG_AFTER_WRITE_MARKER,
-  WRITE_TERMINAL_SEPARATOR,
-  WRITE_BLOCK_TERMINAL_SEPARATOR,
-  WRITE_FOLLOWING_SEPARATOR,
-  TEXT_COMMAND_START,
-  TEXT_INCOMPLETE_INTRODUCER,
-  TEXT_LITERAL,
-  TEXT_BACKSLASH_ESCAPE,
-  TEXT_ESCAPED_NEWLINE,
-  TEXT_UNSPECIFIED_ESCAPE,
-  TEXT_LINE_END,
-  TEXT_EOF,
-  DEFAULT_OUTPUT_SUPPRESSION,
-  COMMENT_TEXT,
-  FILE_ARGUMENT,
-  SUBSTITUTION_WFILE_ARGUMENT,
-  SUBSTITUTION_WFILE_CONTINUATION,
-  LINE_WORD,
-  LABEL_START,
-  LONG_LABEL_START,
-  LABEL_LITERAL,
-  NONPORTABLE_LABEL_CHARACTER,
-  ARGUMENT_SEPARATOR,
-  BRACE_LEADING_BLANKS,
-  BLOCK_TRAILING_BLANKS,
-  EMPTY_COMMAND_MARKER,
-  RESERVED_UNKNOWN_FUNCTION_TOKEN,
-  REGEX_INCOMPLETE_GROUP,
-  REGEX_INCOMPLETE_BRACKET_TERM,
-  REGEX_INCOMPLETE_INTERVAL,
-  REGEX_FORBIDDEN_NEWLINE_ESCAPE,
-  REGEX_LINE_UNTERMINATED_ADDRESS,
-  REGEX_LINE_UNTERMINATED_SUBSTITUTE,
-  REPLACEMENT_LINE_UNTERMINATED,
-  TRANSLATE_LINE_UNTERMINATED_SOURCE,
-  TRANSLATE_LINE_UNTERMINATED_DESTINATION,
-  BLANKS_AROUND_ADDRESS_SEPARATOR,
-  OMITTED_ADDRESS_MARKER,
-  INCOMPLETE_OMITTED_ADDRESS_MARKER,
-  OMITTED_FIRST_ADDRESS_MARKER,
-#if SED_REGEX_EXTENDED
-  EMPTY_ALTERNATIVE_MARKER,
-#endif
-  MISSING_FUNCTION_MARKER,
-  MISSING_LABEL_MARKER,
-  MISSING_RFILE_MARKER,
-  MISSING_WFILE_MARKER,
-  OMITTED_FILE_SEPARATOR_MARKER,
-  INCOMPLETE_OMITTED_FILE_SEPARATOR_MARKER,
-  MISSING_TEXT_INTRODUCER_MARKER,
-  MISSING_TEXT_MARKER,
-  MISSING_COMMAND_SEPARATOR_MARKER,
-  MISSING_ADDRESS_SEPARATOR_MARKER,
-  MISSING_CLOSING_BRACE_MARKER,
-  MISSING_OPENING_DELIMITER_MARKER,
-  MISSING_SEPARATOR_BEFORE_UNMATCHED_BRACE_MARKER,
-  MISSING_SEPARATOR_AFTER_UNMATCHED_BRACE_MARKER,
-  NONCONFORMING_MISSING_FUNCTION_MARKER,
-  NONCONFORMING_MISSING_LABEL_MARKER,
-  NONCONFORMING_MISSING_RFILE_MARKER,
-  NONCONFORMING_MISSING_WFILE_MARKER,
-  NONCONFORMING_MISSING_TEXT_INTRODUCER_MARKER,
-  NONCONFORMING_MISSING_OPENING_DELIMITER_MARKER,
-  INCOMPLETE_BRACKET_LIST_MARKER,
-  INCOMPLETE_BRACKET_EXPRESSION_MARKER,
-#if SED_REGEX_EXTENDED
-  INCOMPLETE_ALTERNATIVE_MARKER,
-#endif
-  INCOMPLETE_COMMAND_SEPARATOR_MARKER,
-  UNEXPECTED_COMMAND_TEXT,
-  INCOMPLETE_COMMAND_TEXT,
-  ERROR_SENTINEL,
-};
 
 enum ScannerMode {
   MODE_NONE,
@@ -281,8 +98,7 @@ static bool is_regex_mode(enum ScannerMode mode) {
 }
 
 static bool regex_at_branch_start(const ScannerState *state) {
-  return state->regex_position ==
-    REGEX_AT_BRANCH_START ||
+  return state->regex_position == REGEX_AT_BRANCH_START ||
 #if SED_REGEX_EXTENDED
     state->regex_position == REGEX_AFTER_ALTERNATION;
 #else
@@ -384,8 +200,7 @@ sed_scanner_deserialize(void *payload, const char *buffer, unsigned length) {
 
 static bool source_character_is_decoded(int32_t character) {
   const uint32_t code_point = (uint32_t)character;
-  return code_point <=
-    UINT32_C(0x10ffff) &&
+  return code_point <= UINT32_C(0x10ffff) &&
     !(code_point >= UINT32_C(0xd800) && code_point <= UINT32_C(0xdfff));
 }
 
@@ -393,14 +208,9 @@ static bool source_character_is_valid(int32_t character) {
   return character != 0 && source_character_is_decoded(character);
 }
 
-static TSSymbol source_character_issue_symbol(int32_t character) {
-  return character == 0 ? NUL_CHARACTER : INVALID_CHARACTER;
-}
-
 static bool delimiter_character_is_valid(int32_t character) {
   return source_character_is_valid(character) &&
-    character !=
-    '\\' &&
+    character != '\\' &&
     character != '\n';
 }
 
@@ -477,18 +287,7 @@ static bool consume_as(
   if (!emit_symbol(valid_symbols, candidate, symbol)) {
     return false;
   }
-  do {
-    consume(lexer);
-  } while (
-    !lexer->eof(lexer) &&
-    ((candidate ==
-       INVALID_CHARACTER &&
-       !source_character_is_decoded(lexer->lookahead)) ||
-      (candidate == NUL_CHARACTER && lexer->lookahead == 0))
-  );
-  if (candidate == INVALID_CHARACTER && !lexer->eof(lexer)) {
-    advance(lexer);
-  }
+  consume(lexer);
   return true;
 }
 
@@ -497,14 +296,27 @@ static bool consume_invalid_character(
   const bool *valid_symbols,
   TSSymbol *symbol
 ) {
-  return consume_as(
-    lexer,
-    valid_symbols,
-    lexer->lookahead == 0 && valid_symbols[ESCAPED_NUL_CHARACTER]
-      ? ESCAPED_NUL_CHARACTER
-      : source_character_issue_symbol(lexer->lookahead),
-    symbol
+  const bool nul = lexer->lookahead == 0;
+  TSSymbol candidate = INVALID_CHARACTER;
+  if (nul) {
+    candidate = valid_symbols[SINGLE_NUL_CHARACTER] ? SINGLE_NUL_CHARACTER
+                                                    : NUL_CHARACTER;
+  }
+  if (!emit_symbol(valid_symbols, candidate, symbol)) {
+    return false;
+  }
+  do {
+    consume(lexer);
+  } while (
+    candidate != SINGLE_NUL_CHARACTER &&
+    !lexer->eof(lexer) &&
+    (nul ? lexer->lookahead == 0
+         : !source_character_is_decoded(lexer->lookahead))
   );
+  if (!nul && !lexer->eof(lexer)) {
+    advance(lexer);
+  }
+  return true;
 }
 
 static bool end_mode(
@@ -526,48 +338,72 @@ dangling_escape_symbol(const TSLexer *lexer, TSSymbol at_end_of_source) {
                                                      : ESCAPE_PREFIX;
 }
 
+static const struct {
+  TSSymbol closing;
+  enum ScannerMode next_mode;
+  TSSymbol unterminated_at_end_of_source;
+  TSSymbol unterminated_at_line_end;
+} delimited_modes[] = {
+  [MODE_NONE] = {ERROR_SENTINEL, MODE_NONE, ERROR_SENTINEL, ERROR_SENTINEL},
+  [MODE_REGEX_ADDRESS] =
+    {REGEX_ADDRESS_END,
+      MODE_NONE,
+      REGEX_UNTERMINATED_ADDRESS,
+      REGEX_LINE_UNTERMINATED_ADDRESS},
+  [MODE_SUBSTITUTE_PATTERN] =
+    {SUBSTITUTE_MIDDLE,
+      MODE_SUBSTITUTE_REPLACEMENT,
+      REGEX_UNTERMINATED_SUBSTITUTE,
+      REGEX_LINE_UNTERMINATED_SUBSTITUTE},
+  [MODE_SUBSTITUTE_REPLACEMENT] =
+    {SUBSTITUTE_END,
+      MODE_NONE,
+      REPLACEMENT_UNTERMINATED,
+      REPLACEMENT_LINE_UNTERMINATED},
+  [MODE_TRANSLATE_SOURCE] =
+    {TRANSLATE_MIDDLE,
+      MODE_TRANSLATE_DESTINATION,
+      TRANSLATE_UNTERMINATED_SOURCE,
+      TRANSLATE_LINE_UNTERMINATED_SOURCE},
+  [MODE_TRANSLATE_DESTINATION] =
+    {TRANSLATE_END,
+      MODE_NONE,
+      TRANSLATE_UNTERMINATED_DESTINATION,
+      TRANSLATE_LINE_UNTERMINATED_DESTINATION},
+  [MODE_TEXT] = {ERROR_SENTINEL, MODE_NONE, ERROR_SENTINEL, ERROR_SENTINEL},
+};
+
 static bool scan_active_mode_delimiter(
   TSLexer *lexer,
   ScannerState *state,
   const bool *valid_symbols,
   TSSymbol *symbol
 ) {
-  TSSymbol candidate;
-  enum ScannerMode next_mode;
-
-  switch (state->mode) {
-  case MODE_REGEX_ADDRESS:
-    candidate = REGEX_ADDRESS_END;
-    next_mode = MODE_NONE;
-    break;
-  case MODE_SUBSTITUTE_PATTERN:
-    candidate = SUBSTITUTE_MIDDLE;
-    next_mode = MODE_SUBSTITUTE_REPLACEMENT;
-    break;
-  case MODE_SUBSTITUTE_REPLACEMENT:
-    candidate = SUBSTITUTE_END;
-    next_mode = MODE_NONE;
-    break;
-  case MODE_TRANSLATE_SOURCE:
-    candidate = TRANSLATE_MIDDLE;
-    next_mode = MODE_TRANSLATE_DESTINATION;
-    break;
-  case MODE_TRANSLATE_DESTINATION:
-    candidate = TRANSLATE_END;
-    next_mode = MODE_NONE;
-    break;
-  case MODE_NONE:
-  case MODE_TEXT:
-    return false;
-  }
-
+  const TSSymbol closing = delimited_modes[state->mode].closing;
+  const enum ScannerMode next_mode = delimited_modes[state->mode].next_mode;
   if (next_mode == MODE_NONE) {
     reset_state(state);
   } else {
     state->mode = next_mode;
     reset_mode_tracking(state);
   }
-  return consume_as(lexer, valid_symbols, candidate, symbol);
+  return consume_as(lexer, valid_symbols, closing, symbol);
+}
+
+static bool end_unterminated_mode(
+  TSLexer *lexer,
+  ScannerState *state,
+  const bool *valid_symbols,
+  TSSymbol *symbol
+) {
+  return end_mode(
+    state,
+    valid_symbols,
+    lexer->eof(lexer)
+      ? delimited_modes[state->mode].unterminated_at_end_of_source
+      : delimited_modes[state->mode].unterminated_at_line_end,
+    symbol
+  );
 }
 
 static bool scan_text_command_start(TSLexer *lexer, ScannerState *state) {
@@ -588,8 +424,7 @@ static bool scan_line_rest(TSLexer *lexer, bool ends_at_semicolon) {
   while (
     !lexer->eof(lexer) &&
     source_character_is_valid(lexer->lookahead) &&
-    lexer->lookahead !=
-    '\n' &&
+    lexer->lookahead != '\n' &&
     !(ends_at_semicolon && lexer->lookahead == ';')
   ) {
     consume(lexer);
@@ -606,12 +441,12 @@ static bool scan_file_argument(TSLexer *lexer, bool ends_at_semicolon) {
 static bool portable_label_character(int32_t character) {
   return is_letter(character) ||
     is_digit(character) ||
-    character ==
-    '.' ||
-    character ==
-    '_' ||
+    character == '.' ||
+    character == '_' ||
     character == '-';
 }
+
+enum { PORTABLE_LABEL_LENGTH = 8 };
 
 static bool
 scan_label_start(TSLexer *lexer, const bool *valid_symbols, TSSymbol *symbol) {
@@ -621,13 +456,12 @@ scan_label_start(TSLexer *lexer, const bool *valid_symbols, TSSymbol *symbol) {
     if (!portable_label_character(lexer->lookahead)) {
       return emit_symbol(valid_symbols, LABEL_START, symbol);
     }
-    if (length <= 8)
-      length++;
+    if (length <= PORTABLE_LABEL_LENGTH) length++;
     advance(lexer);
   }
   return emit_symbol(
     valid_symbols,
-    length > 8 ? LONG_LABEL_START : LABEL_START,
+    length > PORTABLE_LABEL_LENGTH ? LONG_LABEL_START : LABEL_START,
     symbol
   );
 }
@@ -636,8 +470,7 @@ static bool
 scan_label_piece(TSLexer *lexer, const bool *valid_symbols, TSSymbol *symbol) {
   if (
     lexer->eof(lexer) ||
-    lexer->lookahead ==
-    '\n' ||
+    lexer->lookahead == '\n' ||
     !source_character_is_valid(lexer->lookahead)
   ) {
     return false;
@@ -647,8 +480,7 @@ scan_label_piece(TSLexer *lexer, const bool *valid_symbols, TSSymbol *symbol) {
     consume(lexer);
   } while (
     !lexer->eof(lexer) &&
-    lexer->lookahead !=
-    '\n' &&
+    lexer->lookahead != '\n' &&
     source_character_is_valid(lexer->lookahead) &&
     portable_label_character(lexer->lookahead) == portable
   );
@@ -674,10 +506,8 @@ static bool scan_unexpected_command_text(
   while (
     !lexer->eof(lexer) &&
     source_character_is_valid(lexer->lookahead) &&
-    lexer->lookahead !=
-    '\n' &&
-    lexer->lookahead !=
-    ';' &&
+    lexer->lookahead != '\n' &&
+    lexer->lookahead != ';' &&
     lexer->lookahead != '}'
   ) {
     consume(lexer);
@@ -687,52 +517,53 @@ static bool scan_unexpected_command_text(
     emit_symbol(valid_symbols, UNEXPECTED_COMMAND_TEXT, symbol);
 }
 
-enum FlagAfterWriteScan {
-  FLAG_AFTER_WRITE_NONE,
-  FLAG_AFTER_WRITE_MATCH,
-  FLAG_AFTER_WRITE_FALLBACK,
-};
-
 static bool is_substitution_flag_character(int32_t character) {
   if (is_digit(character)) {
     return true;
   }
 
   switch (character) {
-  case 'g':
-  case 'i':
-  case 'p':
-  case 'w':
-    return true;
-  default:
-    return false;
+    case 'g':
+    case 'i':
+    case 'p':
+    case 'w':
+      return true;
+    default:
+      return false;
   }
 }
 
-static enum FlagAfterWriteScan
-scan_flag_after_write_marker(TSLexer *lexer, bool may_be_file) {
-  if (!is_substitution_flag_character(lexer->lookahead)) {
-    return FLAG_AFTER_WRITE_NONE;
-  }
-
+static bool scan_flag_after_write_marker(
+  TSLexer *lexer,
+  const bool *valid_symbols,
+  TSSymbol *symbol
+) {
   lexer->mark_end(lexer);
-  if (!may_be_file) {
+  if (!valid_symbols[OMITTED_FILE_SEPARATOR_MARKER]) {
     advance(lexer);
-    return FLAG_AFTER_WRITE_MATCH;
+    *symbol = FLAG_AFTER_WRITE_MARKER;
+    return true;
   }
   do {
     advance(lexer);
   } while (is_substitution_flag_character(lexer->lookahead));
 
-  return is_blank(lexer->lookahead) ? FLAG_AFTER_WRITE_MATCH
-                                    : FLAG_AFTER_WRITE_FALLBACK;
+  if (is_blank(lexer->lookahead)) {
+    *symbol = FLAG_AFTER_WRITE_MARKER;
+    return true;
+  }
+  return emit_symbol(
+    valid_symbols,
+    lexer->eof(lexer) ? INCOMPLETE_OMITTED_FILE_SEPARATOR_MARKER
+                      : OMITTED_FILE_SEPARATOR_MARKER,
+    symbol
+  );
 }
 
 enum LiteralScanResult {
   LITERAL_SCAN_NONE,
   LITERAL_SCAN_TOKEN,
   LITERAL_SCAN_INVALID_CHARACTER,
-  LITERAL_SCAN_LINE_END,
 };
 
 static bool emit_marker(
@@ -755,19 +586,15 @@ static bool emit_marker(
 
 static bool can_start_address(TSLexer *lexer) {
   return is_digit(lexer->lookahead) ||
-    lexer->lookahead ==
-    '$' ||
-    lexer->lookahead ==
-    '/' ||
+    lexer->lookahead == '$' ||
+    lexer->lookahead == '/' ||
     lexer->lookahead == '\\';
 }
 
 static bool at_command_boundary(TSLexer *lexer) {
   return lexer->eof(lexer) ||
-    lexer->lookahead ==
-    '\n' ||
-    lexer->lookahead ==
-    ';' ||
+    lexer->lookahead == '\n' ||
+    lexer->lookahead == ';' ||
     lexer->lookahead == '}';
 }
 
@@ -790,60 +617,56 @@ static TSSymbol missing_command_separator_marker(
   return ERROR_SENTINEL;
 }
 
-enum PostBlankRecoveryScan {
-  POST_BLANK_RECOVERY_SKIPPED,
-  POST_BLANK_RECOVERY_TOKEN,
-  POST_BLANK_RECOVERY_FAILED,
-};
+static bool post_blank_recovery_is_valid(const bool *valid_symbols) {
+  return valid_symbols[OMITTED_ADDRESS_MARKER] ||
+    valid_symbols[INCOMPLETE_OMITTED_ADDRESS_MARKER] ||
+    valid_symbols[BLANKS_AROUND_ADDRESS_SEPARATOR] ||
+    valid_symbols[MISSING_ADDRESS_SEPARATOR_MARKER] ||
+    valid_symbols[MISSING_SEPARATOR_BEFORE_UNMATCHED_BRACE_MARKER] ||
+    valid_symbols[MISSING_COMMAND_SEPARATOR_MARKER] ||
+    valid_symbols[INCOMPLETE_COMMAND_SEPARATOR_MARKER];
+}
 
-static enum PostBlankRecoveryScan scan_post_blank_recovery(
+static bool scan_post_blank_recovery(
   TSLexer *lexer,
   const bool *valid_symbols,
   TSSymbol *symbol
 ) {
-  if (
-    !valid_symbols[OMITTED_ADDRESS_MARKER] &&
-    !valid_symbols[INCOMPLETE_OMITTED_ADDRESS_MARKER] &&
-    !valid_symbols[BLANKS_AROUND_ADDRESS_SEPARATOR] &&
-    !valid_symbols[MISSING_ADDRESS_SEPARATOR_MARKER] &&
-    !valid_symbols[MISSING_SEPARATOR_BEFORE_UNMATCHED_BRACE_MARKER] &&
-    !valid_symbols[MISSING_COMMAND_SEPARATOR_MARKER] &&
-    !valid_symbols[INCOMPLETE_COMMAND_SEPARATOR_MARKER]
-  ) {
-    return POST_BLANK_RECOVERY_SKIPPED;
-  }
-
   lexer->mark_end(lexer);
   advance_past_blanks(lexer);
 
   const bool after_separator = valid_symbols[OMITTED_ADDRESS_MARKER] ||
     valid_symbols[INCOMPLETE_OMITTED_ADDRESS_MARKER];
-
   if (
     valid_symbols[BLANKS_AROUND_ADDRESS_SEPARATOR] &&
     (after_separator ? can_start_address(lexer) : lexer->lookahead == ',')
   ) {
     lexer->mark_end(lexer);
     *symbol = BLANKS_AROUND_ADDRESS_SEPARATOR;
-    return POST_BLANK_RECOVERY_TOKEN;
+    return true;
   }
+
+  TSSymbol marker;
   if (after_separator && !can_start_address(lexer)) {
-    *symbol = lexer->eof(lexer) ? INCOMPLETE_OMITTED_ADDRESS_MARKER
-                                : OMITTED_ADDRESS_MARKER;
-    if (!valid_symbols[*symbol]) {
-      return POST_BLANK_RECOVERY_FAILED;
-    }
-    return POST_BLANK_RECOVERY_TOKEN;
-  }
-  if (
+    marker = lexer->eof(lexer) ? INCOMPLETE_OMITTED_ADDRESS_MARKER
+                               : OMITTED_ADDRESS_MARKER;
+  } else if (
     valid_symbols[MISSING_ADDRESS_SEPARATOR_MARKER] && can_start_address(lexer)
   ) {
-    *symbol = MISSING_ADDRESS_SEPARATOR_MARKER;
-    return POST_BLANK_RECOVERY_TOKEN;
+    marker = MISSING_ADDRESS_SEPARATOR_MARKER;
+  } else {
+    marker = missing_command_separator_marker(lexer, valid_symbols);
   }
-  *symbol = missing_command_separator_marker(lexer, valid_symbols);
-  return *symbol == ERROR_SENTINEL ? POST_BLANK_RECOVERY_FAILED
-                                   : POST_BLANK_RECOVERY_TOKEN;
+  if (emit_symbol(valid_symbols, marker, symbol)) {
+    return true;
+  }
+
+  if (lexer->eof(lexer) && valid_symbols[INCOMPLETE_COMMAND_TEXT]) {
+    lexer->mark_end(lexer);
+    *symbol = INCOMPLETE_COMMAND_TEXT;
+    return true;
+  }
+  return scan_unexpected_command_text(lexer, valid_symbols, symbol, true);
 }
 
 static bool scan_text_token(
@@ -901,8 +724,7 @@ static bool scan_text_token(
   } while (
     !lexer->eof(lexer) &&
     source_character_is_valid(lexer->lookahead) &&
-    lexer->lookahead !=
-    '\\' &&
+    lexer->lookahead != '\\' &&
     lexer->lookahead != '\n'
   );
   return emit_symbol(valid_symbols, TEXT_LITERAL, symbol);
@@ -915,14 +737,14 @@ static bool regex_is_inside_bracket(const ScannerState *state) {
 static enum RegexBracketPendingElement
 bracket_element_for_character(int32_t character) {
   switch (character) {
-  case '.':
-    return REGEX_BRACKET_PENDING_DOT;
-  case '=':
-    return REGEX_BRACKET_PENDING_EQUAL;
-  case ':':
-    return REGEX_BRACKET_PENDING_COLON;
-  default:
-    return REGEX_BRACKET_PENDING_OTHER;
+    case '.':
+      return REGEX_BRACKET_PENDING_DOT;
+    case '=':
+      return REGEX_BRACKET_PENDING_EQUAL;
+    case ':':
+      return REGEX_BRACKET_PENDING_COLON;
+    default:
+      return REGEX_BRACKET_PENDING_OTHER;
   }
 }
 
@@ -981,20 +803,34 @@ static void finish_compound_bracket_element(ScannerState *state) {
 }
 
 static bool bracket_expression_is_ambiguous(const ScannerState *state) {
-  return state->regex_bracket_element_count >=
-    3U &&
-    state->regex_bracket_first_element >=
-    REGEX_BRACKET_PENDING_DOT &&
+  return state->regex_bracket_element_count >= 3U &&
+    state->regex_bracket_first_element >= REGEX_BRACKET_PENDING_DOT &&
     state->regex_bracket_first_element == state->regex_bracket_last_element;
 }
 
 static void finish_first_bracket_element(ScannerState *state) {
   if (
-    state->regex_state ==
-    REGEX_BRACKET_FIRST ||
+    state->regex_state == REGEX_BRACKET_FIRST ||
     state->regex_state == REGEX_BRACKET_AFTER_CARET
   ) {
     state->regex_state = REGEX_BRACKET_BODY;
+  }
+}
+
+static bool raw_regex_operator_character(int32_t character) {
+  switch (character) {
+#if SED_REGEX_EXTENDED
+    case '(':
+    case ')':
+    case '+':
+    case '?':
+    case '|':
+    case '{':
+#endif
+    case '*':
+      return true;
+    default:
+      return false;
   }
 }
 
@@ -1002,34 +838,28 @@ static bool
 regex_literal_boundary(const ScannerState *state, int32_t character) {
   if (state->regex_state == REGEX_OUTSIDE_BRACKET) {
     switch (character) {
-    case '\\':
-    case '(':
-    case ')':
-    case '[':
-    case '*':
-    case '+':
-    case '?':
-    case '|':
-    case '{':
-    case '.':
-    case '^':
-    case '$':
-      return true;
-    default:
-      return character == state->delimiter;
+      case '\\':
+      case '[':
+      case '.':
+      case '^':
+      case '$':
+        return true;
+      default:
+        return raw_regex_operator_character(character) ||
+          character == state->delimiter;
     }
   }
 
   switch (character) {
-  case '[':
-    return true;
-  case '^':
-    return state->regex_state == REGEX_BRACKET_FIRST;
-  case '-':
-  case ']':
-    return state->regex_state == REGEX_BRACKET_BODY;
-  default:
-    return false;
+    case '[':
+      return true;
+    case '^':
+      return state->regex_state == REGEX_BRACKET_FIRST;
+    case '-':
+    case ']':
+      return state->regex_state == REGEX_BRACKET_BODY;
+    default:
+      return false;
   }
 }
 
@@ -1037,11 +867,11 @@ static enum LiteralScanResult
 scan_regex_literal(TSLexer *lexer, ScannerState *state) {
   lexer->mark_end(lexer);
 
-  if (lexer->eof(lexer) || lexer->lookahead == '\n') {
-    return LITERAL_SCAN_LINE_END;
-  }
-
-  if (regex_literal_boundary(state, lexer->lookahead)) {
+  if (
+    lexer->eof(lexer) ||
+    lexer->lookahead == '\n' ||
+    regex_literal_boundary(state, lexer->lookahead)
+  ) {
     return LITERAL_SCAN_NONE;
   }
 
@@ -1055,45 +885,6 @@ scan_regex_literal(TSLexer *lexer, ScannerState *state) {
   }
   consume(lexer);
   return LITERAL_SCAN_TOKEN;
-}
-
-static TSSymbol
-unterminated_mode_symbol(enum ScannerMode mode, bool at_end_of_source) {
-  switch (mode) {
-  case MODE_REGEX_ADDRESS:
-    return at_end_of_source ? REGEX_UNTERMINATED_ADDRESS
-                            : REGEX_LINE_UNTERMINATED_ADDRESS;
-  case MODE_SUBSTITUTE_PATTERN:
-    return at_end_of_source ? REGEX_UNTERMINATED_SUBSTITUTE
-                            : REGEX_LINE_UNTERMINATED_SUBSTITUTE;
-  case MODE_SUBSTITUTE_REPLACEMENT:
-    return at_end_of_source ? REPLACEMENT_UNTERMINATED
-                            : REPLACEMENT_LINE_UNTERMINATED;
-  case MODE_TRANSLATE_SOURCE:
-    return at_end_of_source ? TRANSLATE_UNTERMINATED_SOURCE
-                            : TRANSLATE_LINE_UNTERMINATED_SOURCE;
-  case MODE_TRANSLATE_DESTINATION:
-    return at_end_of_source ? TRANSLATE_UNTERMINATED_DESTINATION
-                            : TRANSLATE_LINE_UNTERMINATED_DESTINATION;
-  case MODE_NONE:
-  case MODE_TEXT:
-    break;
-  }
-  return ERROR_SENTINEL;
-}
-
-static bool end_unterminated_mode(
-  TSLexer *lexer,
-  ScannerState *state,
-  const bool *valid_symbols,
-  TSSymbol *symbol
-) {
-  return end_mode(
-    state,
-    valid_symbols,
-    unterminated_mode_symbol(state->mode, lexer->eof(lexer)),
-    symbol
-  );
 }
 
 static const struct {
@@ -1228,11 +1019,9 @@ static bool scan_regex_bracket_term_content(
   for (;;) {
     if (
       lexer->eof(lexer) ||
-      lexer->lookahead ==
-      '\n' ||
+      lexer->lookahead == '\n' ||
       !source_character_is_valid(lexer->lookahead) ||
-      (lexer->lookahead ==
-        ']' &&
+      (lexer->lookahead == ']' &&
         state->regex_bracket_term_state == REGEX_BRACKET_TERM_COLON)
     ) {
       break;
@@ -1240,11 +1029,9 @@ static bool scan_regex_bracket_term_content(
     if (lexer->lookahead == close_marker) {
       advance(lexer);
       if (
-        lexer->lookahead ==
-        ']' ||
+        lexer->lookahead == ']' ||
         ((lexer->eof(lexer) || lexer->lookahead == '\n') &&
-          (character_count >
-            0 ||
+          (character_count > 0 ||
             state->regex_bracket_term_has_content ||
             state->regex_bracket_term_state == REGEX_BRACKET_TERM_COLON))
       ) {
@@ -1252,10 +1039,8 @@ static bool scan_regex_bracket_term_content(
         break;
       }
       if (
-        state->regex_bracket_term_state ==
-        REGEX_BRACKET_TERM_COLON &&
-        character_count >
-        0 &&
+        state->regex_bracket_term_state == REGEX_BRACKET_TERM_COLON &&
+        character_count > 0 &&
         valid_class_name
       ) {
         break;
@@ -1274,10 +1059,8 @@ static bool scan_regex_bracket_term_content(
     const bool class_character = is_letter(character) ||
       (valid_class_name && is_digit(character) && character_count > 0);
     if (
-      state->regex_bracket_term_state ==
-      REGEX_BRACKET_TERM_COLON &&
-      character_count >
-      0 &&
+      state->regex_bracket_term_state == REGEX_BRACKET_TERM_COLON &&
+      character_count > 0 &&
       class_character != valid_class_name
     ) {
       break;
@@ -1310,10 +1093,8 @@ static bool scan_regex_bracket_term_content(
   state->regex_bracket_term_has_content = true;
   return emit_symbol(
     valid_symbols,
-    state->regex_bracket_term_state ==
-        REGEX_BRACKET_TERM_EQUAL &&
-        character_count ==
-        1 &&
+    state->regex_bracket_term_state == REGEX_BRACKET_TERM_EQUAL &&
+        character_count == 1 &&
         bracket_meta_character(single_character) &&
         lexer->eof(lexer)
       ? REGEX_INCOMPLETE_META_CHAR
@@ -1363,58 +1144,42 @@ static bool end_interval(
   return emit_symbol(valid_symbols, candidate, symbol);
 }
 
-static bool scan_regex_interval_close(
-  TSLexer *lexer,
-  ScannerState *state,
-  const bool *valid_symbols,
-  TSSymbol *symbol
-) {
-  consume(lexer);
-  return end_interval(state, valid_symbols, REGEX_INTERVAL_CLOSE, symbol);
+static bool
+regex_interval_content_ends(const TSLexer *lexer, const ScannerState *state) {
+  const int32_t character = lexer->lookahead;
+  if (
+    lexer->eof(lexer) ||
+    character == '\n' ||
+    character == state->delimiter ||
+    character == '['
+  ) {
+    return true;
+  }
+#if SED_REGEX_EXTENDED
+  return character == '(' ||
+    character == '|' ||
+    (character == ')' && state->regex_group_depth > 0);
+#else
+  return false;
+#endif
 }
 
+static bool regex_interval_syntax_character(int32_t character) {
 #if SED_REGEX_EXTENDED
-static bool
-interval_character_ends_content(const ScannerState *state, int32_t character) {
-  return character ==
-    '(' ||
-    character ==
-    '|' ||
-    (character == ')' && state->regex_group_depth > 0);
-}
-#else
-static bool
-interval_escape_ends_content(const ScannerState *state, int32_t escaped) {
-  return (escaped == '}' || escaped == '(' || escaped == ')') &&
-    escaped != state->delimiter;
-}
+  if (character == '}') {
+    return true;
+  }
 #endif
+  return is_digit(character) || character == ',' || character == '\\';
+}
 
 static void
 scan_invalid_interval_characters(TSLexer *lexer, const ScannerState *state) {
-  for (;;) {
-    const int32_t character = lexer->lookahead;
-    if (
-      lexer->eof(lexer) ||
-      !source_character_is_valid(character) ||
-      character ==
-      '\n' ||
-      character ==
-      state->delimiter ||
-      character ==
-      '[' ||
-      is_digit(character) ||
-      character ==
-      ',' ||
-      character == '\\'
-    ) {
-      return;
-    }
-#if SED_REGEX_EXTENDED
-    if (character == '}' || interval_character_ends_content(state, character)) {
-      return;
-    }
-#endif
+  while (
+    !regex_interval_content_ends(lexer, state) &&
+    source_character_is_valid(lexer->lookahead) &&
+    !regex_interval_syntax_character(lexer->lookahead)
+  ) {
     consume(lexer);
   }
 }
@@ -1425,10 +1190,8 @@ static bool raw_duplication_symbol_follows(
 ) {
 #if SED_REGEX_EXTENDED
   (void)state;
-  return lexer->lookahead ==
-    '*' ||
-    lexer->lookahead ==
-    '+' ||
+  return lexer->lookahead == '*' ||
+    lexer->lookahead == '+' ||
     lexer->lookahead == '?';
 #else
   return lexer->lookahead == '*' && !regex_at_branch_start(state);
@@ -1443,8 +1206,7 @@ static TSSymbol regex_duplication_context_marker(
     return REGEX_LEADING_DUPLICATION_MARKER;
   }
   if (
-    state->regex_position !=
-    REGEX_AFTER_DUPLICATION_SYMBOL
+    state->regex_position != REGEX_AFTER_DUPLICATION_SYMBOL
 #if SED_REGEX_EXTENDED
     && state->regex_position != REGEX_AFTER_REPETITION_MODIFIER
 #endif
@@ -1453,8 +1215,7 @@ static TSSymbol regex_duplication_context_marker(
   }
 #if SED_REGEX_EXTENDED
   if (
-    state->regex_position ==
-    REGEX_AFTER_DUPLICATION_SYMBOL &&
+    state->regex_position == REGEX_AFTER_DUPLICATION_SYMBOL &&
     lexer->lookahead == '?'
   ) {
     return ERROR_SENTINEL;
@@ -1465,134 +1226,86 @@ static TSSymbol regex_duplication_context_marker(
   return REGEX_ADJACENT_DUPLICATION_MARKER;
 }
 
-static bool raw_regex_operator_character(int32_t character) {
-  switch (character) {
-  case '(':
-  case ')':
-  case '*':
-  case '+':
-  case '?':
-  case '|':
-  case '{':
-    return true;
-  default:
-    return false;
-  }
-}
-
 static bool scan_raw_regex_operator(
   TSLexer *lexer,
   ScannerState *state,
   const bool *valid_symbols,
   TSSymbol *symbol
 ) {
-  const int32_t character = lexer->lookahead;
-
-  if (character == '{') {
 #if SED_REGEX_EXTENDED
+  const int32_t character = lexer->lookahead;
+  if (character == '{') {
     return scan_regex_interval_open(lexer, state, valid_symbols, symbol);
-#else
-    return consume_as(lexer, valid_symbols, REGEX_LITERAL, symbol);
-#endif
   }
 
   consume(lexer);
-
-  if (character == '*') {
-#if SED_REGEX_EXTENDED
-    return emit_symbol(valid_symbols, REGEX_ZERO_OR_MORE, symbol);
+  switch (character) {
+    case '(':
+      return emit_symbol(valid_symbols, REGEX_GROUP_OPEN, symbol);
+    case ')':
+      return emit_symbol(
+        valid_symbols,
+        state->regex_group_depth > 0 ? REGEX_GROUP_CLOSE : REGEX_LITERAL,
+        symbol
+      );
+    case '|':
+      return emit_symbol(valid_symbols, REGEX_ALTERNATION_OPERATOR, symbol);
+    case '+':
+      return emit_symbol(valid_symbols, REGEX_ONE_OR_MORE, symbol);
+    case '?':
+      return emit_symbol(
+        valid_symbols,
+        state->regex_position == REGEX_AFTER_DUPLICATION_SYMBOL &&
+            valid_symbols[REGEX_REPETITION_MODIFIER]
+          ? REGEX_REPETITION_MODIFIER
+          : REGEX_ZERO_OR_ONE,
+        symbol
+      );
+    default:
+      return emit_symbol(valid_symbols, REGEX_ZERO_OR_MORE, symbol);
+  }
 #else
-    return emit_symbol(
-      valid_symbols,
-      regex_at_branch_start(state) ? REGEX_LITERAL : REGEX_ZERO_OR_MORE,
-      symbol
-    );
+  consume(lexer);
+  return emit_symbol(
+    valid_symbols,
+    regex_at_branch_start(state) ? REGEX_LITERAL : REGEX_ZERO_OR_MORE,
+    symbol
+  );
 #endif
-  }
-
-#if SED_REGEX_EXTENDED
-  if (character == '(') {
-    return emit_symbol(valid_symbols, REGEX_GROUP_OPEN, symbol);
-  }
-
-  if (character == ')') {
-    return emit_symbol(
-      valid_symbols,
-      state->regex_group_depth > 0 ? REGEX_GROUP_CLOSE : REGEX_LITERAL,
-      symbol
-    );
-  }
-
-  if (character == '|') {
-    return emit_symbol(valid_symbols, REGEX_ALTERNATION_OPERATOR, symbol);
-  }
-
-  if (character == '+') {
-    return emit_symbol(valid_symbols, REGEX_ONE_OR_MORE, symbol);
-  }
-
-  if (character == '?') {
-    if (
-      state->regex_position ==
-      REGEX_AFTER_DUPLICATION_SYMBOL &&
-      valid_symbols[REGEX_REPETITION_MODIFIER]
-    ) {
-      return emit_symbol(valid_symbols, REGEX_REPETITION_MODIFIER, symbol);
-    }
-    return emit_symbol(valid_symbols, REGEX_ZERO_OR_ONE, symbol);
-  }
-#endif
-
-  return emit_symbol(valid_symbols, REGEX_LITERAL, symbol);
 }
 
 static bool regex_delimiter_is_special(int32_t character) {
   switch (character) {
 #if SED_REGEX_EXTENDED
-  case '(':
-  case ')':
-  case '+':
-  case '?':
-  case '{':
-  case '|':
+    case '(':
+    case ')':
+    case '+':
+    case '?':
+    case '{':
+    case '|':
 #endif
-  case '.':
-  case '[':
-  case '*':
-  case '^':
-  case '$':
-    return true;
-  default:
-    return false;
+    case '.':
+    case '[':
+    case '*':
+    case '^':
+    case '$':
+      return true;
+    default:
+      return false;
   }
 }
 
 static bool escape_quotes_regex_syntax(int32_t character) {
   switch (character) {
 #if SED_REGEX_EXTENDED
-  case '}':
+    case '}':
 #endif
-  case '\\':
-  case ']':
-    return true;
-  default:
-    return regex_delimiter_is_special(character);
+    case '\\':
+    case ']':
+      return true;
+    default:
+      return regex_delimiter_is_special(character);
   }
-}
-
-static bool scan_regex_escaped_delimiter(
-  TSLexer *lexer,
-  const bool *valid_symbols,
-  TSSymbol *symbol
-) {
-  return consume_as(
-    lexer,
-    valid_symbols,
-    regex_delimiter_is_special(lexer->lookahead)
-      ? REGEX_SPECIAL_ESCAPED_DELIMITER
-      : REGEX_ESCAPED_DELIMITER,
-    symbol
-  );
 }
 
 static bool scan_regex_escape_after_backslash(
@@ -1612,63 +1325,58 @@ static bool scan_regex_escape_after_backslash(
   }
 
   if (lexer->lookahead == state->delimiter) {
-    return scan_regex_escaped_delimiter(lexer, valid_symbols, symbol);
+    return consume_as(
+      lexer,
+      valid_symbols,
+      regex_delimiter_is_special(lexer->lookahead)
+        ? REGEX_SPECIAL_ESCAPED_DELIMITER
+        : REGEX_ESCAPED_DELIMITER,
+      symbol
+    );
   }
 
 #if !SED_REGEX_EXTENDED
-  if (lexer->lookahead == '}') {
-    if (valid_symbols[REGEX_INTERVAL_CLOSE]) {
-      return scan_regex_interval_close(lexer, state, valid_symbols, symbol);
-    }
-    if (valid_symbols[REGEX_UNMATCHED_INTERVAL_CLOSE]) {
+  switch (lexer->lookahead) {
+    case '{':
+      return scan_regex_interval_open(lexer, state, valid_symbols, symbol);
+    case '}':
       return consume_as(
         lexer,
         valid_symbols,
         REGEX_UNMATCHED_INTERVAL_CLOSE,
         symbol
       );
-    }
-  }
-
-  if (lexer->lookahead == '(') {
-    return consume_as(lexer, valid_symbols, REGEX_GROUP_OPEN, symbol);
-  }
-
-  if (lexer->lookahead == ')') {
-    return consume_as(
-      lexer,
-      valid_symbols,
-      state->regex_group_depth > 0 ? REGEX_GROUP_CLOSE
-                                   : REGEX_UNMATCHED_GROUP_CLOSE,
-      symbol
-    );
-  }
-
-  if (lexer->lookahead >= '1' && lexer->lookahead <= '9') {
-    return consume_as(lexer, valid_symbols, REGEX_BACKREFERENCE, symbol);
-  }
-
-  if (lexer->lookahead == '{') {
-    return scan_regex_interval_open(lexer, state, valid_symbols, symbol);
-  }
-
-  if (lexer->lookahead == '|') {
-    return consume_as(
-      lexer,
-      valid_symbols,
-      REGEX_BRE_VERTICAL_LINE_ESCAPE,
-      symbol
-    );
-  }
-
-  if (lexer->lookahead == '?' || lexer->lookahead == '+') {
-    return consume_as(
-      lexer,
-      valid_symbols,
-      lexer->lookahead == '?' ? REGEX_BRE_QUESTION_MARK_ESCAPE
-                              : REGEX_BRE_PLUS_ESCAPE,
-      symbol
-    );
+    case '(':
+      return consume_as(lexer, valid_symbols, REGEX_GROUP_OPEN, symbol);
+    case ')':
+      return consume_as(
+        lexer,
+        valid_symbols,
+        state->regex_group_depth > 0 ? REGEX_GROUP_CLOSE
+                                     : REGEX_UNMATCHED_GROUP_CLOSE,
+        symbol
+      );
+    case '|':
+      return consume_as(
+        lexer,
+        valid_symbols,
+        REGEX_BRE_VERTICAL_LINE_ESCAPE,
+        symbol
+      );
+    case '?':
+      return consume_as(
+        lexer,
+        valid_symbols,
+        REGEX_BRE_QUESTION_MARK_ESCAPE,
+        symbol
+      );
+    case '+':
+      return consume_as(lexer, valid_symbols, REGEX_BRE_PLUS_ESCAPE, symbol);
+    default:
+      if (lexer->lookahead >= '1' && lexer->lookahead <= '9') {
+        return consume_as(lexer, valid_symbols, REGEX_BACKREFERENCE, symbol);
+      }
+      break;
   }
 #endif
 
@@ -1698,75 +1406,102 @@ static bool scan_regex_dup_count(
   return emit_symbol(valid_symbols, REGEX_DUP_COUNT, symbol);
 }
 
-static bool scan_regex_interval(
+static bool emit_missing_interval_minimum(
+  TSLexer *lexer,
+  const bool *valid_symbols,
+  bool minimum_may_follow,
+  TSSymbol *symbol
+) {
+  if (!emit_symbol(
+        valid_symbols,
+        minimum_may_follow ? REGEX_INCOMPLETE_INTERVAL_MINIMUM
+                           : REGEX_MISSING_INTERVAL_MINIMUM,
+        symbol
+      )) {
+    return false;
+  }
+  if (!lexer->eof(lexer)) {
+    advance(lexer);
+  }
+  return true;
+}
+
+static bool end_interval_content(
+  TSLexer *lexer,
+  ScannerState *state,
+  const bool *valid_symbols,
+  bool at_end_of_source,
+  TSSymbol *symbol
+) {
+  if (
+    emit_missing_interval_minimum(
+      lexer,
+      valid_symbols,
+      at_end_of_source,
+      symbol
+    )
+  ) {
+    return true;
+  }
+  if (!lexer->eof(lexer)) {
+    advance(lexer);
+  }
+  return end_interval(
+    state,
+    valid_symbols,
+    at_end_of_source && state->delimiter != '}' ? REGEX_INCOMPLETE_INTERVAL
+                                                : REGEX_MISSING_INTERVAL_CLOSE,
+    symbol
+  );
+}
+
+static bool scan_regex_interval_close(
   TSLexer *lexer,
   ScannerState *state,
   const bool *valid_symbols,
   TSSymbol *symbol
 ) {
-  lexer->mark_end(lexer);
-  const bool at_eof = lexer->eof(lexer);
-  bool boundary = at_eof ||
-    lexer->lookahead ==
-    '\n' ||
-    lexer->lookahead ==
-    state->delimiter ||
-    lexer->lookahead == '[';
-  bool closing = false;
-  bool prefix = false;
-  bool escaped = false;
-#if SED_REGEX_EXTENDED
-  boundary =
-    boundary || interval_character_ends_content(state, lexer->lookahead);
-  closing = !boundary && lexer->lookahead == '}';
-#endif
-  if (!boundary && lexer->lookahead == '\\') {
-    escaped = true;
-    advance(lexer);
-#if !SED_REGEX_EXTENDED
-    closing = lexer->lookahead == '}' && state->delimiter != '}';
-    prefix = lexer->eof(lexer) || lexer->lookahead == '\n';
-    boundary = !closing &&
-      !prefix &&
-      interval_escape_ends_content(state, lexer->lookahead);
-#endif
-  }
-  // A trailing backslash can escape a digit delimiter to supply the minimum.
-  const bool minimum_may_follow =
-    at_eof || (prefix && lexer->eof(lexer) && is_digit(state->delimiter));
-  if (
-    (boundary ||
-      closing ||
-      prefix ||
-      (lexer->lookahead == ',' && (!escaped || state->delimiter == ','))) &&
-    emit_symbol(
-      valid_symbols,
-      minimum_may_follow ? REGEX_INCOMPLETE_INTERVAL_MINIMUM
-                         : REGEX_MISSING_INTERVAL_MINIMUM,
-      symbol
-    )
-  ) {
-    if (!lexer->eof(lexer)) {
-      advance(lexer);
-    }
+  if (emit_missing_interval_minimum(lexer, valid_symbols, false, symbol)) {
     return true;
   }
-  if (boundary) {
-    if (!lexer->eof(lexer)) {
-      advance(lexer);
-    }
-    return end_interval(
-      state,
-      valid_symbols,
-      at_eof && state->delimiter != '}' ? REGEX_INCOMPLETE_INTERVAL
-                                        : REGEX_MISSING_INTERVAL_CLOSE,
-      symbol
-    );
-  }
-  if (closing) {
+  consume(lexer);
+  return end_interval(state, valid_symbols, REGEX_INTERVAL_CLOSE, symbol);
+}
+
+static bool scan_regex_interval_separator(
+  TSLexer *lexer,
+  const bool *valid_symbols,
+  TSSymbol separator,
+  TSSymbol *symbol
+) {
+  return emit_missing_interval_minimum(lexer, valid_symbols, false, symbol) ||
+    consume_as(lexer, valid_symbols, separator, symbol);
+}
+
+static bool scan_regex_interval_escape(
+  TSLexer *lexer,
+  ScannerState *state,
+  const bool *valid_symbols,
+  TSSymbol *symbol
+) {
+  advance(lexer);
+  const int32_t character = lexer->lookahead;
+#if !SED_REGEX_EXTENDED
+  if (character == '}' && state->delimiter != '}') {
     return scan_regex_interval_close(lexer, state, valid_symbols, symbol);
   }
-  if (prefix) {
+  if (lexer->eof(lexer) || character == '\n') {
+    // A trailing backslash can escape a digit delimiter to supply the minimum.
+    if (
+      emit_missing_interval_minimum(
+        lexer,
+        valid_symbols,
+        lexer->eof(lexer) && is_digit(state->delimiter),
+        symbol
+      )
+    ) {
+      return true;
+    }
     lexer->mark_end(lexer);
     return end_interval(
       state,
@@ -1777,46 +1512,88 @@ static bool scan_regex_interval(
       symbol
     );
   }
-  if (escaped) {
-    lexer->mark_end(lexer);
-#if SED_REGEX_EXTENDED
-    if (
-      lexer->eof(lexer) &&
-      (is_digit(state->delimiter) || state->delimiter == ',')
-    ) {
-      return emit_symbol(valid_symbols, REGEX_INCOMPLETE_ESCAPE, symbol);
-    }
+  if ((character == '(' || character == ')') && character != state->delimiter) {
+    return end_interval_content(lexer, state, valid_symbols, false, symbol);
+  }
 #endif
-    if (lexer->eof(lexer) || lexer->lookahead == '\n') {
-      return emit_symbol(valid_symbols, REGEX_INVALID_INTERVAL, symbol);
-    }
-    if (!source_character_is_valid(lexer->lookahead)) {
-      return emit_symbol(valid_symbols, ESCAPE_PREFIX, symbol);
-    }
-    if (
-      lexer->lookahead ==
-      state->delimiter &&
-      (is_digit(lexer->lookahead) || lexer->lookahead == ',')
-    ) {
-      return consume_as(
-        lexer,
-        valid_symbols,
-        is_digit(lexer->lookahead) ? REGEX_INTERVAL_ESCAPED_COUNT
-                                   : REGEX_INTERVAL_ESCAPED_SEPARATOR,
-        symbol
-      );
-    }
-    consume(lexer);
+  if (character == ',' && state->delimiter == ',') {
+    return scan_regex_interval_separator(
+      lexer,
+      valid_symbols,
+      REGEX_INTERVAL_ESCAPED_SEPARATOR,
+      symbol
+    );
+  }
+
+  lexer->mark_end(lexer);
+#if SED_REGEX_EXTENDED
+  if (lexer->eof(lexer)) {
+    return emit_symbol(
+      valid_symbols,
+      is_digit(state->delimiter) || state->delimiter == ','
+        ? REGEX_INCOMPLETE_ESCAPE
+        : REGEX_INVALID_INTERVAL,
+      symbol
+    );
+  }
+  if (character == '\n') {
     return emit_symbol(valid_symbols, REGEX_INVALID_INTERVAL, symbol);
   }
-  if (!source_character_is_valid(lexer->lookahead)) {
+#endif
+  if (!source_character_is_valid(character)) {
+    return emit_symbol(valid_symbols, ESCAPE_PREFIX, symbol);
+  }
+  if (character == state->delimiter && is_digit(character)) {
+    return consume_as(
+      lexer,
+      valid_symbols,
+      REGEX_INTERVAL_ESCAPED_COUNT,
+      symbol
+    );
+  }
+  consume(lexer);
+  return emit_symbol(valid_symbols, REGEX_INVALID_INTERVAL, symbol);
+}
+
+static bool scan_regex_interval(
+  TSLexer *lexer,
+  ScannerState *state,
+  const bool *valid_symbols,
+  TSSymbol *symbol
+) {
+  lexer->mark_end(lexer);
+  if (regex_interval_content_ends(lexer, state)) {
+    return end_interval_content(
+      lexer,
+      state,
+      valid_symbols,
+      lexer->eof(lexer),
+      symbol
+    );
+  }
+
+  const int32_t character = lexer->lookahead;
+#if SED_REGEX_EXTENDED
+  if (character == '}') {
+    return scan_regex_interval_close(lexer, state, valid_symbols, symbol);
+  }
+#endif
+  if (character == ',') {
+    return scan_regex_interval_separator(
+      lexer,
+      valid_symbols,
+      REGEX_INTERVAL_SEPARATOR,
+      symbol
+    );
+  }
+  if (character == '\\') {
+    return scan_regex_interval_escape(lexer, state, valid_symbols, symbol);
+  }
+  if (!source_character_is_valid(character)) {
     return consume_invalid_character(lexer, valid_symbols, symbol);
   }
-  if (is_digit(lexer->lookahead)) {
+  if (is_digit(character)) {
     return scan_regex_dup_count(lexer, state, valid_symbols, symbol);
-  }
-  if (lexer->lookahead == ',') {
-    return consume_as(lexer, valid_symbols, REGEX_INTERVAL_SEPARATOR, symbol);
   }
   scan_invalid_interval_characters(lexer, state);
   if (!lexer->eof(lexer)) {
@@ -1834,12 +1611,9 @@ static bool scan_empty_alternative(
 ) {
   if (
     valid_symbols[EMPTY_ALTERNATIVE_MARKER] &&
-    (lexer->lookahead ==
-      '|' ||
-      (state->regex_group_depth >
-        0 &&
-        lexer->lookahead ==
-        ')' &&
+    (lexer->lookahead == '|' ||
+      (state->regex_group_depth > 0 &&
+        lexer->lookahead == ')' &&
         state->regex_position == REGEX_AFTER_ALTERNATION))
   ) {
     return emit_marker(lexer, valid_symbols, EMPTY_ALTERNATIVE_MARKER, symbol);
@@ -1872,10 +1646,8 @@ static bool scan_regex_special_token(
 #if !SED_REGEX_EXTENDED
     if (lexer->lookahead == '\\') {
       advance(lexer);
-      const bool closes_subexpression = state->regex_group_depth >
-        0 &&
-        lexer->lookahead ==
-        ')' &&
+      const bool closes_subexpression = state->regex_group_depth > 0 &&
+        lexer->lookahead == ')' &&
         state->delimiter != ')';
       return emit_symbol(
         valid_symbols,
@@ -1884,8 +1656,7 @@ static bool scan_regex_special_token(
       );
     }
     const bool at_branch_end = lexer->eof(lexer) ||
-      lexer->lookahead ==
-      '\n' ||
+      lexer->lookahead == '\n' ||
       lexer->lookahead == state->delimiter;
     if (!lexer->eof(lexer)) {
       advance(lexer);
@@ -1958,8 +1729,7 @@ static bool scan_regex_bracket_hyphen(
   if (
     valid_symbols[NONPORTABLE_RANGE_START_MARKER] &&
     !lexer->eof(lexer) &&
-    lexer->lookahead !=
-    '\n' &&
+    lexer->lookahead != '\n' &&
     lexer->lookahead != ']'
   ) {
     *symbol = NONPORTABLE_RANGE_START_MARKER;
@@ -2087,10 +1857,8 @@ static bool scan_regex_token(
       );
     }
     if (
-      state->regex_bracket_term_state !=
-      REGEX_BRACKET_TERM_NONE &&
-      lexer->lookahead ==
-      ']' &&
+      state->regex_bracket_term_state != REGEX_BRACKET_TERM_NONE &&
+      lexer->lookahead == ']' &&
       valid_symbols[REGEX_MISSING_BRACKET_TERM_CLOSE]
     ) {
       lexer->mark_end(lexer);
@@ -2099,8 +1867,7 @@ static bool scan_regex_token(
       return true;
     }
     if (
-      state->regex_bracket_term_state !=
-      REGEX_BRACKET_TERM_NONE &&
+      state->regex_bracket_term_state != REGEX_BRACKET_TERM_NONE &&
       valid_symbols[bracket_terms[state->regex_bracket_term_state]
           .close_symbol] &&
       lexer->lookahead == bracket_terms[state->regex_bracket_term_state].marker
@@ -2121,9 +1888,6 @@ static bool scan_regex_token(
       symbol
     );
   }
-  if (literal_result == LITERAL_SCAN_LINE_END) {
-    return end_unterminated_mode(lexer, state, valid_symbols, symbol);
-  }
 
   if (state->regex_state == REGEX_OUTSIDE_BRACKET) {
     return scan_regex_special_token(lexer, state, valid_symbols, symbol);
@@ -2140,25 +1904,21 @@ static enum LiteralScanResult scan_operand_literal(
   lexer->mark_end(lexer);
 
   for (;;) {
-    if (lexer->eof(lexer) || lexer->lookahead == '\n') {
-      return consumed ? LITERAL_SCAN_TOKEN : LITERAL_SCAN_LINE_END;
-    }
-
-    if (!source_character_is_valid(lexer->lookahead)) {
-      return consumed ? LITERAL_SCAN_TOKEN : LITERAL_SCAN_INVALID_CHARACTER;
-    }
-
     if (
-      lexer->lookahead ==
-      state->delimiter ||
-      lexer->lookahead ==
-      '\\' ||
+      lexer->eof(lexer) ||
+      lexer->lookahead == '\n' ||
+      lexer->lookahead == state->delimiter ||
+      lexer->lookahead == '\\' ||
       (ampersand_is_special && lexer->lookahead == '&')
     ) {
       if (consumed && lexer->lookahead == state->delimiter) {
         advance(lexer);
       }
       return consumed ? LITERAL_SCAN_TOKEN : LITERAL_SCAN_NONE;
+    }
+
+    if (!source_character_is_valid(lexer->lookahead)) {
+      return consumed ? LITERAL_SCAN_TOKEN : LITERAL_SCAN_INVALID_CHARACTER;
     }
 
     consume(lexer);
@@ -2189,31 +1949,18 @@ static bool scan_replacement_escape(
     );
   }
 
-  TSSymbol candidate = REPLACEMENT_ESCAPE_SEQUENCE;
-  if (
-    lexer->lookahead !=
-    state->delimiter &&
-    lexer->lookahead !=
-    '&' &&
-    lexer->lookahead !=
-    '\\' &&
-    !is_digit(lexer->lookahead)
-  ) {
-    return consume_as(
-      lexer,
-      valid_symbols,
-      REPLACEMENT_NONPORTABLE_ESCAPE,
-      symbol
-    );
-  }
+  TSSymbol candidate;
   if (lexer->lookahead == state->delimiter) {
     candidate = state->delimiter == '&'
       ? REPLACEMENT_AMPERSAND_ESCAPED_DELIMITER
       : REPLACEMENT_ESCAPED_DELIMITER;
   } else if (is_digit(lexer->lookahead)) {
     candidate = REPLACEMENT_BACKREFERENCE;
+  } else if (lexer->lookahead == '&' || lexer->lookahead == '\\') {
+    candidate = REPLACEMENT_ESCAPE_SEQUENCE;
+  } else {
+    candidate = REPLACEMENT_NONPORTABLE_ESCAPE;
   }
-
   return consume_as(lexer, valid_symbols, candidate, symbol);
 }
 
@@ -2265,9 +2012,6 @@ static bool scan_operand_token(
   if (literal_result == LITERAL_SCAN_INVALID_CHARACTER) {
     return consume_invalid_character(lexer, valid_symbols, symbol);
   }
-  if (literal_result == LITERAL_SCAN_LINE_END) {
-    return end_unterminated_mode(lexer, state, valid_symbols, symbol);
-  }
 
   if (lexer->lookahead == '\\') {
     return is_replacement
@@ -2287,88 +2031,77 @@ static bool scan_operand_token(
   return false;
 }
 
-static bool scan_regex_recovery_marker(
+static bool scan_regex_closer(
   TSLexer *lexer,
   ScannerState *state,
   const bool *valid_symbols,
   TSSymbol *symbol
 ) {
-  const bool at_line_boundary = lexer->eof(lexer) || lexer->lookahead == '\n';
+  const bool at_end_of_source = lexer->eof(lexer);
 
-  if (
-    (state->regex_state ==
-      REGEX_BRACKET_FIRST ||
-      state->regex_state == REGEX_BRACKET_AFTER_CARET) &&
-    at_line_boundary &&
-    emit_marker(
-      lexer,
-      valid_symbols,
-      lexer->eof(lexer) ? INCOMPLETE_BRACKET_LIST_MARKER
-                        : MISSING_BRACKET_LIST_MARKER,
-      symbol
-    )
-  ) {
-    return true;
-  }
-
-  if (
-    state->regex_bracket_term_state !=
-    REGEX_BRACKET_TERM_NONE &&
-    at_line_boundary
-  ) {
+  if (regex_is_inside_bracket(state)) {
     if (
+      (state->regex_state == REGEX_BRACKET_FIRST ||
+        state->regex_state == REGEX_BRACKET_AFTER_CARET) &&
       emit_marker(
         lexer,
         valid_symbols,
-        lexer->eof(lexer) ? REGEX_INCOMPLETE_BRACKET_TERM_PAYLOAD
-                          : REGEX_MISSING_BRACKET_TERM_PAYLOAD,
+        at_end_of_source ? INCOMPLETE_BRACKET_LIST_MARKER
+                         : MISSING_BRACKET_LIST_MARKER,
         symbol
       )
     ) {
       return true;
     }
+    if (state->regex_bracket_term_state != REGEX_BRACKET_TERM_NONE) {
+      if (
+        emit_marker(
+          lexer,
+          valid_symbols,
+          at_end_of_source ? REGEX_INCOMPLETE_BRACKET_TERM_PAYLOAD
+                           : REGEX_MISSING_BRACKET_TERM_PAYLOAD,
+          symbol
+        )
+      ) {
+        return true;
+      }
+      if (
+        emit_marker(
+          lexer,
+          valid_symbols,
+          at_end_of_source ? REGEX_INCOMPLETE_BRACKET_TERM
+                           : REGEX_MISSING_BRACKET_TERM_CLOSE,
+          symbol
+        )
+      ) {
+        finish_compound_bracket_element(state);
+        return true;
+      }
+    }
     if (
       emit_marker(
         lexer,
         valid_symbols,
-        lexer->eof(lexer) ? REGEX_INCOMPLETE_BRACKET_TERM
-                          : REGEX_MISSING_BRACKET_TERM_CLOSE,
+        at_end_of_source ? INCOMPLETE_BRACKET_EXPRESSION_MARKER
+                         : UNCLOSED_BRACKET_EXPRESSION_MARKER,
         symbol
       )
     ) {
-      finish_compound_bracket_element(state);
+      state->regex_state = REGEX_OUTSIDE_BRACKET;
+      reset_bracket_tracking(state);
       return true;
     }
-  }
-
-  if (
-    regex_is_inside_bracket(state) &&
-    at_line_boundary &&
-    emit_marker(
-      lexer,
-      valid_symbols,
-      lexer->eof(lexer) ? INCOMPLETE_BRACKET_EXPRESSION_MARKER
-                        : UNCLOSED_BRACKET_EXPRESSION_MARKER,
-      symbol
-    )
-  ) {
-    state->regex_state = REGEX_OUTSIDE_BRACKET;
-    reset_bracket_tracking(state);
-    return true;
+    return false;
   }
 
 #if SED_REGEX_EXTENDED
   if (
-    state->regex_state ==
-    REGEX_OUTSIDE_BRACKET &&
-    state->regex_position ==
-    REGEX_AFTER_ALTERNATION &&
-    (at_line_boundary || lexer->lookahead == state->delimiter) &&
+    state->regex_position == REGEX_AFTER_ALTERNATION &&
     emit_marker(
       lexer,
       valid_symbols,
-      lexer->eof(lexer) ? INCOMPLETE_ALTERNATIVE_MARKER
-                        : EMPTY_ALTERNATIVE_MARKER,
+      at_end_of_source ? INCOMPLETE_ALTERNATIVE_MARKER
+                       : EMPTY_ALTERNATIVE_MARKER,
       symbol
     )
   ) {
@@ -2378,16 +2111,12 @@ static bool scan_regex_recovery_marker(
 #endif
 
   if (
-    state->regex_state ==
-    REGEX_OUTSIDE_BRACKET &&
-    state->regex_group_depth >
-    0 &&
-    at_line_boundary &&
+    state->regex_group_depth > 0 &&
     emit_marker(
       lexer,
       valid_symbols,
-      lexer->eof(lexer) && state->delimiter != ')' ? REGEX_INCOMPLETE_GROUP
-                                                   : REGEX_UNCLOSED_GROUP,
+      at_end_of_source && state->delimiter != ')' ? REGEX_INCOMPLETE_GROUP
+                                                  : REGEX_UNCLOSED_GROUP,
       symbol
     )
   ) {
@@ -2398,11 +2127,6 @@ static bool scan_regex_recovery_marker(
   return false;
 }
 
-static TSSymbol missing_text_introducer_symbol(const TSLexer *lexer) {
-  return lexer->eof(lexer) ? MISSING_TEXT_INTRODUCER_MARKER
-                           : NONCONFORMING_MISSING_TEXT_INTRODUCER_MARKER;
-}
-
 static bool scan_brace_leading_blanks(
   TSLexer *lexer,
   const bool *valid_symbols,
@@ -2410,8 +2134,7 @@ static bool scan_brace_leading_blanks(
 ) {
   advance_past_blanks(lexer);
   if (
-    lexer->lookahead !=
-    '}' &&
+    lexer->lookahead != '}' &&
     !(lexer->eof(lexer) && valid_symbols[MISSING_CLOSING_BRACE_MARKER])
   ) {
     return false;
@@ -2427,8 +2150,7 @@ static bool scan_command_recovery(
   TSSymbol *symbol
 ) {
   if (
-    lexer->lookahead ==
-    ',' &&
+    lexer->lookahead == ',' &&
     emit_marker(lexer, valid_symbols, OMITTED_FIRST_ADDRESS_MARKER, symbol)
   ) {
     return true;
@@ -2449,20 +2171,10 @@ static bool scan_command_recovery(
     );
   }
 
-  if (is_blank(lexer->lookahead)) {
-    switch (scan_post_blank_recovery(lexer, valid_symbols, symbol)) {
-    case POST_BLANK_RECOVERY_TOKEN:
-      return true;
-    case POST_BLANK_RECOVERY_FAILED:
-      if (lexer->eof(lexer) && valid_symbols[INCOMPLETE_COMMAND_TEXT]) {
-        lexer->mark_end(lexer);
-        *symbol = INCOMPLETE_COMMAND_TEXT;
-        return true;
-      }
-      return scan_unexpected_command_text(lexer, valid_symbols, symbol, true);
-    case POST_BLANK_RECOVERY_SKIPPED:
-      break;
-    }
+  if (
+    is_blank(lexer->lookahead) && post_blank_recovery_is_valid(valid_symbols)
+  ) {
+    return scan_post_blank_recovery(lexer, valid_symbols, symbol);
   }
 
   if (
@@ -2499,14 +2211,10 @@ static bool scan_command_recovery(
     }
   }
 
-  if (
-    emit_marker(
-      lexer,
-      valid_symbols,
-      missing_text_introducer_symbol(lexer),
-      symbol
-    )
-  ) {
+  const TSSymbol missing_text_introducer = lexer->eof(lexer)
+    ? MISSING_TEXT_INTRODUCER_MARKER
+    : NONCONFORMING_MISSING_TEXT_INTRODUCER_MARKER;
+  if (emit_marker(lexer, valid_symbols, missing_text_introducer, symbol)) {
     return true;
   }
 
@@ -2549,6 +2257,39 @@ static bool scan_command_recovery(
   return scan_unexpected_command_text(lexer, valid_symbols, symbol, false);
 }
 
+static bool scan_write_separator(
+  TSLexer *lexer,
+  const bool *valid_symbols,
+  TSSymbol *symbol
+) {
+  const bool block = valid_symbols[WRITE_BLOCK_TERMINAL_SEPARATOR];
+  consume(lexer);
+  while (
+    is_blank(lexer->lookahead) ||
+    lexer->lookahead == ';' ||
+    (!block && lexer->lookahead == '}')
+  ) {
+    advance(lexer);
+  }
+  TSSymbol candidate = WRITE_FOLLOWING_SEPARATOR;
+  if (
+    lexer->eof(lexer) ||
+    lexer->lookahead == '\n' ||
+    (block && lexer->lookahead == '}')
+  ) {
+    candidate =
+      block ? WRITE_BLOCK_TERMINAL_SEPARATOR : WRITE_TERMINAL_SEPARATOR;
+  }
+  return emit_symbol(valid_symbols, candidate, symbol);
+}
+
+static bool at_invalid_substitution_flag(TSLexer *lexer) {
+  return !at_command_boundary(lexer) &&
+    !is_blank(lexer->lookahead) &&
+    !is_substitution_flag_character(lexer->lookahead) &&
+    source_character_is_decoded(lexer->lookahead);
+}
+
 static bool scan_command_token(
   TSLexer *lexer,
   ScannerState *state,
@@ -2564,32 +2305,12 @@ static bool scan_command_token(
   }
 
   if (
-    lexer->lookahead ==
-    ';' &&
+    lexer->lookahead == ';' &&
     (valid_symbols[WRITE_TERMINAL_SEPARATOR] ||
       valid_symbols[WRITE_BLOCK_TERMINAL_SEPARATOR] ||
       valid_symbols[WRITE_FOLLOWING_SEPARATOR])
   ) {
-    const bool block = valid_symbols[WRITE_BLOCK_TERMINAL_SEPARATOR];
-    consume(lexer);
-    while (
-      is_blank(lexer->lookahead) ||
-      lexer->lookahead ==
-      ';' ||
-      (!block && lexer->lookahead == '}')
-    ) {
-      advance(lexer);
-    }
-    return emit_symbol(
-      valid_symbols,
-      lexer->eof(lexer) ||
-          lexer->lookahead ==
-          '\n' ||
-          (block && lexer->lookahead == '}')
-        ? block ? WRITE_BLOCK_TERMINAL_SEPARATOR : WRITE_TERMINAL_SEPARATOR
-        : WRITE_FOLLOWING_SEPARATOR,
-      symbol
-    );
+    return scan_write_separator(lexer, valid_symbols, symbol);
   }
 
   if (valid_symbols[BLOCK_TRAILING_BLANKS] && is_blank(lexer->lookahead)) {
@@ -2608,35 +2329,21 @@ static bool scan_command_token(
 
   if (
     valid_symbols[INVALID_SUBSTITUTION_FLAG] &&
-    !at_command_boundary(lexer) &&
-    !is_blank(lexer->lookahead) &&
-    !is_substitution_flag_character(lexer->lookahead) &&
-    source_character_is_decoded(lexer->lookahead)
+    at_invalid_substitution_flag(lexer)
   ) {
     do {
       consume(lexer);
-    } while (
-      !at_command_boundary(lexer) &&
-      !is_blank(lexer->lookahead) &&
-      !is_substitution_flag_character(lexer->lookahead) &&
-      source_character_is_decoded(lexer->lookahead)
-    );
+    } while (at_invalid_substitution_flag(lexer));
     *symbol = INVALID_SUBSTITUTION_FLAG;
     return true;
   }
 
   if (
-    valid_symbols[NUL_CHARACTER] && !lexer->eof(lexer) && lexer->lookahead == 0
-  ) {
-    return consume_as(lexer, valid_symbols, NUL_CHARACTER, symbol);
-  }
-
-  if (
-    valid_symbols[INVALID_CHARACTER] &&
     !lexer->eof(lexer) &&
-    !source_character_is_decoded(lexer->lookahead)
+    !source_character_is_valid(lexer->lookahead) &&
+    consume_invalid_character(lexer, valid_symbols, symbol)
   ) {
-    return consume_as(lexer, valid_symbols, INVALID_CHARACTER, symbol);
+    return true;
   }
 
   if (
@@ -2653,9 +2360,11 @@ static bool scan_command_token(
   }
 
   if (
-    valid_symbols[LABEL_LITERAL] || valid_symbols[NONPORTABLE_LABEL_CHARACTER]
+    (valid_symbols[LABEL_LITERAL] ||
+      valid_symbols[NONPORTABLE_LABEL_CHARACTER]) &&
+    scan_label_piece(lexer, valid_symbols, symbol)
   ) {
-    return scan_label_piece(lexer, valid_symbols, symbol);
+    return true;
   }
 
   // Recovery would consume the separator of a '}'-leading label.
@@ -2665,24 +2374,11 @@ static bool scan_command_token(
     return true;
   }
 
-  if (valid_symbols[FLAG_AFTER_WRITE_MARKER]) {
-    switch (scan_flag_after_write_marker(
-      lexer,
-      valid_symbols[OMITTED_FILE_SEPARATOR_MARKER]
-    )) {
-    case FLAG_AFTER_WRITE_MATCH:
-      *symbol = FLAG_AFTER_WRITE_MARKER;
-      return true;
-    case FLAG_AFTER_WRITE_FALLBACK:
-      return emit_symbol(
-        valid_symbols,
-        lexer->eof(lexer) ? INCOMPLETE_OMITTED_FILE_SEPARATOR_MARKER
-                          : OMITTED_FILE_SEPARATOR_MARKER,
-        symbol
-      );
-    case FLAG_AFTER_WRITE_NONE:
-      break;
-    }
+  if (
+    valid_symbols[FLAG_AFTER_WRITE_MARKER] &&
+    is_substitution_flag_character(lexer->lookahead)
+  ) {
+    return scan_flag_after_write_marker(lexer, valid_symbols, symbol);
   }
 
   if (
@@ -2799,29 +2495,20 @@ static bool sed_scanner_scan_impl(
   }
 
   const bool regex_mode = is_regex_mode(state->mode);
-  if (regex_mode) {
-    if (state->regex_in_interval) {
-      return scan_regex_interval(lexer, state, valid_symbols, symbol);
-    }
-
-    if (scan_regex_recovery_marker(lexer, state, valid_symbols, symbol)) {
-      return true;
-    }
+  if (regex_mode && state->regex_in_interval) {
+    return scan_regex_interval(lexer, state, valid_symbols, symbol);
   }
 
-  const bool delimiter_is_active = lexer->lookahead ==
-    state->delimiter &&
-    (!regex_mode || !regex_is_inside_bracket(state));
-  if (delimiter_is_active) {
-    if (
-      state->regex_group_depth >
-      0 &&
-      emit_marker(lexer, valid_symbols, REGEX_UNCLOSED_GROUP, symbol)
-    ) {
-      state->regex_group_depth--;
+  const bool at_line_end = lexer->eof(lexer) || lexer->lookahead == '\n';
+  const bool at_closing_delimiter = lexer->lookahead == state->delimiter &&
+    !(regex_mode && regex_is_inside_bracket(state));
+  if (at_line_end || at_closing_delimiter) {
+    if (regex_mode && scan_regex_closer(lexer, state, valid_symbols, symbol)) {
       return true;
     }
-    return scan_active_mode_delimiter(lexer, state, valid_symbols, symbol);
+    return at_closing_delimiter
+      ? scan_active_mode_delimiter(lexer, state, valid_symbols, symbol)
+      : end_unterminated_mode(lexer, state, valid_symbols, symbol);
   }
 
   return regex_mode ? scan_regex_token(lexer, state, valid_symbols, symbol)
@@ -2835,92 +2522,92 @@ update_regex_position_after_symbol(ScannerState *state, TSSymbol symbol) {
   }
 
   switch (symbol) {
-  case REGEX_GROUP_OPEN:
-    state->regex_group_depth++;
-    state->regex_position = REGEX_AT_BRANCH_START;
-    return;
-  case REGEX_GROUP_CLOSE:
-    state->regex_group_depth--;
-    state->regex_position = REGEX_AFTER_ATOM;
-    return;
+    case REGEX_GROUP_OPEN:
+      state->regex_group_depth++;
+      state->regex_position = REGEX_AT_BRANCH_START;
+      return;
+    case REGEX_GROUP_CLOSE:
+      state->regex_group_depth--;
+      state->regex_position = REGEX_AFTER_ATOM;
+      return;
 #if SED_REGEX_EXTENDED
-  case REGEX_ALTERNATION_OPERATOR:
-    state->regex_position = REGEX_AFTER_ALTERNATION;
-    return;
+    case REGEX_ALTERNATION_OPERATOR:
+      state->regex_position = REGEX_AFTER_ALTERNATION;
+      return;
 #endif
-  case REGEX_BEGINNING_ANCHOR:
-  case REGEX_END_ANCHOR:
+    case REGEX_BEGINNING_ANCHOR:
+    case REGEX_END_ANCHOR:
 #if !SED_REGEX_EXTENDED
-  case REGEX_BRE_SUBEXPRESSION_CARET:
-  case REGEX_BRE_SUBEXPRESSION_DOLLAR:
+    case REGEX_BRE_SUBEXPRESSION_CARET:
+    case REGEX_BRE_SUBEXPRESSION_DOLLAR:
 #endif
 #if SED_REGEX_EXTENDED
-    state->regex_position = REGEX_AT_BRANCH_START;
+      state->regex_position = REGEX_AT_BRANCH_START;
 #else
-    state->regex_position = REGEX_AFTER_ANCHOR;
+      state->regex_position = REGEX_AFTER_ANCHOR;
 #endif
-    return;
-  case REGEX_ZERO_OR_MORE:
-  case REGEX_INTERVAL_CLOSE:
-  case REGEX_INVALID_INTERVAL:
+      return;
+    case REGEX_ZERO_OR_MORE:
+    case REGEX_INTERVAL_CLOSE:
+    case REGEX_INVALID_INTERVAL:
 #if SED_REGEX_EXTENDED
-  case REGEX_ONE_OR_MORE:
-  case REGEX_ZERO_OR_ONE:
+    case REGEX_ONE_OR_MORE:
+    case REGEX_ZERO_OR_ONE:
 #endif
-    state->regex_position = REGEX_AFTER_DUPLICATION_SYMBOL;
-    return;
+      state->regex_position = REGEX_AFTER_DUPLICATION_SYMBOL;
+      return;
 #if SED_REGEX_EXTENDED
-  case REGEX_REPETITION_MODIFIER:
-    state->regex_position = REGEX_AFTER_REPETITION_MODIFIER;
-    return;
+    case REGEX_REPETITION_MODIFIER:
+      state->regex_position = REGEX_AFTER_REPETITION_MODIFIER;
+      return;
 #endif
-  case REGEX_LITERAL:
-  case INVALID_CHARACTER:
-  case NUL_CHARACTER:
-  case ESCAPED_NUL_CHARACTER:
-  case REGEX_PERIOD:
-  case REGEX_QUOTED_ESCAPE:
-  case ESCAPE_PREFIX:
-  case REGEX_NEWLINE_ESCAPE:
-  case REGEX_ESCAPED_DELIMITER:
-  case REGEX_SPECIAL_ESCAPED_DELIMITER:
-  case REGEX_UNCLOSED_GROUP:
+    case REGEX_LITERAL:
+    case INVALID_CHARACTER:
+    case NUL_CHARACTER:
+    case SINGLE_NUL_CHARACTER:
+    case REGEX_PERIOD:
+    case REGEX_QUOTED_ESCAPE:
+    case ESCAPE_PREFIX:
+    case REGEX_NEWLINE_ESCAPE:
+    case REGEX_ESCAPED_DELIMITER:
+    case REGEX_SPECIAL_ESCAPED_DELIMITER:
+    case REGEX_UNCLOSED_GROUP:
 #if !SED_REGEX_EXTENDED
-  case REGEX_UNMATCHED_GROUP_CLOSE:
-  case REGEX_BRE_VERTICAL_LINE_ESCAPE:
-  case REGEX_BRE_QUESTION_MARK_ESCAPE:
-  case REGEX_BRE_PLUS_ESCAPE:
-  case REGEX_UNMATCHED_INTERVAL_CLOSE:
-  case REGEX_BACKREFERENCE:
+    case REGEX_UNMATCHED_GROUP_CLOSE:
+    case REGEX_BRE_VERTICAL_LINE_ESCAPE:
+    case REGEX_BRE_QUESTION_MARK_ESCAPE:
+    case REGEX_BRE_PLUS_ESCAPE:
+    case REGEX_UNMATCHED_INTERVAL_CLOSE:
+    case REGEX_BACKREFERENCE:
 #endif
-  case REGEX_INTERVAL_OPEN:
-  case REGEX_DUP_COUNT:
-  case REGEX_INTERVAL_SEPARATOR:
-  case REGEX_NONPORTABLE_ESCAPE:
-  case REGEX_INCOMPLETE_ESCAPE:
-  case REGEX_BRACKET_OPEN:
-  case REGEX_BRACKET_CLOSE:
-  case REGEX_BRACKET_LITERAL:
-  case REGEX_BRACKET_NEGATION:
-  case REGEX_BRACKET_HYPHEN:
-  case REGEX_BRACKET_RANGE_END_HYPHEN:
-  case REGEX_BRACKET_TRAILING_HYPHEN:
-  case REGEX_OPEN_COLON:
-  case REGEX_CLASS_NAME:
-  case REGEX_INVALID_CLASS_NAME:
-  case REGEX_COLON_CLOSE:
-  case REGEX_OPEN_DOT:
-  case REGEX_COLL_ELEM_SINGLE:
-  case REGEX_COLL_ELEM_MULTI:
-  case REGEX_META_CHAR:
-  case REGEX_DOT_CLOSE:
-  case REGEX_OPEN_EQUAL:
-  case REGEX_EQUAL_CLOSE:
-  case REGEX_MISSING_BRACKET_TERM_CLOSE:
-    state->regex_position = REGEX_AFTER_ATOM;
-    return;
-  default:
-    return;
+    case REGEX_INTERVAL_OPEN:
+    case REGEX_DUP_COUNT:
+    case REGEX_INTERVAL_SEPARATOR:
+    case REGEX_NONPORTABLE_ESCAPE:
+    case REGEX_INCOMPLETE_ESCAPE:
+    case REGEX_BRACKET_OPEN:
+    case REGEX_BRACKET_CLOSE:
+    case REGEX_BRACKET_LITERAL:
+    case REGEX_BRACKET_NEGATION:
+    case REGEX_BRACKET_HYPHEN:
+    case REGEX_BRACKET_RANGE_END_HYPHEN:
+    case REGEX_BRACKET_TRAILING_HYPHEN:
+    case REGEX_OPEN_COLON:
+    case REGEX_CLASS_NAME:
+    case REGEX_INVALID_CLASS_NAME:
+    case REGEX_COLON_CLOSE:
+    case REGEX_OPEN_DOT:
+    case REGEX_COLL_ELEM_SINGLE:
+    case REGEX_COLL_ELEM_MULTI:
+    case REGEX_META_CHAR:
+    case REGEX_DOT_CLOSE:
+    case REGEX_OPEN_EQUAL:
+    case REGEX_EQUAL_CLOSE:
+    case REGEX_MISSING_BRACKET_TERM_CLOSE:
+      state->regex_position = REGEX_AFTER_ATOM;
+      return;
+    default:
+      return;
   }
 }
 
