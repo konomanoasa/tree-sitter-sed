@@ -290,20 +290,60 @@ function semicolonSeparator($) {
   return alias(";", $.command_separator);
 }
 
-function writeCommandUnit($, block = false) {
-  return seq(
-    editingCommand($, "write_terminated"),
-    choice(
-      newlineSeparator($),
-      alias(
-        block ? $._write_block_terminal_separator : $._write_terminal_separator,
-        $.command_separator,
+function commandUnit($, block) {
+  const beforeUnmatchedBrace = block
+    ? []
+    : [issueField($, "missing_separator_before_unmatched_brace")];
+  return choice(
+    seq(
+      editingCommand($, "write_terminated"),
+      choice(
+        newlineSeparator($),
+        alias(
+          block
+            ? $._write_block_terminal_separator
+            : $._write_terminal_separator,
+          $.command_separator,
+        ),
+        issueField($, "undefined_write_command_separator"),
+        ...beforeUnmatchedBrace,
       ),
-      issueField($, "undefined_write_command_separator"),
-      ...(block
-        ? []
-        : [issueField($, "missing_separator_before_unmatched_brace")]),
     ),
+    seq(
+      $._separable_command_item,
+      choice(
+        semicolonSeparator($),
+        newlineSeparator($),
+        ...beforeUnmatchedBrace,
+      ),
+    ),
+    ...(block
+      ? []
+      : [
+          seq(
+            $._unmatched_closing_brace_item,
+            choice(
+              semicolonSeparator($),
+              newlineSeparator($),
+              ...beforeUnmatchedBrace,
+              issueField($, "missing_separator_after_unmatched_brace"),
+            ),
+          ),
+        ]),
+    seq(
+      editingCommand($, "line_terminated"),
+      choice(newlineSeparator($), ...beforeUnmatchedBrace),
+    ),
+    editingCommand($, "recovered_line_terminated"),
+  );
+}
+
+function commandItem($, block) {
+  return choice(
+    $._separable_command_item,
+    ...(block ? [] : [$._unmatched_closing_brace_item]),
+    editingCommand($, "line_terminated"),
+    editingCommand($, "write_terminated"),
   );
 }
 
@@ -355,43 +395,9 @@ function commandListRules() {
         $._blanks,
       ),
 
-    _command_unit: ($) =>
-      choice(
-        writeCommandUnit($),
-        seq(
-          $._separable_command_item,
-          choice(
-            semicolonSeparator($),
-            newlineSeparator($),
-            issueField($, "missing_separator_before_unmatched_brace"),
-          ),
-        ),
-        seq(
-          $._unmatched_closing_brace_item,
-          choice(
-            semicolonSeparator($),
-            newlineSeparator($),
-            issueField($, "missing_separator_before_unmatched_brace"),
-            issueField($, "missing_separator_after_unmatched_brace"),
-          ),
-        ),
-        seq(
-          editingCommand($, "line_terminated"),
-          choice(
-            newlineSeparator($),
-            issueField($, "missing_separator_before_unmatched_brace"),
-          ),
-        ),
-        editingCommand($, "recovered_line_terminated"),
-      ),
+    _command_unit: ($) => commandUnit($, false),
 
-    _command_item: ($) =>
-      choice(
-        $._separable_command_item,
-        $._unmatched_closing_brace_item,
-        editingCommand($, "line_terminated"),
-        editingCommand($, "write_terminated"),
-      ),
+    _command_item: ($) => commandItem($, false),
 
     _unmatched_closing_brace_item: ($) =>
       seq(
@@ -414,23 +420,9 @@ function commandListRules() {
         missingCommandSeparator($),
       ),
 
-    _block_unit: ($) =>
-      choice(
-        writeCommandUnit($, true),
-        seq(
-          $._separable_command_item,
-          choice(semicolonSeparator($), newlineSeparator($)),
-        ),
-        seq(editingCommand($, "line_terminated"), newlineSeparator($)),
-        editingCommand($, "recovered_line_terminated"),
-      ),
+    _block_unit: ($) => commandUnit($, true),
 
-    _block_item: ($) =>
-      choice(
-        $._separable_command_item,
-        editingCommand($, "line_terminated"),
-        editingCommand($, "write_terminated"),
-      ),
+    _block_item: ($) => commandItem($, true),
 
     empty_command: ($) => seq(optional($._blanks), $._empty_command_marker),
 
@@ -709,6 +701,10 @@ function functionRules() {
     ({ form }) => form === undefined,
   );
 
+  function fileOperand($) {
+    return lineOperand($, $._file_argument, $._line_word);
+  }
+
   const rules = {
     text: ($) =>
       seq(
@@ -736,9 +732,9 @@ function functionRules() {
 
     text_introducer: ($) => $._text_command_start,
 
-    rfile: ($) => lineOperand($, $._file_argument, $._line_word),
+    rfile: fileOperand,
 
-    wfile: ($) => lineOperand($, $._file_argument, $._line_word),
+    wfile: fileOperand,
 
     _substitution_wfile: ($) =>
       lineOperand(
@@ -862,7 +858,7 @@ function editingCommandRules() {
     2: ($) => $.address_clause,
   };
 
-  // Separate address limits to prevent GLR merging before the verb.
+  // Separate address limits prevent premature GLR merging.
   const wrappers = [];
   for (const [kind, isLineTerminated] of [
     ["chainable", false],
@@ -999,6 +995,23 @@ function sedRules(mode) {
 
 const nonportableRangeClasses = ["character_class", "equivalence_class"];
 
+function escapedInvalidCharacter($) {
+  return seq(
+    $._escape_prefix,
+    choice(
+      issueField($, "escaped_invalid_regular_expression_character"),
+      issueField($, "invalid_encoding"),
+    ),
+  );
+}
+
+function intervalSeparator($) {
+  return choice(
+    alias($._regex_interval_separator, ","),
+    alias($._regex_interval_escaped_separator, $.escaped_delimiter),
+  );
+}
+
 function intervalExpression($, opening, closing) {
   const piece = (name) =>
     choice(
@@ -1010,13 +1023,7 @@ function intervalExpression($, opening, closing) {
         : []),
       issueField($, "invalid_regular_expression_character"),
       issueField($, "invalid_encoding"),
-      seq(
-        $._escape_prefix,
-        choice(
-          issueField($, "escaped_invalid_regular_expression_character"),
-          issueField($, "invalid_encoding"),
-        ),
-      ),
+      escapedInvalidCharacter($),
     );
   return seq(
     alias($._regex_interval_open, opening),
@@ -1027,10 +1034,7 @@ function intervalExpression($, opening, closing) {
     ),
     optional(
       seq(
-        choice(
-          alias($._regex_interval_separator, ","),
-          alias($._regex_interval_escaped_separator, $.escaped_delimiter),
-        ),
+        intervalSeparator($),
         repeat(
           choice(
             piece("maximum"),
@@ -1247,13 +1251,7 @@ function bracketRules() {
 function regularExpressionEscape($) {
   return choice(
     $.quoted_character,
-    seq(
-      $._escape_prefix,
-      choice(
-        issueField($, "escaped_invalid_regular_expression_character"),
-        issueField($, "invalid_encoding"),
-      ),
-    ),
+    escapedInvalidCharacter($),
     $.escaped_delimiter,
     issueField($, "ordinary_character_escape"),
     issueField($, "incomplete_regular_expression_escape"),
@@ -1472,6 +1470,22 @@ function issueDefinitions(mode) {
     return ($) => $[`_${reason}_marker`];
   }
 
+  function nonportableEscape(token) {
+    return ($) =>
+      choice(
+        $[token],
+        seq($._escape_prefix, issueField($, "escaped_nul_character")),
+      );
+  }
+
+  function misplacedDuplication(marker) {
+    return ($) =>
+      seq(
+        $[marker],
+        field("operator", $[regularExpressionRules[mode].duplication]),
+      );
+  }
+
   return [
     {
       reason: "nonportable_label_character",
@@ -1614,11 +1628,7 @@ function issueDefinitions(mode) {
     {
       reason: "unexpected_interval_separator",
       outcome: "undefined_syntax",
-      rule: ($) =>
-        choice(
-          alias($._regex_interval_separator, ","),
-          alias($._regex_interval_escaped_separator, $.escaped_delimiter),
-        ),
+      rule: intervalSeparator,
     },
     {
       reason: "missing_interval_minimum",
@@ -1654,20 +1664,12 @@ function issueDefinitions(mode) {
     {
       reason: "leading_duplication_symbol",
       outcome: "undefined_syntax",
-      rule: ($) =>
-        seq(
-          $._regex_leading_duplication_marker,
-          field("operator", $[regularExpressionRules[mode].duplication]),
-        ),
+      rule: misplacedDuplication("_regex_leading_duplication_marker"),
     },
     {
       reason: "adjacent_duplication_symbol",
       outcome: "undefined_syntax",
-      rule: ($) =>
-        seq(
-          $._regex_adjacent_duplication_marker,
-          field("operator", $[regularExpressionRules[mode].duplication]),
-        ),
+      rule: misplacedDuplication("_regex_adjacent_duplication_marker"),
     },
     ...(mode === "ere"
       ? [
@@ -1691,11 +1693,7 @@ function issueDefinitions(mode) {
     {
       reason: "undefined_translation_escape",
       outcome: "undefined_syntax",
-      rule: ($) =>
-        choice(
-          $._translate_nonportable_escape,
-          seq($._escape_prefix, issueField($, "escaped_nul_character")),
-        ),
+      rule: nonportableEscape("_translate_nonportable_escape"),
     },
     {
       reason: "equivalence_class_range_start",
@@ -1720,11 +1718,7 @@ function issueDefinitions(mode) {
     {
       reason: "unspecified_replacement_escape",
       outcome: "unspecified_syntax",
-      rule: ($) =>
-        choice(
-          $._replacement_nonportable_escape,
-          seq($._escape_prefix, issueField($, "escaped_nul_character")),
-        ),
+      rule: nonportableEscape("_replacement_nonportable_escape"),
     },
     {
       reason: "special_delimiter_escape",
@@ -1744,11 +1738,7 @@ function issueDefinitions(mode) {
     {
       reason: "unspecified_text_escape",
       outcome: "unspecified_syntax",
-      rule: ($) =>
-        choice(
-          $._text_unspecified_escape,
-          seq($._escape_prefix, issueField($, "escaped_nul_character")),
-        ),
+      rule: nonportableEscape("_text_unspecified_escape"),
     },
     ...(mode === "bre"
       ? [

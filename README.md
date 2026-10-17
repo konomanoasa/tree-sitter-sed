@@ -7,6 +7,8 @@
 [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) grammars for
 POSIX.1-2024 sed.
 
+For GNU sed, see [tree-sitter-gsed](https://github.com/konomanoasa/tree-sitter-gsed).
+
 ## Installation
 
 ```sh
@@ -15,7 +17,7 @@ npm install tree-sitter-sed
 
 ## Grammars
 
-BRE and ERE have different syntax, so we use separate grammars.
+BRE and ERE have different syntax, so separate grammars are provided.
 
 | Grammar   | Description               |
 | --------- | ------------------------- |

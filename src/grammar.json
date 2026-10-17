@@ -749,13 +749,18 @@
               "value": "editing_command"
             },
             {
-              "type": "ALIAS",
-              "content": {
-                "type": "STRING",
-                "value": "\n"
-              },
-              "named": true,
-              "value": "command_separator"
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "ALIAS",
+                  "content": {
+                    "type": "STRING",
+                    "value": "\n"
+                  },
+                  "named": true,
+                  "value": "command_separator"
+                }
+              ]
             }
           ]
         },
