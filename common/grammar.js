@@ -107,11 +107,12 @@ function issueField($, id) {
   return field("issue", alias($[`_${id}_issue`], $.syntax_issue));
 }
 
+function issueFields($, ...ids) {
+  return choice(...ids.map((id) => issueField($, id)));
+}
+
 function missingAtEndOrBoundary($, reason) {
-  return choice(
-    issueField($, reason),
-    issueField($, `nonconforming_${reason}`),
-  );
+  return issueFields($, reason, `nonconforming_${reason}`);
 }
 
 function blankSeparatedFileOperand($, name, operand) {
@@ -158,10 +159,14 @@ function operandAtoms($, literal, ...atoms) {
   );
 }
 
-function missingCommandSeparator($) {
-  return choice(
-    issueField($, "missing_command_separator"),
-    issueField($, "incomplete_missing_command_separator"),
+function missingCommandSeparator($, afterCommand = false) {
+  return seq(
+    ...(afterCommand ? [optional($._brace_leading_blanks)] : []),
+    issueFields(
+      $,
+      "missing_command_separator",
+      "incomplete_missing_command_separator",
+    ),
   );
 }
 
@@ -263,19 +268,17 @@ function delimiter($, name) {
 }
 
 function missingOpeningDelimiter($) {
-  return choice(
-    issueField($, "invalid_delimiter"),
-    issueField($, "invalid_encoding"),
-    issueField($, "missing_opening_delimiter"),
-    issueField($, "nonconforming_missing_opening_delimiter"),
+  return issueFields(
+    $,
+    "invalid_delimiter",
+    "invalid_encoding",
+    "missing_opening_delimiter",
+    "nonconforming_missing_opening_delimiter",
   );
 }
 
 function unterminatedDelimiter($, construct) {
-  return choice(
-    issueField($, `incomplete_${construct}`),
-    issueField($, `unterminated_${construct}`),
-  );
+  return issueFields($, `incomplete_${construct}`, `unterminated_${construct}`);
 }
 
 function editingCommand($, kind) {
@@ -293,7 +296,12 @@ function semicolonSeparator($) {
 function commandUnit($, block) {
   const beforeUnmatchedBrace = block
     ? []
-    : [issueField($, "missing_separator_before_unmatched_brace")];
+    : [
+        seq(
+          optional($._brace_leading_blanks),
+          issueField($, "missing_separator_before_unmatched_brace"),
+        ),
+      ];
   return choice(
     seq(
       editingCommand($, "write_terminated"),
@@ -321,7 +329,8 @@ function commandUnit($, block) {
       ? []
       : [
           seq(
-            $._unmatched_closing_brace_item,
+            issueField($, "unmatched_closing_brace"),
+            optional($._blanks),
             choice(
               semicolonSeparator($),
               newlineSeparator($),
@@ -341,15 +350,38 @@ function commandUnit($, block) {
 function commandItem($, block) {
   return choice(
     $._separable_command_item,
-    ...(block ? [] : [$._unmatched_closing_brace_item]),
+    ...(block ? [] : [issueField($, "unmatched_closing_brace")]),
     editingCommand($, "line_terminated"),
     editingCommand($, "write_terminated"),
   );
 }
 
+// Explicit recursion makes cursor traversal quadratic.
+function commandList($, unit, finalItem) {
+  return choice(
+    seq(
+      unit,
+      repeat(seq(optional($._blanks), unit)),
+      optional(seq(optional($._blanks), finalItem)),
+    ),
+    finalItem,
+  );
+}
+
 function commandListRules() {
   return {
-    script: ($) => optional(alias($._script_command_list, $.command_list)),
+    script: ($) =>
+      choice(
+        seq(
+          optional(alias($._script_command_list, $.command_list)),
+          optional($._blanks),
+        ),
+        seq(
+          $._blanks,
+          alias($._command_list, $.command_list),
+          optional($._blanks),
+        ),
+      ),
 
     _script_command_list: ($) =>
       choice($._initial_suppressing_comment_command_list, $._command_list),
@@ -357,7 +389,12 @@ function commandListRules() {
     _initial_suppressing_comment_command_list: ($) =>
       seq(
         alias($._initial_suppressing_comment_command, $.editing_command),
-        optional(seq(newlineSeparator($), optional($._command_list))),
+        optional(
+          seq(
+            newlineSeparator($),
+            optional(seq(optional($._blanks), $._command_list)),
+          ),
+        ),
       ),
 
     _initial_suppressing_comment_command: ($) =>
@@ -384,39 +421,28 @@ function commandListRules() {
         repeat(sourcePiece($, $._comment_text, "comment_text")),
       ),
 
-    // Explicit recursion makes cursor traversal quadratic.
-    _command_list: ($) =>
-      choice(
-        seq(
-          repeat1($._command_unit),
-          optional(choice($._command_item, $._blanks)),
-        ),
-        $._command_item,
-        $._blanks,
-      ),
+    _command_list: ($) => commandList($, $._command_unit, $._command_item),
 
     _command_unit: ($) => commandUnit($, false),
 
     _command_item: ($) => commandItem($, false),
 
-    _unmatched_closing_brace_item: ($) =>
-      seq(
-        optional($._brace_leading_blanks),
-        issueField($, "unmatched_closing_brace"),
-        optional($._blanks),
-      ),
-
     _separable_command_item: ($) =>
       choice(
         $.empty_command,
         editingCommand($, "chainable"),
+        seq(editingCommand($, "block"), optional($._block_trailing_blanks)),
+        editingCommand($, "tailed_block"),
         editingCommand($, "recovered"),
       ),
 
     _block_commands: ($) =>
       choice(
-        repeat1($._block_unit),
-        seq(repeat($._block_unit), $._block_item, missingCommandSeparator($)),
+        commandList(
+          $,
+          $._block_unit,
+          seq($._block_item, missingCommandSeparator($, true)),
+        ),
         missingCommandSeparator($),
       ),
 
@@ -424,17 +450,14 @@ function commandListRules() {
 
     _block_item: ($) => commandItem($, true),
 
-    empty_command: ($) => seq(optional($._blanks), $._empty_command_marker),
+    empty_command: ($) => $._empty_command_marker,
 
     _blanks: () => token(/[ \t]+/),
   };
 }
 
 function omittedAddress($) {
-  return choice(
-    issueField($, "omitted_address"),
-    issueField($, "incomplete_omitted_address"),
-  );
+  return issueFields($, "omitted_address", "incomplete_omitted_address");
 }
 
 const regularExpressionRules = {
@@ -776,13 +799,13 @@ function functionRules() {
 
   const formArguments = {
     block: ($) => [
+      optional($._blanks),
       field("commands", alias($._block_commands, $.command_list)),
       optional($._brace_leading_blanks),
       choice(
         field("closing", $.closing_brace),
         issueField($, "missing_closing_brace"),
       ),
-      optional($._block_trailing_blanks),
     ],
     text: ($) => [
       choice(
@@ -832,23 +855,20 @@ function functionRules() {
   return rules;
 }
 
-function commandTail($) {
-  return seq(
-    repeat(issueField($, "invalid_encoding")),
-    optional(
-      choice(
-        issueField($, "unexpected_command_text"),
-        issueField($, "incomplete_command_text"),
-      ),
-    ),
+function commandTail($, nonempty = false) {
+  const encoding = issueField($, "invalid_encoding");
+  const text = issueFields(
+    $,
+    "unexpected_command_text",
+    "incomplete_command_text",
   );
+  return nonempty
+    ? choice(seq(repeat1(encoding), optional(text)), text)
+    : seq(repeat(encoding), optional(text));
 }
 
 function unknownFunction($, id) {
-  return seq(
-    choice(issueField($, id), issueField($, "invalid_encoding")),
-    commandTail($),
-  );
+  return seq(issueFields($, id, "invalid_encoding"), commandTail($));
 }
 
 function editingCommandRules() {
@@ -862,6 +882,7 @@ function editingCommandRules() {
   const wrappers = [];
   for (const [kind, isLineTerminated] of [
     ["chainable", false],
+    ["block", false],
     ["line_terminated", true],
     ["write_terminated", false],
   ]) {
@@ -872,7 +893,9 @@ function editingCommandRules() {
             lineTerminated = false,
             writeTerminated = false,
             maxAddresses = 2,
+            form,
           }) =>
+            (form === "block") === (kind === "block") &&
             writeTerminated === (kind === "write_terminated") &&
             lineTerminated === isLineTerminated &&
             maxAddresses === maximum,
@@ -895,7 +918,6 @@ function editingCommandRules() {
 
   function addressedCommand($, addresses, body) {
     return seq(
-      optional($._blanks),
       optional(addressesPrefix($, addresses)),
       optional(field("negation", $.negation)),
       body,
@@ -920,6 +942,11 @@ function editingCommandRules() {
     _chainable_editing_command: ($) =>
       seq(addressedForms($, "chainable"), commandTail($)),
 
+    _block_editing_command: ($) => addressedForms($, "block"),
+
+    _tailed_block_editing_command: ($) =>
+      seq(addressedForms($, "block"), commandTail($, true)),
+
     _write_terminated_editing_command: ($) =>
       seq(addressedForms($, "write_terminated"), commandTail($)),
 
@@ -934,7 +961,6 @@ function editingCommandRules() {
 
     _recovered_editing_command: ($) =>
       seq(
-        optional($._blanks),
         choice(
           seq(
             optional(addressesPrefix($, $.address_clause)),
@@ -998,9 +1024,10 @@ const nonportableRangeClasses = ["character_class", "equivalence_class"];
 function escapedInvalidCharacter($) {
   return seq(
     $._escape_prefix,
-    choice(
-      issueField($, "escaped_invalid_regular_expression_character"),
-      issueField($, "invalid_encoding"),
+    issueFields(
+      $,
+      "escaped_invalid_regular_expression_character",
+      "invalid_encoding",
     ),
   );
 }
@@ -1368,10 +1395,7 @@ function ereRules() {
       ),
 
     _empty_ere_branch: ($) =>
-      choice(
-        issueField($, "empty_alternative"),
-        issueField($, "incomplete_alternative"),
-      ),
+      issueFields($, "empty_alternative", "incomplete_alternative"),
 
     ere_branch: ($) => repeat1($.ere_expression),
 
@@ -2204,6 +2228,9 @@ function defineGrammar(name, mode) {
     extras: () => [],
 
     conflicts: ($) => [
+      [$._command_list],
+      [$._initial_suppressing_comment_command_list],
+      [$._command_unit, $._command_item],
       [$.address_clause, $._max1_address_clause],
       [$._double_address_clause, $._excess_address_unit1_reason],
       [$.address, $._max0_address],

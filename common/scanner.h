@@ -519,6 +519,13 @@ static bool scan_unexpected_command_text(
     lexer->lookahead != ';' &&
     lexer->lookahead != '}'
   ) {
+    if (is_blank(lexer->lookahead)) {
+      advance_past_blanks(lexer);
+      if (lexer->lookahead == '}') break;
+      lexer->mark_end(lexer);
+      consumed = true;
+      continue;
+    }
     consume(lexer);
     consumed = true;
   }
@@ -662,6 +669,16 @@ static bool scan_post_blank_recovery(
     marker = MISSING_ADDRESS_SEPARATOR_MARKER;
   } else {
     marker = missing_command_separator_marker(lexer, valid_symbols);
+  }
+  if (
+    lexer->lookahead == '}' &&
+    (marker == MISSING_COMMAND_SEPARATOR_MARKER ||
+      marker == MISSING_SEPARATOR_BEFORE_UNMATCHED_BRACE_MARKER)
+  ) {
+    if (!valid_symbols[BRACE_LEADING_BLANKS]) return false;
+    lexer->mark_end(lexer);
+    *symbol = BRACE_LEADING_BLANKS;
+    return true;
   }
   if (emit_symbol(valid_symbols, marker, symbol)) {
     return true;
@@ -2040,6 +2057,30 @@ static bool scan_brace_leading_blanks(
   return true;
 }
 
+static bool scan_block_trailing_blanks(
+  TSLexer *lexer,
+  const bool *valid_symbols,
+  TSSymbol *symbol
+) {
+  while (is_blank(lexer->lookahead)) {
+    lexer->advance(lexer, true);
+  }
+  if (
+    lexer->eof(lexer) && !valid_symbols[INCOMPLETE_COMMAND_SEPARATOR_MARKER]
+  ) {
+    return false;
+  }
+  if (at_command_boundary(lexer)) {
+    lexer->mark_end(lexer);
+    *symbol = BLOCK_TRAILING_BLANKS;
+    return true;
+  }
+  if (!source_character_is_valid(lexer->lookahead)) {
+    return consume_invalid_character(lexer, valid_symbols, symbol);
+  }
+  return scan_unexpected_command_text(lexer, valid_symbols, symbol, false);
+}
+
 static bool scan_command_recovery(
   TSLexer *lexer,
   const bool *valid_symbols,
@@ -2066,10 +2107,13 @@ static bool scan_command_recovery(
     );
   }
 
-  if (
-    is_blank(lexer->lookahead) && post_blank_recovery_is_valid(valid_symbols)
-  ) {
-    return scan_post_blank_recovery(lexer, valid_symbols, symbol);
+  if (is_blank(lexer->lookahead)) {
+    if (post_blank_recovery_is_valid(valid_symbols)) {
+      return scan_post_blank_recovery(lexer, valid_symbols, symbol);
+    }
+    if (valid_symbols[BRACE_LEADING_BLANKS]) {
+      return scan_brace_leading_blanks(lexer, valid_symbols, symbol);
+    }
   }
 
   if (
@@ -2201,10 +2245,7 @@ static bool scan_command_token(
   }
 
   if (valid_symbols[BLOCK_TRAILING_BLANKS] && is_blank(lexer->lookahead)) {
-    advance_past_blanks(lexer);
-    lexer->mark_end(lexer);
-    *symbol = BLOCK_TRAILING_BLANKS;
-    return true;
+    return scan_block_trailing_blanks(lexer, valid_symbols, symbol);
   }
 
   if (
@@ -2343,10 +2384,6 @@ static bool scan_command_token(
       *symbol = delimited_openers[index].symbol;
       return true;
     }
-  }
-
-  if (valid_symbols[BRACE_LEADING_BLANKS] && is_blank(lexer->lookahead)) {
-    return scan_brace_leading_blanks(lexer, valid_symbols, symbol);
   }
 
   return scan_command_recovery(lexer, valid_symbols, symbol);

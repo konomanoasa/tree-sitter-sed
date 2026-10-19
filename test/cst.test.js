@@ -25,6 +25,90 @@ import {
 
 const largeReplacementCharacters = 80_000;
 const largeCommandCount = 16_000;
+
+for (const grammar of grammars) {
+  test(`${grammar.name}: layout stays outside commands and empty lists`, () => {
+    for (const { source, commands, lists } of [
+      { source: " \t", commands: [], lists: [] },
+      { source: " p; ", commands: [[1, 2]], lists: [[1, 3]] },
+      { source: " 1 p", commands: [[1, 4]], lists: [[1, 4]] },
+      { source: " ; ", commands: [], lists: [[1, 2]] },
+      {
+        source: "{ p; } ",
+        commands: [
+          [0, 6],
+          [2, 3],
+        ],
+        lists: [
+          [0, 6],
+          [2, 4],
+        ],
+      },
+      { source: "r file ", commands: [[0, 7]], lists: [[0, 7]] },
+      { source: "a\\\n ", commands: [[0, 4]], lists: [[0, 4]] },
+    ]) {
+      const result = parseSuccessfully(grammar.scope, source);
+      const ranges = (kind) =>
+        result.nodes
+          .filter((node) => node.kind === kind)
+          .map(({ startByte, endByte }) => [startByte, endByte]);
+      assert.deepEqual(ranges("editing_command"), commands, source);
+      assert.deepEqual(ranges("command_list"), lists, source);
+      for (let byte = 0; byte < source.length; byte++) {
+        if (source[byte] !== " " && source[byte] !== "\t") continue;
+        assertIncrementalContract(
+          result,
+          parse(grammar.scope, source, [
+            { byte, deleteBytes: 1, insert: "" },
+            { byte, deleteBytes: 0, insert: source[byte] },
+          ]),
+          source,
+        );
+      }
+    }
+  });
+
+  test(`${grammar.name}: missing elements follow permitted layout before completion`, () => {
+    for (const { source, reason, completed } of [
+      { source: "1 \t", reason: "missing_function", completed: "1 \tp" },
+      { source: "r \t", reason: "missing_rfile", completed: "r \tfile" },
+      { source: "{; \t", reason: "missing_closing_brace", completed: "{; \t}" },
+    ]) {
+      const result = parseSuccessfully(grammar.scope, source);
+      assert.deepEqual(
+        result.nodes
+          .filter((node) => node.kind === reason)
+          .map(({ startByte, endByte }) => [startByte, endByte]),
+        [[source.length, source.length]],
+        source,
+      );
+      const fresh = parseSuccessfully(grammar.scope, completed);
+      assert.deepEqual(issueSignatures(fresh.nodes), []);
+      assertIncrementalContract(
+        fresh,
+        parse(grammar.scope, source, [
+          {
+            byte: source.length,
+            deleteBytes: 0,
+            insert: completed.slice(source.length),
+          },
+        ]),
+        completed,
+      );
+      assertIncrementalContract(
+        result,
+        parse(grammar.scope, completed, [
+          {
+            byte: source.length,
+            deleteBytes: completed.length - source.length,
+            insert: "",
+          },
+        ]),
+        source,
+      );
+    }
+  });
+}
 const nestedBlockDepth = 2_000;
 const printedCommandCount = 50_000;
 const cstPrintTimeoutMs = 60_000;
@@ -633,6 +717,27 @@ const invalidCharacterCases = [
       ["unexpected_command_text", "[0, 1] - [0, 5]"],
       ["nul_character", "[0, 2] - [0, 3]"],
       ["nul_character", "[0, 4] - [0, 5]"],
+    ],
+  },
+  {
+    name: "command text after block trailing blanks",
+    source: "{p;} \0\n",
+    issues: [
+      ["unexpected_command_text", "[0, 5] - [0, 6]"],
+      ["nul_character", "[0, 5] - [0, 6]"],
+    ],
+    encodingIssues: [["invalid_encoding", "[0, 5] - [0, 6]"]],
+  },
+  {
+    name: "block command text before a blank",
+    source: "{p;}\0 ;q\n",
+    issues: [
+      ["unexpected_command_text", "[0, 4] - [0, 6]"],
+      ["nul_character", "[0, 4] - [0, 5]"],
+    ],
+    encodingIssues: [
+      ["invalid_encoding", "[0, 4] - [0, 5]"],
+      ["unexpected_command_text", "[0, 5] - [0, 6]"],
     ],
   },
   ...["s", "y"].map((verb) => ({

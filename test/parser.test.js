@@ -559,6 +559,11 @@ for (const grammar of grammars) {
       " \t}p\n",
       "p; \t}\n",
       "p \t}\n",
+      "{pq \t}",
+      "{p\0 \t}",
+      "{pq\0 \t}",
+      "{{pq \t};}",
+      "pq \t}",
     ]) {
       const byte = source.indexOf(" \t");
       assertIncrementalContract(
@@ -568,6 +573,52 @@ for (const grammar of grammars) {
         ]),
         source,
       );
+    }
+  });
+}
+
+for (const grammar of grammars) {
+  test(`${grammar.name}: closing brace layout follows unexpected text and decoding failures`, () => {
+    for (const { bad, reasons } of [
+      { bad: Buffer.from("q"), reasons: ["unexpected_command_text"] },
+      {
+        bad: Buffer.from([0]),
+        reasons: ["unexpected_command_text", "nul_character"],
+      },
+      { bad: Buffer.from([0xff]), reasons: ["invalid_encoding"] },
+    ]) {
+      for (const blanks of [" ", "\t", " \t "]) {
+        const source = Buffer.concat([
+          Buffer.from("{p"),
+          bad,
+          Buffer.from(`${blanks}}`),
+        ]);
+        const fresh = parseSuccessfully(grammar.scope, source);
+        assert.deepEqual(issueSignatures(fresh.nodes), [
+          ...reasons.map((reason) => ({
+            outcome:
+              reason === "invalid_encoding"
+                ? "invalid_syntax"
+                : "nonconforming_syntax",
+            reason,
+            range: "[0, 2] - [0, 3]",
+          })),
+          {
+            outcome: "nonconforming_syntax",
+            reason: "missing_command_separator",
+            range: `[0, ${3 + blanks.length}] - [0, ${3 + blanks.length}]`,
+          },
+        ]);
+        const edits = [
+          { byte: 3, deleteBytes: blanks.length, insert: "" },
+          { byte: 3, deleteBytes: 0, insert: blanks },
+        ];
+        assertIncrementalContract(
+          fresh,
+          parseSuccessfully(grammar.scope, source, edits),
+          "restore brace layout after invalid character",
+        );
+      }
     }
   });
 }

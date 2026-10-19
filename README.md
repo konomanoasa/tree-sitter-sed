@@ -15,18 +15,11 @@ For GNU sed, see [tree-sitter-gsed](https://github.com/konomanoasa/tree-sitter-g
 npm install tree-sitter-sed
 ```
 
-## Grammars
+## Parsing Option
 
-BRE and ERE have different syntax, so separate grammars are provided.
-
-| Grammar   | Description               |
-| --------- | ------------------------- |
-| `sed`     | POSIX.1-2024 sed with BRE |
-| `sed_ere` | POSIX.1-2024 sed with ERE |
+For POSIX ERE parsing, use `sed_ere`.
 
 ## Development
-
-Development uses Node.js 24.21.0 or later.
 
 ```sh
 npm install
@@ -41,7 +34,7 @@ npm test
 
 ## Used By
 
-[sed-ts-mode](https://github.com/konomanoasa/sed-ts-mode): Emacs major mode.
+[sed-ts-mode](https://github.com/konomanoasa/sed-ts-mode)
 
 ## License
 

@@ -208,9 +208,10 @@ for (const grammar of grammars) {
         },
       ].map(({ source: commandSource, start }) => {
         const result = parseSuccessfully(grammar.scope, commandSource);
+        const command = topLevelEditingCommands(result.nodes)[0];
         return {
-          start,
-          nodes: topLevelEditingCommands(result.nodes)[0].nodes,
+          start: [start[0] + command.start[0], start[1] + command.start[1]],
+          nodes: command.nodes,
         };
       });
       const offset = Buffer.byteLength(before);

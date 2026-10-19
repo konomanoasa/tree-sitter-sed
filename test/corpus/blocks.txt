@@ -450,7 +450,7 @@ A closing brace is a direct leaf
 0:4 - 0:5         `\n`
 
 ==================
-A block owns permitted trailing blanks before source end
+A block excludes permitted trailing blanks before source end
 :language(sed)
 :language(sed_ere)
 :cst
@@ -459,10 +459,10 @@ A block owns permitted trailing blanks before source end
 ------------------
 
 0:0 - 0:6   script
-0:0 - 0:6     command_list
-0:0 - 0:6       editing_command
-0:0 - 0:6         function: function
-0:0 - 0:6           block_function
+0:0 - 0:4     command_list
+0:0 - 0:4       editing_command
+0:0 - 0:4         function: function
+0:0 - 0:4           block_function
 0:0 - 0:1             verb: function_verb `{`
 0:1 - 0:3             commands: command_list
 0:1 - 0:2               editing_command
@@ -473,7 +473,41 @@ A block owns permitted trailing blanks before source end
 0:3 - 0:4             closing: closing_brace `}`
 
 ==================
-A block owns permitted trailing blanks before newline
+A nested block excludes permitted trailing blanks before source end
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+{{p;} 	
+------------------
+
+0:0 - 0:7   script
+0:0 - 0:7     command_list
+0:0 - 0:7       editing_command
+0:0 - 0:7         function: function
+0:0 - 0:7           block_function
+0:0 - 0:1             verb: function_verb `{`
+0:1 - 0:7             commands: command_list
+0:1 - 0:5               editing_command
+0:1 - 0:5                 function: function
+0:1 - 0:5                   block_function
+0:1 - 0:2                     verb: function_verb `{`
+0:2 - 0:4                     commands: command_list
+0:2 - 0:3                       editing_command
+0:2 - 0:3                         function: function
+0:2 - 0:3                           print_function
+0:2 - 0:3                             verb: function_verb `p`
+0:3 - 0:4                       command_separator `;`
+0:4 - 0:5                     closing: closing_brace `}`
+0:7 - 0:7               issue: syntax_issue
+0:7 - 0:7                 incomplete_syntax
+0:7 - 0:7                   missing_command_separator
+0:7 - 0:7             issue: syntax_issue
+0:7 - 0:7               incomplete_syntax
+0:7 - 0:7                 missing_closing_brace
+
+==================
+A block excludes permitted trailing blanks before newline
 :language(sed)
 :language(sed_ere)
 :cst
@@ -484,9 +518,9 @@ A block owns permitted trailing blanks before newline
 
 0:0 - 1:0   script
 0:0 - 1:0     command_list
-0:0 - 0:6       editing_command
-0:0 - 0:6         function: function
-0:0 - 0:6           block_function
+0:0 - 0:4       editing_command
+0:0 - 0:4         function: function
+0:0 - 0:4           block_function
 0:0 - 0:1             verb: function_verb `{`
 0:1 - 0:3             commands: command_list
 0:1 - 0:2               editing_command
@@ -499,7 +533,7 @@ A block owns permitted trailing blanks before newline
 0:6 - 0:7         `\n`
 
 ==================
-A block owns permitted trailing blanks before semicolon
+A block excludes permitted trailing blanks before semicolon
 :language(sed)
 :language(sed_ere)
 :cst
@@ -510,9 +544,9 @@ A block owns permitted trailing blanks before semicolon
 
 0:0 - 1:0   script
 0:0 - 1:0     command_list
-0:0 - 0:6       editing_command
-0:0 - 0:6         function: function
-0:0 - 0:6           block_function
+0:0 - 0:4       editing_command
+0:0 - 0:4         function: function
+0:0 - 0:4           block_function
 0:0 - 0:1             verb: function_verb `{`
 0:1 - 0:3             commands: command_list
 0:1 - 0:2               editing_command
@@ -530,7 +564,7 @@ A block owns permitted trailing blanks before semicolon
 0:8 - 0:9         `\n`
 
 ==================
-A block owns permitted trailing blanks before nested block
+A block excludes permitted trailing blanks before nested block
 :language(sed)
 :language(sed_ere)
 :cst
@@ -541,14 +575,14 @@ A block owns permitted trailing blanks before nested block
 
 0:0  - 1:0    script
 0:0  - 1:0      command_list
-0:0  - 0:10       editing_command
-0:0  - 0:10         function: function
-0:0  - 0:10           block_function
+0:0  - 0:9        editing_command
+0:0  - 0:9          function: function
+0:0  - 0:9            block_function
 0:0  - 0:1              verb: function_verb `{`
 0:1  - 0:8              commands: command_list
-0:1  - 0:7                editing_command
-0:1  - 0:7                  function: function
-0:1  - 0:7                    block_function
+0:1  - 0:5                editing_command
+0:1  - 0:5                  function: function
+0:1  - 0:5                    block_function
 0:1  - 0:2                      verb: function_verb `{`
 0:2  - 0:4                      commands: command_list
 0:2  - 0:3                        editing_command
@@ -575,8 +609,8 @@ Unexpected block command text excludes trailing blanks
 0:0 - 1:0   script
 0:0 - 1:0     command_list
 0:0 - 0:7       editing_command
-0:0 - 0:6         function: function
-0:0 - 0:6           block_function
+0:0 - 0:4         function: function
+0:0 - 0:4           block_function
 0:0 - 0:1             verb: function_verb `{`
 0:1 - 0:3             commands: command_list
 0:1 - 0:2               editing_command
@@ -633,10 +667,10 @@ Blanks before a closing brace after a missing separator do not form a command
 0:0 - 0:4         function: function
 0:0 - 0:4           block_function
 0:0 - 0:1             verb: function_verb `{`
-0:1 - 0:1             commands: command_list
-0:1 - 0:1               issue: syntax_issue
-0:1 - 0:1                 nonconforming_syntax
-0:1 - 0:1                   missing_command_separator
+0:3 - 0:3             commands: command_list
+0:3 - 0:3               issue: syntax_issue
+0:3 - 0:3                 nonconforming_syntax
+0:3 - 0:3                   missing_command_separator
 0:3 - 0:4             closing: closing_brace `}`
 0:4 - 1:0       command_separator
 0:4 - 0:5         `\n`
@@ -677,7 +711,7 @@ Blanks before a unmatched closing brace at source start do not form a command
 ------------------
 
 0:0 - 1:0   script
-0:0 - 1:0     command_list
+0:2 - 1:0     command_list
 0:2 - 0:3       issue: syntax_issue
 0:2 - 0:3         nonconforming_syntax
 0:2 - 0:3           unmatched_closing_brace
@@ -732,12 +766,69 @@ p 	}
 0:0 - 0:1         function: function
 0:0 - 0:1           print_function
 0:0 - 0:1             verb: function_verb `p`
-0:1 - 0:1       issue: syntax_issue
-0:1 - 0:1         nonconforming_syntax
-0:1 - 0:1           missing_command_separator
+0:3 - 0:3       issue: syntax_issue
+0:3 - 0:3         nonconforming_syntax
+0:3 - 0:3           missing_command_separator
 0:3 - 0:4       issue: syntax_issue
 0:3 - 0:4         nonconforming_syntax
 0:3 - 0:4           unmatched_closing_brace
 0:3 - 0:4             closing_brace `}`
 0:4 - 1:0       command_separator
 0:4 - 0:5         `\n`
+
+==================
+Unexpected text before a closing brace leaves trailing blank outside the issue
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+{pq }
+------------------
+0:0 - 0:5   script
+0:0 - 0:5     command_list
+0:0 - 0:5       editing_command
+0:0 - 0:5         function: function
+0:0 - 0:5           block_function
+0:0 - 0:1             verb: function_verb `{`
+0:1 - 0:4             commands: command_list
+0:1 - 0:3               editing_command
+0:1 - 0:2                 function: function
+0:1 - 0:2                   print_function
+0:1 - 0:2                     verb: function_verb `p`
+0:2 - 0:3                 issue: syntax_issue
+0:2 - 0:3                   nonconforming_syntax
+0:2 - 0:3                     unexpected_command_text `q`
+0:4 - 0:4               issue: syntax_issue
+0:4 - 0:4                 nonconforming_syntax
+0:4 - 0:4                   missing_command_separator
+0:4 - 0:5             closing: closing_brace `}`
+
+==================
+NUL before a closing brace leaves trailing blank outside the issue
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+{p  }
+------------------
+0:0 - 0:5   script
+0:0 - 0:5     command_list
+0:0 - 0:5       editing_command
+0:0 - 0:5         function: function
+0:0 - 0:5           block_function
+0:0 - 0:1             verb: function_verb `{`
+0:1 - 0:4             commands: command_list
+0:1 - 0:3               editing_command
+0:1 - 0:2                 function: function
+0:1 - 0:2                   print_function
+0:1 - 0:2                     verb: function_verb `p`
+0:2 - 0:3                 issue: syntax_issue
+0:2 - 0:3                   nonconforming_syntax
+0:2 - 0:3                     unexpected_command_text
+0:2 - 0:3                       issue: syntax_issue
+0:2 - 0:3                         nonconforming_syntax
+0:2 - 0:3                           nul_character `\0`
+0:4 - 0:4               issue: syntax_issue
+0:4 - 0:4                 nonconforming_syntax
+0:4 - 0:4                   missing_command_separator
+0:4 - 0:5             closing: closing_brace `}`
