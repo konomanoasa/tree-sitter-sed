@@ -1,6 +1,6 @@
 {
   "name": "tree-sitter-sed",
-  "version": "0.20.1",
+  "version": "0.21.0",
   "type": "module",
   "description": "Tree-sitter grammars for POSIX sed.",
   "license": "MIT",
