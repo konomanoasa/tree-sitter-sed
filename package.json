@@ -2,7 +2,7 @@
   "name": "tree-sitter-sed",
   "version": "0.21.0",
   "type": "module",
-  "description": "Tree-sitter grammars for POSIX sed.",
+  "description": "Tree-sitter grammars for GNU sed 4.10.",
   "license": "MIT",
   "repository": "git+https://github.com/konomanoasa/tree-sitter-sed.git",
   "files": [
@@ -13,7 +13,6 @@
     "grammar.js",
     "queries/*.scm",
     "sed_ere/grammar.js",
-    "sed_ere/queries/*.scm",
     "sed_ere/src/*.c",
     "sed_ere/src/*.json",
     "sed_ere/src/tree_sitter/*.h",
@@ -28,12 +27,11 @@
   },
   "scripts": {
     "build": "npm run tree-sitter -- build-all",
-    "check": "biome check . && tsc --noEmit",
+    "check": "biome check . && tsc",
     "check:queries": "npm run tree-sitter -- check-queries",
     "format": "biome format --write .",
     "generate": "npm run tree-sitter -- generate-all",
     "test": "npm run tree-sitter -- test-corpus --rebuild && node --test --test-concurrency=1 \"test/*.test.js\"",
-    "test:fuzz": "node --test --test-name-pattern=\"fixed-seed generated histories\" test/incremental.test.js",
     "test:fuzz:corpus": "npm run tree-sitter -- fuzz-all --iterations 100 --edits 5",
     "test:highlights": "node --test test/highlight.test.js",
     "test:incremental": "node --test --test-concurrency=1 test/cst.test.js test/parser.test.js test/incremental.test.js",
@@ -42,7 +40,7 @@
     "tree-sitter": "node scripts/tree-sitter.js"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.15",
+    "@biomejs/biome": "2.6.2",
     "@types/node": "26.6.5",
     "tree-sitter-cli": "0.27.1",
     "typescript": "7.0.2"

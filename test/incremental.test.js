@@ -1,265 +1,209 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { grammars } from "../scripts/tree-sitter.js";
-import { issuePaths, topLevelEditingCommands } from "./support/cst.js";
+import { issueSignatures } from "./support/cst.js";
 import {
   applyEdits,
   assertIncrementalContract,
   parse,
   parseSuccessfully,
+  relexedTokens,
 } from "./support/parser.js";
 
-const fuzzSeed = 1n;
-const fuzzIterations = 100;
-const editsPerHistory = 5;
-const maximumFragments = 3;
-const maximumDeletionBytes = 2;
-const randomStateBits = 64;
-const randomOutputShift = 32n;
-const randomMultiplier = 6364136223846793005n;
-const randomIncrement = 1n;
+for (const scope of ["source.sed", "source.sed.ere"]) {
+  const group = scope.endsWith("ere") ? "(a|b)+" : "\\(a\\|b\\)\\+";
 
-function createEditHistoryGenerator() {
-  let seed = fuzzSeed;
-  function next(maximum) {
-    seed = BigInt.asUintN(
-      randomStateBits,
-      seed * randomMultiplier + randomIncrement,
-    );
-    return Number(seed >> randomOutputShift) % maximum;
-  }
-  return function* (fragments, insertions, joinSource) {
-    for (let iteration = 0; iteration < fuzzIterations; iteration++) {
-      const parts = [];
-      const count = 1 + next(maximumFragments);
-      for (let part = 0; part < count; part++) {
-        parts.push(fragments[next(fragments.length)]);
-      }
-      const initial = joinSource(parts);
-      let source = Buffer.from(initial);
-      const edits = [];
-      for (let step = 0; step < editsPerHistory; step++) {
-        const position = next(source.length + 1);
-        const insert = next(2) === 0 || position === source.length;
-        const edit = insert
-          ? {
-              byte: position,
-              deleteBytes: 0,
-              insert: insertions[next(insertions.length)],
-            }
-          : {
-              byte: position,
-              deleteBytes: Math.min(
-                next(maximumDeletionBytes) + 1,
-                source.length - position,
-              ),
-              insert: "",
-            };
-        edits.push(edit);
-        source = applyEdits(source, [edit]);
-        yield {
-          initial,
-          source,
-          edits: [...edits],
-          context: `seed ${fuzzSeed}, iteration ${iteration}, source ${JSON.stringify(initial)}, edits ${JSON.stringify(edits)}`,
-        };
-      }
-    }
-  };
-}
-
-const fragments = [
-  "p",
-  "d",
-  "x",
-  "=",
-  "q",
-  "1p",
-  "$p",
-  "1,2p",
-  "1 , 2p",
-  "1, p",
-  ", 2p",
-  ",2p",
-  "1,p",
-  "1,q",
-  "1,2q",
-  "1 2q",
-  "1:x",
-  "1 2:x",
-  "1 2#x",
-  "1,2,3p",
-  "1,2 3p",
-  "1,2 ,3p",
-  "/a/p",
-  "/a*b/p",
-  "/\\(a\\)/p",
-  "/[abc]/p",
-  "/[.a.]/p",
-  "/[a-m-o]/p",
-  "s/a/b/",
-  "s/a/b/g",
-  "s/a/b/w f",
-  "s/a/b/2",
-  "y/ab/cd/",
-  "b x",
-  "b }x",
-  "t",
-  ":l",
-  "a\\\ntext",
-  "i\\\nfoo",
-  "c\\\nbar",
-  "r file",
-  "w file",
-  "{p;d}",
-  "{p\nd\n}",
-  "{ }",
-  "#comment",
-  "#n",
-  "!p",
-  "! \tp",
-  "1!p",
-  "!!p",
-  "}",
-  "{p",
-  "s/a",
-  "/[a",
-  "\\%re%p",
-  "s;a;b;",
-];
-
-const insertions = "psdxq!{};,\n\\/*[]().^$|+?-:=# \tabw12";
-
-test("sed: fixed-seed generated histories converge", (context) => {
-  const generateHistories = createEditHistoryGenerator();
-  for (const grammar of grammars) {
-    let checked = 0;
-    for (const history of generateHistories(
-      fragments,
-      insertions,
-      (parts) => `${parts.join("\n")}\n`,
-    )) {
-      const fresh = parse(grammar.scope, history.source);
-      const incremental = parse(grammar.scope, history.initial, history.edits);
-      assertIncrementalContract(
-        fresh,
-        incremental,
-        `${grammar.name}: ${history.context}`,
-      );
-      checked += 1;
-    }
-    assert.equal(checked, fuzzIterations * editsPerHistory);
-    context.diagnostic(
-      `${grammar.name}: checked ${checked} generated edit states`,
-    );
-  }
-});
-
-const commandRecoveryCases = [
-  {
-    name: "raw newline after an unclosed bracket expression",
-    before: "  1,2!p\n",
-    broken: "/[a\n",
-    after: "\t/[[.a.]][[=b=]][[:alpha:]]/d\n",
-    initial: "/[a]/p\n",
-    edit: { byte: 3, deleteBytes: 3, insert: "" },
-    boundary: 3,
-    issues: [
-      "undefined_syntax/unclosed_bracket_expression",
-      "nonconforming_syntax/unterminated_regular_expression",
-      "nonconforming_syntax/missing_function",
-    ],
-  },
-  {
-    name: "semicolon after an unknown function",
-    before: "  1,2!p;",
-    broken: "Z;",
-    after: "\t/[[.a.]][[=b=]][[:alpha:]]/d\n",
-    initial: "p;",
-    edit: { byte: 0, deleteBytes: 1, insert: "Z" },
-    boundary: 1,
-    issues: ["nonconforming_syntax/unknown_function"],
-  },
-  {
-    name: "closed block containing an unknown function",
-    before: "  1{\np\n};",
-    broken: "{Z\n};",
-    after: "\t2s/a/b/\n",
-    initial: "{p\n};",
-    edit: { byte: 1, deleteBytes: 1, insert: "Z" },
-    boundary: 3,
-    issues: ["nonconforming_syntax/unknown_function"],
-  },
-];
-
-for (const grammar of grammars) {
-  for (const testCase of commandRecoveryCases) {
-    test(`${grammar.name}: recovery preserves surrounding commands across ${testCase.name}`, () => {
-      const { before, broken, after } = testCase;
-      const source = before + broken + after;
-      const followingLines = (before + broken).split("\n");
-      const lastLine = followingLines.at(-1);
-      assert.ok(lastLine !== undefined);
-      const expected = [
-        { source: before, start: [0, 0] },
-        {
-          source: after,
-          start: [followingLines.length - 1, Buffer.byteLength(lastLine)],
-        },
-      ].map(({ source: commandSource, start }) => {
-        const result = parseSuccessfully(grammar.scope, commandSource);
-        const command = topLevelEditingCommands(result.nodes)[0];
-        return {
-          start: [start[0] + command.start[0], start[1] + command.start[1]],
-          nodes: command.nodes,
-        };
-      });
-      const offset = Buffer.byteLength(before);
-      const boundaryPosition = offset + testCase.boundary;
-      const histories = [
-        { name: "fresh", source, edits: [] },
-        {
-          name: "damage a normal command",
-          source: before + testCase.initial + after,
-          edits: [{ ...testCase.edit, byte: offset + testCase.edit.byte }],
-        },
-        {
-          name: "remove and restore the recovery boundary",
-          source,
-          edits: [
-            { byte: boundaryPosition, deleteBytes: 1, insert: "" },
-            {
-              byte: boundaryPosition,
-              deleteBytes: 0,
-              insert: broken[testCase.boundary],
-            },
-          ],
-        },
-      ];
-      for (const history of histories) {
-        assert.deepEqual(
-          applyEdits(history.source, history.edits),
-          Buffer.from(source),
-          history.name,
+  for (const source of [
+    `s/${group}/\\U&/g\np\n`,
+    "{\n/ab/Ip;a hello\n}\n",
+    "s/\\x5ba\\x5d/x/\n",
+    "s/\\xce\\xa3*/x/\n",
+    String.raw`s\b\X\p`,
+    String.raw`y\abc\xyz\;p`,
+    String.raw`\\b\p`,
+    "a x\\t\\",
+    "a x\\c\\.\\",
+    "a x\\t\\\ny\\n\\",
+    "e x\\t\\",
+    "e\\\nx\\t",
+    "e\\\\t\\",
+    "a\\\\\\",
+    "e\\\\\\",
+    String.raw`e x\c\y`,
+    String.raw`s5\x6\55X5p`,
+    String.raw`s5\x6\65X5p`,
+    String.raw`s5\x\5ba\x\5d5X5`,
+    "p;   ,2p",
+    "{   ,2p}",
+    "/[!---0]/p",
+    "/[a-b---c]/p",
+    String.raw`/[a-\x2d-c]/p`,
+    String.raw`/[a--\x2dc]/p`,
+    String.raw`s/[\\-\\-a]/x/`,
+    String.raw`s-[\-\\-\]--`,
+    String.raw`s/\x5b\\-\\-a]/x/`,
+    String.raw`s/[\\n]/x/`,
+    String.raw`s/[[.\\.]]/x/`,
+    scope.endsWith("ere")
+      ? String.raw`s/a{1b2,\q34d5}/x/`
+      : String.raw`s/a\{1b2,\q34d5\}/x/`,
+    scope.endsWith("ere")
+      ? String.raw`s/a{ab,2x,,y3\q4\x615}/x/`
+      : String.raw`s/a\{}a}c},2x,,y3\q4\x615\}/x/`,
+  ]) {
+    test(`${scope}: deletion and restoration in ${JSON.stringify(source)}`, () => {
+      const expected = parseSuccessfully(scope, source);
+      for (let byte = 0; byte < Buffer.byteLength(source); byte++) {
+        const edits = [{ byte, deleteBytes: 1, insert: "" }];
+        const edited = applyEdits(source, edits);
+        const fresh = parse(scope, edited);
+        assertIncrementalContract(
+          fresh,
+          parse(scope, source, edits),
+          `delete byte ${byte}`,
         );
-        const result = parseSuccessfully(
-          grammar.scope,
-          history.source,
-          history.edits,
+        const restored = [{ byte, deleteBytes: 0, insert: source[byte] }];
+        assertIncrementalContract(
+          expected,
+          parse(scope, edited, restored),
+          `restore byte ${byte}`,
         );
-        assert.deepEqual(issuePaths(result.nodes), testCase.issues);
-        const commands = topLevelEditingCommands(result.nodes);
-        for (const command of expected) {
-          assert.deepEqual(
-            commands.find(
-              ({ start }) =>
-                start[0] === command.start[0] && start[1] === command.start[1],
-            ),
-            command,
-            `${history.name}: intact command at ${command.start}\n${result.stdout}`,
-          );
-        }
       }
     });
   }
+
+  test(`${scope}: appending source through incomplete states`, () => {
+    for (const source of [
+      "s/[[:alpha:]]/word/g\n",
+      "0~2p;0,/a/p\n",
+      "3,0~4p\n",
+      "/[[....]]/p\n",
+      "/[[:alpha:]-]/p\n",
+      "/[a-b-]/p\n",
+      "s/a\\{1\\x2c\\}/x/\n",
+      "/a{1\\x2c}/p\n",
+      "/a\\{1\\x5c\\x7d/p\n",
+      "/a\\b\\{1\\x5c}/p\n",
+      "/\\o510/p\n",
+      "/\\d420/p\n",
+      "/[[:alpha\\x3a]:]]/p\n",
+      "s3a\\{1\\x\\30\\}3x3\n",
+      "s3a{1\\x\\30}3x3\n",
+      "/[0-z-\\o135]/p\n",
+      "/[!---0]/p\n",
+      "/[a-b---c]/p\n",
+      String.raw`/[a-b-\x2d-c]/p`,
+      String.raw`/[a-b--\x2dc]/p`,
+      "ax\\c\\.\\",
+      "e x\\c\\y\\",
+      "a\\\nx\\c\\.\\",
+      "e x\\c\\\np\\",
+    ]) {
+      for (let end = 1; end <= source.length; end++) {
+        const before = source.slice(0, end - 1);
+        const edits = [
+          { byte: end - 1, deleteBytes: 0, insert: source[end - 1] },
+        ];
+        const fresh = parse(scope, source.slice(0, end));
+        assert.deepEqual(
+          issueSignatures(fresh.nodes).filter(
+            ({ outcome }) => outcome !== "incomplete_syntax",
+          ),
+          [],
+          `${JSON.stringify(source.slice(0, end))} has determined issues`,
+        );
+        assertIncrementalContract(
+          fresh,
+          parse(scope, before, edits),
+          `prefix ${end} of ${JSON.stringify(source)}`,
+        );
+      }
+    }
+  });
+
+  test(`${scope}: script start edits reuse the following commands`, () => {
+    const lines = 100;
+    for (const [description, source, edit] of [
+      [
+        "insert a line before blank-led commands",
+        "  p\n".repeat(lines),
+        { byte: 0, deleteBytes: 0, insert: "p\n" },
+      ],
+      [
+        "insert #n before blank-led commands",
+        "  p\n".repeat(lines),
+        { byte: 0, deleteBytes: 0, insert: "#n\n" },
+      ],
+      [
+        "delete the first line",
+        `q\n${"s/a/b/\n".repeat(lines)}`,
+        { byte: 0, deleteBytes: 2, insert: "" },
+      ],
+      [
+        "delete #n",
+        `#n\n${"{p}\n".repeat(lines)}`,
+        { byte: 0, deleteBytes: 3, insert: "" },
+      ],
+      [
+        "insert #n",
+        "{p}\n".repeat(lines),
+        { byte: 0, deleteBytes: 0, insert: "#n\n" },
+      ],
+      [
+        "delete a leading blank",
+        ` ${"s/a/b/\n".repeat(lines)}`,
+        { byte: 0, deleteBytes: 1, insert: "" },
+      ],
+      [
+        "insert a leading blank",
+        "s/a/b/\n".repeat(lines),
+        { byte: 0, deleteBytes: 0, insert: " " },
+      ],
+    ]) {
+      const count = relexedTokens(scope, source, [edit]);
+      assert.ok(count <= 10, `${description}: ${count} tokens re-lexed`);
+    }
+  });
+
+  test(`${scope}: address and opaque operand edits preserve incremental CST`, () => {
+    for (const source of [
+      "b;t;T;e\n",
+      ":x p\nb x#hi\n",
+      "v0alpha p\n",
+      "\rp;\vp;\fp",
+      "s[\\c[[x[",
+      "s/[:alpha:]/x/",
+      "s/[^\\x3aalpha:\\x5d]/x/",
+      "\\Σp\n",
+      "pΣ;p Σ\n",
+      "\\\np\n",
+      "0,/a/p\n",
+      "0r file\n",
+      "1,2q\n",
+      ",2q\n",
+      "1/a/p\n",
+      "p\0p\n",
+      "!#c\np\n",
+      ":loop; b loop\n",
+      "#n hi\na text\n",
+      "\r#n\n:",
+      "w file;p\n",
+      "s/[[:\\x61lpha:]]/x/\n",
+      "s/[\\x5b\\x3aalpha\\x3a\\x5d]/x/\n",
+      "s$\\$$x$",
+      "s/[a-\\x5d]/x/",
+      "s@[a\\x5d@]@x@",
+      "s/\\x5b/x/",
+      "s/[a-b-c]/x/",
+      "s/[a-[=z=]]/x/",
+    ]) {
+      for (let byte = 0; byte < Buffer.byteLength(source); byte++) {
+        const edits = [{ byte, deleteBytes: 1, insert: "" }];
+        assertIncrementalContract(
+          parse(scope, applyEdits(source, edits)),
+          parse(scope, source, edits),
+          `${JSON.stringify(source)} delete ${byte}`,
+        );
+      }
+    }
+  });
 }

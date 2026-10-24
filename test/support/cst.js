@@ -1,19 +1,17 @@
 import assert from "node:assert/strict";
 
-const newlineByte = 0x0a;
-
 function sourceEndPoint(source) {
   const bytes = Buffer.from(source);
   let row = 0;
-  for (const byte of bytes) if (byte === newlineByte) row += 1;
-  return `${row}:${bytes.length - bytes.lastIndexOf(newlineByte) - 1}`;
+  for (const byte of bytes) if (byte === 0x0a) row += 1;
+  return `${row}:${bytes.length - bytes.lastIndexOf(0x0a) - 1}`;
 }
 
 function readCst(tree, source) {
   const bytes = Buffer.from(source);
   const lineStarts = [0];
   for (let index = 0; index < bytes.length; index++) {
-    if (bytes[index] === newlineByte) lineStarts.push(index + 1);
+    if (bytes[index] === 0x0a) lineStarts.push(index + 1);
   }
   const nodes = [];
   const ancestors = [];
@@ -22,17 +20,16 @@ function readCst(tree, source) {
     if (row === null) continue;
     const match =
       /^(([a-z_][a-z_0-9]*): )?([a-z_][a-z_0-9]*|ERROR|MISSING|"[^"]+")/.exec(
-        line.slice(row[0].length),
+        line.slice(row[0].length).replace(/^•/, ""),
       );
     if (match === null) continue;
-    const [location, startRow, startColumn, endRow, endColumn] = row;
-    const indentation = location.length;
+    const indentation = row[0].length;
     while (ancestors.length && ancestors.at(-1).indentation >= indentation) {
       ancestors.pop();
     }
     const [, , field, kind] = match;
-    const start = [Number(startRow), Number(startColumn)];
-    const end = [Number(endRow), Number(endColumn)];
+    const start = [Number(row[1]), Number(row[2])];
+    const end = [Number(row[3]), Number(row[4])];
     const index = nodes.length;
     nodes.push({
       parent: ancestors.at(-1)?.index ?? null,
@@ -63,16 +60,6 @@ function subtree(nodes, index) {
   return nodes.slice(index, end);
 }
 
-function directDelimiterLeafLines(nodes, ownerType) {
-  const owner = nodes.findIndex(({ kind }) => kind === ownerType);
-  assert.notEqual(owner, -1, `missing ${ownerType}`);
-  return nodes
-    .filter(({ parent, kind }) => parent === owner && kind.startsWith('"'))
-    .map(
-      ({ start, end, kind }) => `${start.join(":")} - ${end.join(":")} ${kind}`,
-    );
-}
-
 function issueSignatures(nodes, root = 0) {
   return subtree(nodes, root).flatMap((issue, offset) => {
     if (issue.kind !== "syntax_issue") return [];
@@ -99,37 +86,6 @@ function issueSignatures(nodes, root = 0) {
   });
 }
 
-function issuePaths(nodes) {
-  return issueSignatures(nodes).map(
-    ({ outcome, reason }) => `${outcome}/${reason}`,
-  );
-}
-
-function syntaxSignatures(
-  nodes,
-  types = nodes.map(({ kind }) => kind),
-  root = 0,
-) {
-  const selected = new Set(types);
-  const depths = [];
-  return subtree(nodes, root).flatMap((node, index) => {
-    const depth = index === 0 ? 0 : depths[node.parent - root];
-    const included = selected.has(node.kind);
-    depths[index] = depth + Number(included);
-    if (!included) return [];
-    const field = node.field === null ? "" : `${node.field}: `;
-    return [`${"  ".repeat(depth)}${field}${node.kind} ${nodeRange(node)}`];
-  });
-}
-
-function assertNoNodes(nodes, ...types) {
-  assert.deepEqual(
-    nodes.filter(({ kind }) => types.includes(kind)),
-    [],
-    `unexpected ${types.join(", ")} node`,
-  );
-}
-
 function publicNodes(nodes) {
   const visible = [];
   const parents = [];
@@ -149,30 +105,6 @@ function publicNodes(nodes) {
   return visible;
 }
 
-function topLevelEditingCommands(nodes) {
-  const publicTree = publicNodes(nodes);
-  const list = publicTree.findIndex(({ kind }) => kind === "command_list");
-  assert.notEqual(list, -1, "missing command_list");
-  return publicTree.flatMap((command, index) => {
-    if (command.parent !== list || command.kind !== "editing_command")
-      return [];
-    const relativePoint = ([row, column]) => [
-      row - command.start[0],
-      row === command.start[0] ? column - command.start[1] : column,
-    ];
-    const nodes = subtree(publicTree, index).map((node, offset) => ({
-      kind: node.kind,
-      parent: offset === 0 ? null : node.parent - index,
-      field: offset === 0 ? null : node.field,
-      start: relativePoint(node.start),
-      end: relativePoint(node.end),
-      startByte: node.startByte - command.startByte,
-      endByte: node.endByte - command.startByte,
-    }));
-    return [{ start: command.start, nodes }];
-  });
-}
-
 function parseCst(tree, source) {
   const nodes = readCst(tree, source);
   assert.equal(nodes[0]?.kind, "script", tree);
@@ -184,16 +116,4 @@ function parseCst(tree, source) {
   return nodes;
 }
 
-export {
-  assertNoNodes,
-  directDelimiterLeafLines,
-  issuePaths,
-  issueSignatures,
-  nodeRange,
-  parseCst,
-  publicNodes,
-  sourceEndPoint,
-  subtree,
-  syntaxSignatures,
-  topLevelEditingCommands,
-};
+export { issueSignatures, parseCst, publicNodes, sourceEndPoint };

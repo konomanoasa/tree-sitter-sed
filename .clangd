@@ -25,27 +25,8 @@ CompileFlags:
 ---
 If:
   PathMatch:
-    - src/.*
-    - sed_ere/src/.*
-CompileFlags:
-  Add:
-    - -I.
-
----
-If:
-  PathMatch:
     - common/scanner\.h
     - test/scanner\.test\.c
 CompileFlags:
   Add:
-    - -DSED_REGEX_EXTENDED=0
-    - -I../src
-
----
-If:
-  PathMatch:
-    - src/scanner\.c
-    - sed_ere/src/scanner\.c
-CompileFlags:
-  Add:
-    - -Wno-unused-function
+    - -DSED_EXTENDED=0

@@ -183,6 +183,5 @@
       ],
       "not": true
     }
-  },
-  "language_retrieval_patterns": ["(sed_ere)/queries/[^/]+[.]scm$"]
+  }
 }

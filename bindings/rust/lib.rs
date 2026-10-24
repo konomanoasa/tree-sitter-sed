@@ -18,5 +18,4 @@ pub const NODE_TYPES_ERE: &str =
 
 pub const HIGHLIGHTS_QUERY: &str = include_str!("../../queries/highlights.scm");
 
-pub const HIGHLIGHTS_QUERY_ERE: &str =
-  include_str!("../../sed_ere/queries/highlights.scm");
+pub const HIGHLIGHTS_QUERY_ERE: &str = HIGHLIGHTS_QUERY;

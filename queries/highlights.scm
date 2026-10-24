@@ -1,164 +1,112 @@
-[
-  (address_escape)
-  (escaped_delimiter)
-  (replacement_escaped_delimiter)
-  (translation_escaped_delimiter)
-  (quoted_character)
-  (replacement_escape)
-  (sed_newline_escape)
-  (text_backslash_escape)
-  (translation_escape)
-] @string.escape
-
-(negation_operator) @operator
-
-[
-  (case_insensitive_flag)
-  (global_flag)
-  (print_flag)
-  (substitution_flag)
-] @keyword.modifier
-
-(function_verb) @keyword
+(command_name) @keyword
 
 (comment_text) @comment
 
-(default_output_suppression) @keyword.directive
+(directive_text) @keyword.directive
 
-[
-  (escaped_newline)
-  (text_introducer)
-  (text_escaped_newline)
-] @punctuation.special
+(label_text) @label
 
-(label_literal) @label
+(filename_text) @string.special.path
+
+(shell_text) @string
+
+(version_text) @string
+
+(number) @number
 
 (last_line_address) @constant.builtin
 
 [
-  (duplication_count)
-  (line_number_address)
-  (occurrence_flag)
-] @number
+  (flag)
+  (address_modifier)
+] @keyword.modifier
 
-[
-  (backreference)
-  (matched_text_reference)
-  (replacement_backreference)
-] @string.special.symbol
+(address_operator) @operator
 
-(file_literal) @string.special.path
+(negation
+  "!" @operator)
 
-(closing_brace) @punctuation.bracket
+(duplicate_negation
+  "!" @operator)
 
-(character_class
+(block
   [
-    "["
-    "]"
+    "{"
+    "}"
   ] @punctuation.bracket)
 
-(character_class
-  ":" @punctuation.delimiter)
-
-(collating_symbol
-  [
-    "["
-    "]"
-  ] @punctuation.bracket)
-
-(collating_symbol
-  "." @punctuation.delimiter)
-
-(equivalence_class
-  [
-    "["
-    "]"
-  ] @punctuation.bracket)
-
-(equivalence_class
-  "=" @punctuation.delimiter)
+(unmatched_closing_brace
+  "}" @punctuation.bracket)
 
 [
-  (class_name)
-  (collating_element_multi)
-  (collating_element_single)
-  (meta_character)
-] @character.special
-
-[
-  (address_separator)
   (delimiter)
+  (command_separator)
+  (address_separator)
+  (interval_separator)
 ] @punctuation.delimiter
 
-((command_separator) @punctuation.delimiter
-  (#eq? @punctuation.delimiter ";"))
+[
+  (group_open)
+  (group_close)
+  (interval_open)
+  (interval_close)
+  (bracket_open)
+  (bracket_close)
+  (compound_marker)
+  (class_open)
+  (class_close)
+  (collating_open)
+  (collating_close)
+  (equivalence_open)
+  (equivalence_close)
+] @punctuation.bracket
 
-(bracket_expression
-  [
-    "["
-    "]"
-  ] @punctuation.bracket)
+(range_operator) @operator
 
-(nonmatching_list
-  "^" @operator)
+(regex_operator) @operator
 
-(start_range
-  "-" @operator)
+(wildcard
+  (regex_operator) @character.special)
 
-(shared_range_endpoint
-  "-" @operator)
-
-(range_expression
-  "-" @string.regexp)
-
-(bracket_list
-  "-" @string.regexp)
-
-(one_char_or_coll_elem_bre
-  "." @character.special)
-
-(bre_expression
-  [
-    "^"
-    "$"
-  ] @operator)
-
-(nondupl_bre
-  [
-    "\\("
-    "\\)"
-  ] @punctuation.bracket)
-
-(bre_dupl_symbol
-  [
-    "\\{"
-    "\\}"
-  ] @punctuation.bracket)
-
-(bre_dupl_symbol
-  "*" @operator)
-
-(bre_dupl_symbol
-  "," @punctuation.delimiter)
-
-(unexpected_interval_separator
-  "," @punctuation.delimiter)
-
-(ordinary_character) @string.regexp
+(regex_character_class
+  (regex_operator) @character.special)
 
 [
-  (replacement_literal)
-  (text_literal)
-  (translation_literal)
-] @string
+  (class_name_text)
+  (collating_text)
+] @character.special
 
-(block_function
-  verb: (function_verb) @punctuation.bracket)
+(regex_character
+  (literal) @string.regexp)
 
-(comment_function
-  verb: (function_verb) @comment)
+(bracket_character
+  (literal) @string.regexp)
 
-(comment_function
-  verb: (function_verb) @keyword.directive
-  comment: (comment
-    suppression: (default_output_suppression)))
+(invalid_interval_character
+  (literal) @string.regexp)
+
+(text
+  (literal) @string)
+
+(replacement
+  (literal) @string)
+
+(translation_string
+  (literal) @string)
+
+[
+  (regex_reference)
+  (replacement_reference)
+  (matched_text_reference)
+] @string.special.symbol
+
+[
+  (escape)
+  (character_escape)
+  (case_conversion)
+] @string.escape
+
+[
+  (line_continuation)
+  (text_introducer)
+] @punctuation.special

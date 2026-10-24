@@ -11,14 +11,12 @@ import {
   sourceEndPoint,
 } from "./cst.js";
 
-const parserTimeoutMs = 60_000;
-const parserOutputLimitBytes = 16 * 1024 * 1024;
+const commandTimeoutMs = 60_000;
+const cstOutputLimitBytes = 16 * 1024 * 1024;
 const summaryTimeoutMicros = 10_000_000;
 
 let temporaryDirectory;
-
 let treeSitter;
-
 let fixtureNumber = 0;
 
 before(() => {
@@ -89,8 +87,8 @@ function parse(scope, source, edits = []) {
     ],
     {
       encoding: "utf8",
-      maxBuffer: parserOutputLimitBytes,
-      timeout: parserTimeoutMs,
+      maxBuffer: cstOutputLimitBytes,
+      timeout: commandTimeoutMs,
     },
   );
   if (result.error) {
@@ -109,6 +107,39 @@ function parseSuccessfully(scope, source, edits = []) {
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.doesNotMatch(result.stdout, /^[0-9: \t-]+•/m, result.stdout);
   return result;
+}
+
+function relexedTokens(scope, source, edits) {
+  const sourcePath = join(temporaryDirectory, `fixture-${fixtureNumber}.sed`);
+  fixtureNumber += 1;
+  writeFileSync(sourcePath, source);
+  const result = treeSitter.run(
+    [
+      "parse",
+      "--encoding",
+      "utf8",
+      "--scope",
+      scope,
+      "--quiet",
+      "--debug",
+      "normal",
+      sourcePath,
+      "--edits",
+      ...edits.map(formatEdit),
+    ],
+    {
+      encoding: "utf8",
+      maxBuffer: cstOutputLimitBytes,
+      timeout: commandTimeoutMs,
+    },
+  );
+  assert.ifError(result.error);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const logs = result.stderr.split("\nparse_after_edit\n");
+  assert.equal(logs.length, 2, "parser logged no reparse");
+  return logs[1]
+    .split("\n")
+    .filter((line) => line.startsWith("lexed_lookahead")).length;
 }
 
 function assertIncrementalContract(fresh, incremental, context) {
@@ -149,7 +180,7 @@ function parseSummary(scope, source, timeoutMicros = summaryTimeoutMicros) {
       String(timeoutMicros),
       sourcePath,
     ],
-    { encoding: "utf8", timeout: parserTimeoutMs },
+    { encoding: "utf8", timeout: commandTimeoutMs },
   );
   assert.ifError(result.error);
   assert.ok(
@@ -174,26 +205,11 @@ function parseSummary(scope, source, timeoutMicros = summaryTimeoutMicros) {
   return summary;
 }
 
-function parseCstWithin(scope, source, timeoutMs, context) {
-  const sourcePath = join(temporaryDirectory, `cst-${fixtureNumber++}.sed`);
-  writeFileSync(sourcePath, source);
-  const result = treeSitter.run(
-    ["parse", "--encoding", "utf8", "--scope", scope, "--cst", sourcePath],
-    {
-      encoding: "utf8",
-      stdio: ["ignore", "ignore", "pipe"],
-      timeout: timeoutMs,
-    },
-  );
-  assert.equal(result.error, undefined, context);
-  assert.equal(result.status, 0, `${context}\n${result.stderr}`);
-}
-
 export {
   applyEdits,
   assertIncrementalContract,
   parse,
-  parseCstWithin,
   parseSuccessfully,
   parseSummary,
+  relexedTokens,
 };

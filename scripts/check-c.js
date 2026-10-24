@@ -15,9 +15,9 @@ import { basename, delimiter, dirname, isAbsolute, join } from "node:path";
 import { grammars, packageName, root } from "./tree-sitter.js";
 
 const enumerators = {};
-const tokenCount = "ERROR_SENTINEL + 1";
+const tokenCount = "TOKEN_COUNT";
 
-const scannerDiagnosticArguments = ["-Wno-unused-function"];
+const scannerDiagnosticArguments = [];
 
 const warningArguments = ["-Wall", "-Wextra", "-Werror", "-pedantic"];
 const scannerContract = join(root, "test", "scanner.test.c");
@@ -34,9 +34,7 @@ const variants = grammars.map((grammar) => {
     includeDirectory,
     source,
     headers,
-    contractArguments: [
-      `-DSED_REGEX_EXTENDED=${grammar.name === "sed_ere" ? 1 : 0}`,
-    ],
+    contractArguments: [`-DSED_EXTENDED=${grammar.name === "sed_ere" ? 1 : 0}`],
     reuseAllocator: [source, ...headers].some((file) =>
       readFileSync(file, "utf8").includes('"tree_sitter/alloc.h"'),
     ),

@@ -5,9 +5,9 @@
 [![npm](https://img.shields.io/npm/v/tree-sitter-sed)](https://www.npmjs.com/package/tree-sitter-sed)
 
 [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) grammars for
-POSIX.1-2024 sed.
+GNU sed 4.10.
 
-For GNU sed, see [tree-sitter-gsed](https://github.com/konomanoasa/tree-sitter-gsed).
+For POSIX sed, see [tree-sitter-posix-sed](https://github.com/konomanoasa/tree-sitter-posix-sed).
 
 ## Installation
 
@@ -17,7 +17,7 @@ npm install tree-sitter-sed
 
 ## Parsing Option
 
-For POSIX ERE parsing, use `sed_ere`.
+For GNU ERE parsing, use `sed_ere`.
 
 ## Development
 
@@ -27,10 +27,9 @@ npm run build
 npm test
 ```
 
-## Specifications
+## Specification
 
-- [POSIX.1-2024 sed](https://pubs.opengroup.org/onlinepubs/9799919799.2024edition/utilities/sed.html)
-- [POSIX.1-2024 regular expressions](https://pubs.opengroup.org/onlinepubs/9799919799.2024edition/basedefs/V1_chap09.html)
+[GNU sed Manual 4.10](https://www.gnu.org/software/sed/manual/sed.html)
 
 ## Used By
 

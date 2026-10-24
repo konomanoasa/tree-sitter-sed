@@ -1,16 +1,10 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { delimiter, join } from "node:path";
 import { test } from "node:test";
-import { grammars } from "../scripts/tree-sitter.js";
-import {
-  assertNoNodes,
-  directDelimiterLeafLines,
-  issuePaths,
-  issueSignatures,
-  nodeRange,
-  publicNodes,
-  subtree,
-  syntaxSignatures,
-} from "./support/cst.js";
+import { issueSignatures } from "./support/cst.js";
 import {
   applyEdits,
   assertIncrementalContract,
@@ -18,2443 +12,7284 @@ import {
   parseSuccessfully,
 } from "./support/parser.js";
 
-const verbOperands = {
-  "{": "p;}",
-  a: "\\\nx",
-  b: "",
-  c: "\\\nx",
-  d: "",
-  D: "",
-  g: "",
-  G: "",
-  h: "",
-  H: "",
-  i: "\\\nx",
-  l: "",
-  n: "",
-  N: "",
-  p: "",
-  P: "",
-  q: "",
-  r: " file",
-  s: "/a/b/",
-  t: "",
-  w: " file",
-  x: "",
-  y: "/a/b/",
-  ":": "x",
-  "=": "",
-  "#": "c",
-};
+const runtimeTimeoutMs = 10_000;
 
-const addressPrefixes = ["1 ", "1\t", "1!", "1 !", "$ ", "/x/ ", "\\,x, "];
+for (const scope of ["source.sed", "source.sed.ere"]) {
+  test(`${scope}: command layout preserves blank ownership and missing closer positions`, () => {
+    for (const blanks of [" ", "\t", "\r", "\v", "\f", " \t\r\v\f"]) {
+      for (const [prefix, suffix] of [
+        ["", ""],
+        ["", "p"],
+        ["", "#n"],
+        ["{", "}"],
+        ["{;", ""],
+        ["{{;", ""],
+        ["{;p;", "}"],
+        ["p;", "#n"],
+      ]) {
+        const source = prefix + blanks + suffix;
+        const reference = prefix + " ".repeat(blanks.length) + suffix;
+        const expected = parseSuccessfully(scope, reference);
+        const actual = parseSuccessfully(scope, source);
+        assert.deepEqual(actual.nodes, expected.nodes, JSON.stringify(source));
+        assertIncrementalContract(
+          actual,
+          parseSuccessfully(scope, reference, [
+            { byte: prefix.length, deleteBytes: blanks.length, insert: blanks },
+          ]),
+          JSON.stringify(source),
+        );
+        assertIncrementalContract(
+          expected,
+          parseSuccessfully(scope, source, [
+            {
+              byte: prefix.length,
+              deleteBytes: blanks.length,
+              insert: " ".repeat(blanks.length),
+            },
+          ]),
+          `${JSON.stringify(source)}: restore spaces`,
+        );
+      }
+    }
+  });
 
-for (const grammar of grammars) {
-  test(`${grammar.name}: label portability preserves source leaves and limits length checks to portable characters`, () => {
-    for (const { label, issues, pieces } of [
-      { label: "Ab0._-xy", issues: [], pieces: [[0, 8]] },
-      {
-        label: "abcdefghi",
-        issues: [
-          {
-            outcome: "unspecified_syntax",
-            reason: "nonportable_label_length",
-            start: 0,
-            end: 9,
-          },
-        ],
-        pieces: [[0, 9]],
-      },
-      {
-        label: "a@#$b",
-        issues: [
-          {
-            outcome: "unspecified_syntax",
-            reason: "nonportable_label_character",
-            start: 1,
-            end: 4,
-          },
-        ],
-        pieces: [
-          [0, 1],
-          [1, 4],
-          [4, 5],
-        ],
-      },
-      {
-        label: "é日本語",
-        issues: [
-          {
-            outcome: "unspecified_syntax",
-            reason: "nonportable_label_character",
-            start: 0,
-            end: 11,
-          },
-        ],
-        pieces: [[0, 11]],
-      },
-      {
-        label: "é\uFFFD \\x;\t}",
-        issues: [
-          {
-            outcome: "unspecified_syntax",
-            reason: "nonportable_label_character",
-            start: 0,
-            end: 7,
-          },
-          {
-            outcome: "unspecified_syntax",
-            reason: "nonportable_label_character",
-            start: 8,
-            end: 11,
-          },
-        ],
-        pieces: [
-          [0, 7],
-          [7, 8],
-          [8, 11],
-        ],
-      },
-      {
-        label: "abcdefghi@",
-        issues: [
-          {
-            outcome: "unspecified_syntax",
-            reason: "nonportable_label_character",
-            start: 9,
-            end: 10,
-          },
-        ],
-        pieces: [
-          [0, 9],
-          [9, 10],
-        ],
-      },
-      {
-        label: "abcdefghi\0",
-        issues: [
-          {
-            outcome: "nonconforming_syntax",
-            reason: "nul_character",
-            start: 9,
-            end: 10,
-          },
-        ],
-        pieces: [[0, 9]],
-      },
-      {
-        label: Buffer.from("abcdefghi\xff", "latin1"),
-        issues: [
+  test(`${scope}: class checks use known text around undecodable bytes and invalid control escapes`, () => {
+    for (const { before, after, unknown } of [
+      { before: "", after: "", unknown: false },
+      { before: "alpha", after: "", unknown: false },
+      { before: "unkno", after: "", unknown: true },
+      { before: "", after: "z", unknown: true },
+      { before: "al", after: "pha", unknown: false },
+      { before: "al", after: "num", unknown: false },
+      { before: "al", after: "l", unknown: true },
+      { before: "", after: "1", unknown: true },
+      { before: "", after: "digit", unknown: false },
+      { before: "a", after: "digit", unknown: true },
+    ]) {
+      for (const { failure, reason, offset } of [
+        { failure: Buffer.from([0xff]), reason: "invalid_encoding", offset: 0 },
+        {
+          failure: Buffer.from([0xff, 0xfe]),
+          reason: "invalid_encoding",
+          offset: 0,
+        },
+        {
+          failure: Buffer.from([0x5c, 0x63, 0xff]),
+          reason: "invalid_encoding",
+          offset: 2,
+        },
+        {
+          failure: Buffer.from([0x5c, 0x63, 0x5c, 0xff]),
+          reason: "invalid_encoding",
+          offset: 3,
+        },
+        {
+          failure: Buffer.from("\\c\\"),
+          reason: "invalid_control_escape",
+          offset: 0,
+        },
+      ]) {
+        const prefix = `/[[:${before}`;
+        const suffix = `${after}:][:unknown:]]/p`;
+        const source = Buffer.concat([
+          Buffer.from(prefix),
+          failure,
+          Buffer.from(suffix),
+        ]);
+        const end = prefix.length + failure.length + after.length;
+        const result = parseSuccessfully(scope, source);
+        assert.deepEqual(issueSignatures(result.nodes), [
+          ...(unknown
+            ? [
+                {
+                  outcome: "invalid_syntax",
+                  reason: "unknown_character_class",
+                  range: `[0, 4] - [0, ${end}]`,
+                },
+              ]
+            : []),
           {
             outcome: "invalid_syntax",
-            reason: "invalid_encoding",
-            start: 9,
-            end: 10,
-          },
-        ],
-        pieces: [[0, 9]],
-      },
-    ]) {
-      for (const prefix of [":", "b ", "t "]) {
-        const source = Buffer.concat([Buffer.from(prefix), Buffer.from(label)]);
-        const result = parseSuccessfully(grammar.scope, source);
-        assert.deepEqual(
-          issueSignatures(result.nodes),
-          issues.map(({ outcome, reason, start, end }) => ({
-            outcome,
             reason,
-            range: `[0, ${prefix.length + start}] - [0, ${prefix.length + end}]`,
-          })),
-          source.toString("hex"),
+            range: `[0, ${prefix.length + offset}] - [0, ${prefix.length + failure.length}]`,
+          },
+          {
+            outcome: "invalid_syntax",
+            reason: "unknown_character_class",
+            range: `[0, ${end + 4}] - [0, ${end + 11}]`,
+          },
+        ]);
+        const edits = [{ byte: 4, deleteBytes: end - 4, insert: "alpha" }];
+        assertIncrementalContract(
+          parseSuccessfully(scope, applyEdits(source, edits)),
+          parseSuccessfully(scope, source, edits),
+          `${before}/${after}/${reason}: repair class name`,
         );
-        assert.deepEqual(
-          result.nodes
-            .filter(({ kind }) => kind === "label_literal")
-            .map(({ startByte, endByte }) => [
-              startByte - prefix.length,
-              endByte - prefix.length,
-            ]),
-          pieces,
-          source.toString("hex"),
+        const changePrefix = [
+          { byte: 4, deleteBytes: before.length, insert: "z" },
+        ];
+        assertIncrementalContract(
+          parseSuccessfully(scope, applyEdits(source, changePrefix)),
+          parseSuccessfully(scope, source, changePrefix),
+          `${before}/${after}/${reason}: change known prefix`,
         );
-        for (const [index, node] of result.nodes.entries()) {
-          if (!node.kind.startsWith("nonportable_label_")) continue;
+      }
+    }
+  });
+
+  test(`${scope}: misplaced classes retain independent decoding failures`, () => {
+    for (const [opening, closing] of [
+      ["/[:", ":]/p"],
+      ["/[^:", ":]/p"],
+      [String.raw`/[\x3a`, String.raw`\x3a]/p`],
+    ]) {
+      for (const [before, after] of [
+        ["a", "b"],
+        ["", "alpha"],
+        ["alpha", ""],
+        ["", ""],
+      ]) {
+        for (const failure of [
+          Buffer.from([0xff]),
+          Buffer.from([0xe3, 0x81]),
+        ]) {
+          const source = Buffer.concat([
+            Buffer.from(opening + before),
+            failure,
+            Buffer.from(after + closing),
+          ]);
+          const { nodes } = parseSuccessfully(scope, source);
+          const failureStart = opening.length + before.length;
+          const failureEnd = failureStart + failure.length;
+          const markerStart = opening.startsWith("/[^:") ? 3 : 2;
+          assert.deepEqual(issueSignatures(nodes), [
+            {
+              outcome: "invalid_syntax",
+              reason: "misplaced_character_class",
+              range: `[0, ${markerStart}] - [0, ${source.length - 3}]`,
+            },
+            {
+              outcome: "invalid_syntax",
+              reason: "invalid_encoding",
+              range: `[0, ${failureStart}] - [0, ${failureEnd}]`,
+            },
+          ]);
+          const name = nodes.findIndex((node) => node.kind === "class_name");
+          assert.notEqual(name, -1);
+          assert.equal(
+            nodes[nodes[name].parent].kind,
+            "misplaced_character_class",
+          );
           assert.deepEqual(
-            result.nodes
-              .filter(({ parent }) => parent === index)
-              .map(({ kind, startByte, endByte }) => [
-                kind,
-                startByte,
-                endByte,
-              ]),
-            [["label_literal", node.startByte, node.endByte]],
-            source.toString("hex"),
+            nodes
+              .filter((node) => node.parent === name)
+              .map((node) => [node.kind, node.startByte, node.endByte]),
+            [
+              ...(before
+                ? [["class_name_text", opening.length, failureStart]]
+                : []),
+              ["syntax_issue", failureStart, failureEnd],
+              ...(after
+                ? [["class_name_text", failureEnd, failureEnd + after.length]]
+                : []),
+            ],
           );
         }
       }
     }
-  });
-
-  test(`${grammar.name}: label length and character classification follow edits to the whole operand`, () => {
-    for (const { source, edit, expected } of [
-      {
-        source: ":abcdefgh",
-        edit: { byte: 9, deleteBytes: 0, insert: "i" },
-        expected: ":abcdefghi",
-      },
-      {
-        source: ":abcdefghi",
-        edit: { byte: 9, deleteBytes: 1, insert: "" },
-        expected: ":abcdefgh",
-      },
-      {
-        source: ":abcdefghi",
-        edit: { byte: 10, deleteBytes: 0, insert: "@" },
-        expected: ":abcdefghi@",
-      },
-      {
-        source: ":abcdefghi@",
-        edit: { byte: 10, deleteBytes: 1, insert: "" },
-        expected: ":abcdefghi",
-      },
-      {
-        source: ":abcdefghi",
-        edit: { byte: 5, deleteBytes: 1, insert: "é" },
-        expected: ":abcdéfghi",
-      },
-      {
-        source: ":abcdéfghi",
-        edit: { byte: 5, deleteBytes: 2, insert: "e" },
-        expected: ":abcdefghi",
-      },
-      {
-        source: "b abcdefghi\np",
-        edit: { byte: 11, deleteBytes: 0, insert: "@" },
-        expected: "b abcdefghi@\np",
-      },
-      {
-        source: "t abcdefghi@\np",
-        edit: { byte: 11, deleteBytes: 1, insert: "" },
-        expected: "t abcdefghi\np",
-      },
+    for (const [prefix, suffix] of [
+      ["/[:a-", "b:]/p"],
+      ["/[:a", "-b:]/p"],
+      ["/[[:al", "pha:]]/p"],
+      ["/[:a", "b]/p"],
+      ["/[:a", "b:"],
     ]) {
-      assert.deepEqual(applyEdits(source, [edit]), Buffer.from(expected));
-      assertIncrementalContract(
-        parseSuccessfully(grammar.scope, expected),
-        parseSuccessfully(grammar.scope, source, [edit]),
-        expected,
-      );
-    }
-  });
-
-  test(`${grammar.name}: delimiter escapes keep interval roles and source leaves`, () => {
-    const [opening, closing] =
-      grammar.name === "sed" ? ["\\{", "\\}"] : ["{", "}"];
-    const cases = [
-      {
-        delimiter: ",",
-        body: "1\\,2",
-        pieces: [
-          ["minimum", "duplication_count", 0, 1],
-          [null, "escaped_delimiter", 1, 3],
-          ["maximum", "duplication_count", 3, 4],
-        ],
-        issues: [],
-      },
-      {
-        delimiter: "1",
-        body: "\\12,2\\1",
-        pieces: [
-          ["minimum", "escaped_delimiter", 0, 2],
-          ["minimum", "duplication_count", 2, 3],
-          ["maximum", "duplication_count", 4, 5],
-          ["maximum", "escaped_delimiter", 5, 7],
-        ],
-        issues: [],
-      },
-      {
-        delimiter: ",",
-        body: "1\\,2\\,3",
-        pieces: [
-          ["minimum", "duplication_count", 0, 1],
-          [null, "escaped_delimiter", 1, 3],
-          ["maximum", "duplication_count", 3, 4],
-          [null, "escaped_delimiter", 4, 6],
-          ["maximum", "duplication_count", 6, 7],
-        ],
-        issues: [
-          { reason: "unexpected_interval_separator", first: 4, last: 6 },
-        ],
-      },
-      {
-        delimiter: ",",
-        body: "\\,2",
-        pieces: [
-          [null, "escaped_delimiter", 0, 2],
-          ["maximum", "duplication_count", 2, 3],
-        ],
-        issues: [{ reason: "missing_interval_minimum", first: 0, last: 0 }],
-      },
-    ];
-    for (const { delimiter, body, pieces, issues } of cases) {
-      const source = `s${delimiter}a${opening}${body}${closing}${delimiter}b${delimiter}`;
-      const start = 3 + opening.length;
-      const fresh = parseSuccessfully(grammar.scope, source);
-      assert.deepEqual(
-        issueSignatures(fresh.nodes),
-        issues.map(({ reason, first, last }) => ({
-          outcome: "undefined_syntax",
-          reason,
-          range: `[0, ${start + first}] - [0, ${start + last}]`,
-        })),
-        source,
+      const source = Buffer.concat([
+        Buffer.from(prefix),
+        Buffer.from([0xff]),
+        Buffer.from(suffix),
+      ]);
+      const issues = issueSignatures(parseSuccessfully(scope, source).nodes);
+      assert.equal(
+        issues.some(({ reason }) => reason === "misplaced_character_class"),
+        false,
       );
       assert.deepEqual(
-        fresh.nodes
-          .filter(({ kind }) =>
-            ["duplication_count", "escaped_delimiter"].includes(kind),
-          )
-          .map(({ field, kind, startByte, endByte }) => [
-            field,
-            kind,
-            startByte - start,
-            endByte - start,
-          ]),
-        pieces,
-        source,
-      );
-      const escapeStart = source.indexOf(`\\${delimiter}`);
-      const edits = [
-        { byte: escapeStart + 1, deleteBytes: 1, insert: "x" },
-        { byte: escapeStart + 1, deleteBytes: 1, insert: delimiter },
-      ];
-      assertIncrementalContract(
-        fresh,
-        parseSuccessfully(grammar.scope, source, edits),
-        source,
-      );
-    }
-  });
-
-  test(`${grammar.name}: substitution flag issues converge after removing a preceding command`, () => {
-    for (const source of [
-      "s/a/b/2g",
-      "s/a/b/g2",
-      "s/a/b/gip2",
-      "s/a/b/wg file",
-      "s/a/b/wwg file",
-      "s/a/b/2wg file",
-      "s/a/b/gw2 file",
-      "s/a/b/w2g file",
-      "s/a/b/2gg3",
-      "s/a/b/gipw file",
-      "s/a/b/w g2",
-      "s/a/b/2ip",
-      "s/a/b/gg",
-    ]) {
-      assertIncrementalContract(
-        parseSuccessfully(grammar.scope, source),
-        parseSuccessfully(grammar.scope, `p\n${source}`, [
-          { byte: 0, deleteBytes: 2, insert: "" },
-        ]),
-        source,
-      );
-    }
-  });
-}
-
-test("sed_ere: a trailing interval escape waits only for a usable delimiter at EOF", () => {
-  for (const { source, suffix, range } of [
-    { source: "s1a{\\", suffix: "1}1b1", range: "[0, 4] - [0, 5]" },
-    { source: "s,a{1\\", suffix: ",2},b,", range: "[0, 5] - [0, 6]" },
-    { source: "s2a{1,\\", suffix: "2}2b2", range: "[0, 6] - [0, 7]" },
-  ]) {
-    const original = parseSuccessfully("source.sed.ere", source);
-    const interval = original.nodes.findIndex(
-      ({ kind }) => kind === "ere_dupl_symbol",
-    );
-    assert.notEqual(interval, -1, source);
-    assert.deepEqual(
-      issueSignatures(original.nodes, interval),
-      [
-        {
-          outcome: "incomplete_syntax",
-          reason: "incomplete_regular_expression_escape",
-          range,
-        },
-        {
-          outcome: "incomplete_syntax",
-          reason: "missing_interval_close",
-          range: `[0, ${source.length}] - [0, ${source.length}]`,
-        },
-      ],
-      source,
-    );
-    const completed = parseSuccessfully("source.sed.ere", source + suffix);
-    assert.deepEqual(issueSignatures(completed.nodes), [], source + suffix);
-    assertIncrementalContract(
-      completed,
-      parseSuccessfully("source.sed.ere", source, [
-        { byte: source.length, deleteBytes: 0, insert: suffix },
-      ]),
-      source + suffix,
-    );
-    assertIncrementalContract(
-      original,
-      parseSuccessfully("source.sed.ere", source + suffix, [
-        { byte: source.length, deleteBytes: suffix.length, insert: "" },
-      ]),
-      source,
-    );
-    const terminated = parseSuccessfully("source.sed.ere", `${source}\n`);
-    assert.deepEqual(
-      issueSignatures(terminated.nodes).filter(({ reason }) =>
-        [
-          "incomplete_regular_expression_escape",
-          "invalid_interval_character",
-        ].includes(reason),
-      ),
-      [
-        {
-          outcome: "undefined_syntax",
-          reason: "invalid_interval_character",
-          range,
-        },
-      ],
-      source,
-    );
-    assertIncrementalContract(
-      terminated,
-      parseSuccessfully("source.sed.ere", source, [
-        { byte: source.length, deleteBytes: 0, insert: "\n" },
-      ]),
-      source,
-    );
-  }
-});
-
-for (const grammar of grammars) {
-  test(`${grammar.name}: replacing an interval count preserves its resulting public CST`, () => {
-    const [opening, closing] =
-      grammar.name === "sed" ? ["\\{", "\\}"] : ["{", "}"];
-    const start = 3 + opening.length;
-    for (const body of [
-      "",
-      "\\,",
-      "q\\zq",
-      ",2",
-      "q,2",
-      "1qq2,3zz4",
-      "1,2,,3",
-    ]) {
-      const source = `s/a${opening}${body}${closing}/x/`;
-      assertIncrementalContract(
-        parseSuccessfully(grammar.scope, source),
-        parse(grammar.scope, `s/a${opening}1${closing}/x/`, [
-          { byte: start, deleteBytes: 1, insert: body },
-        ]),
-        source,
-      );
-    }
-  });
-
-  test(`${grammar.name}: empty compound terms report payload and closing separately`, () => {
-    for (const marker of [":", ".", "="]) {
-      for (const { suffix, faults } of [
-        {
-          suffix: `${marker}]]/x/`,
-          faults: [["undefined_syntax", "missing_bracket_term_payload"]],
-        },
-        {
-          suffix: "",
-          faults: [
-            ["incomplete_syntax", "missing_bracket_term_payload"],
-            ["incomplete_syntax", "missing_bracket_term_close"],
-            ["incomplete_syntax", "unclosed_bracket_expression"],
-            ["incomplete_syntax", "unterminated_regular_expression"],
-          ],
-        },
-        {
-          suffix: "\n",
-          faults: [
-            ["undefined_syntax", "missing_bracket_term_payload"],
-            ["undefined_syntax", "missing_bracket_term_close"],
-            ["undefined_syntax", "unclosed_bracket_expression"],
-            ["nonconforming_syntax", "unterminated_regular_expression"],
-          ],
-        },
-      ]) {
-        const source = `s/[[${marker}${suffix}`;
-        const result = parseSuccessfully(grammar.scope, source);
-        assert.deepEqual(
-          issueSignatures(result.nodes),
-          faults.map(([outcome, reason]) => ({
-            outcome,
-            reason,
-            range: "[0, 5] - [0, 5]",
-          })),
-          source,
-        );
-      }
-    }
-  });
-
-  test(`${grammar.name}: NUL runs converge after splitting and merging their bytes`, () => {
-    for (const source of [
-      "s/a/\\\0\0\0/",
-      "y/\\\0\0\0/x/",
-      "/\\\0\0\0/p",
-      "s/a/x/qq\0\0rrp",
-    ]) {
-      const at = source.indexOf("\0");
-      assertIncrementalContract(
-        parseSuccessfully(grammar.scope, source),
-        parse(grammar.scope, source, [
-          { byte: at + 1, deleteBytes: 0, insert: "z" },
-          { byte: at + 1, deleteBytes: 1, insert: "" },
-        ]),
-        source,
-      );
-    }
-  });
-}
-
-for (const grammar of grammars) {
-  test(`${grammar.name}: block ownership converges after removing and restoring trailing blanks`, () => {
-    for (const { source, byte, blanks } of [
-      { source: "{p;} \t", byte: 4, blanks: " \t" },
-      { source: "{p;}\t \n", byte: 4, blanks: "\t " },
-      { source: "{p;} \t;q\n", byte: 4, blanks: " \t" },
-      { source: "{{p;}\t ;} \n", byte: 5, blanks: "\t " },
-    ]) {
-      assertIncrementalContract(
-        parseSuccessfully(grammar.scope, source),
-        parse(grammar.scope, source, [
-          { byte, deleteBytes: blanks.length, insert: "" },
-          { byte, deleteBytes: 0, insert: blanks },
-        ]),
-        source,
-      );
-    }
-  });
-
-  test(`${grammar.name}: replacing a block separator with blanks preserves recovery`, () => {
-    const source = "{p;} \tq\n";
-    assertIncrementalContract(
-      parseSuccessfully(grammar.scope, source),
-      parse(grammar.scope, "{p;};q\n", [
-        { byte: 4, deleteBytes: 1, insert: " \t" },
-      ]),
-      source,
-    );
-  });
-}
-
-for (const grammar of grammars) {
-  test(`${grammar.name}: inserting blanks before closing braces preserves public ownership`, () => {
-    for (const source of [
-      "{p; \t}\n",
-      "{ \t}\n",
-      "{p; \t",
-      " \t}p\n",
-      "p; \t}\n",
-      "p \t}\n",
-      "{pq \t}",
-      "{p\0 \t}",
-      "{pq\0 \t}",
-      "{{pq \t};}",
-      "pq \t}",
-    ]) {
-      const byte = source.indexOf(" \t");
-      assertIncrementalContract(
-        parseSuccessfully(grammar.scope, source),
-        parse(grammar.scope, source.replace(" \t", ""), [
-          { byte, deleteBytes: 0, insert: " \t" },
-        ]),
-        source,
-      );
-    }
-  });
-}
-
-for (const grammar of grammars) {
-  test(`${grammar.name}: closing brace layout follows unexpected text and decoding failures`, () => {
-    for (const { bad, reasons } of [
-      { bad: Buffer.from("q"), reasons: ["unexpected_command_text"] },
-      {
-        bad: Buffer.from([0]),
-        reasons: ["unexpected_command_text", "nul_character"],
-      },
-      { bad: Buffer.from([0xff]), reasons: ["invalid_encoding"] },
-    ]) {
-      for (const blanks of [" ", "\t", " \t "]) {
-        const source = Buffer.concat([
-          Buffer.from("{p"),
-          bad,
-          Buffer.from(`${blanks}}`),
-        ]);
-        const fresh = parseSuccessfully(grammar.scope, source);
-        assert.deepEqual(issueSignatures(fresh.nodes), [
-          ...reasons.map((reason) => ({
-            outcome:
-              reason === "invalid_encoding"
-                ? "invalid_syntax"
-                : "nonconforming_syntax",
-            reason,
-            range: "[0, 2] - [0, 3]",
-          })),
-          {
-            outcome: "nonconforming_syntax",
-            reason: "missing_command_separator",
-            range: `[0, ${3 + blanks.length}] - [0, ${3 + blanks.length}]`,
-          },
-        ]);
-        const edits = [
-          { byte: 3, deleteBytes: blanks.length, insert: "" },
-          { byte: 3, deleteBytes: 0, insert: blanks },
-        ];
-        assertIncrementalContract(
-          fresh,
-          parseSuccessfully(grammar.scope, source, edits),
-          "restore brace layout after invalid character",
-        );
-      }
-    }
-  });
-}
-
-for (const grammar of grammars) {
-  test(`${grammar.name}: known verbs stay functions after address blanks and negation`, () => {
-    for (const [verb, operand] of Object.entries(verbOperands)) {
-      for (const prefix of addressPrefixes) {
-        const source = `${prefix}${verb}${operand}\n`;
-        const result = parseSuccessfully(grammar.scope, source);
-        assert.deepEqual(
-          issuePaths(result.nodes),
-          verb === ":" || verb === "#"
-            ? ["nonconforming_syntax/excess_address"]
-            : [],
-          `${JSON.stringify(source)}\n${result.stdout}`,
-        );
-        assertNoNodes(result.nodes, "ERROR", "MISSING", "unknown_function");
-      }
-    }
-  });
-}
-
-for (const grammar of grammars) {
-  const collatingTerms = [
-    ["collating_symbol", "."],
-    ["equivalence_class", "="],
-  ];
-
-  test(`${grammar.name}: bracket term payloads retain closing brackets`, () => {
-    for (const [type, marker] of collatingTerms) {
-      for (const [name, payload] of [
-        ["leading bracket", "]a"],
-        ["middle bracket", "a]b"],
-        ["trailing bracket", "a]"],
-        ["consecutive brackets", "a]]b"],
-        ["regular expression delimiter", "a]/b"],
-        ["other term closing delimiter", marker === "." ? "a]=]b" : "a].]b"],
-      ]) {
-        const source = `/[[${marker}${payload}${marker}]]/p\n`;
-        const end = 4 + payload.length;
-        const label = `${type}: ${name}`;
-        const result = parseSuccessfully(grammar.scope, source);
-        assertNoNodes(result.nodes, "syntax_issue", "ERROR", "MISSING");
-        const owner = result.nodes.findIndex(({ kind }) => kind === type);
-        assert.notEqual(owner, -1, label);
-        assert.deepEqual(
-          syntaxSignatures(result.nodes, undefined, owner),
-          [
-            `${type} [0, 2] - [0, ${end + 2}]`,
-            '  "[" [0, 2] - [0, 3]',
-            `  "${marker}" [0, 3] - [0, 4]`,
-            `  element: collating_element_multi [0, 4] - [0, ${end}]`,
-            `  "${marker}" [0, ${end}] - [0, ${end + 1}]`,
-            `  "]" [0, ${end + 1}] - [0, ${end + 2}]`,
-          ],
-          label,
-        );
-        assert.deepEqual(
-          directDelimiterLeafLines(result.nodes, "bracket_expression"),
-          ['0:1 - 0:2 "["', `0:${end + 2} - 0:${end + 3} "]"`],
-          label,
-        );
-        const position = 4 + payload.indexOf("]");
-        const withoutBracket =
-          source.slice(0, position) + source.slice(position + 1);
-        assertIncrementalContract(
-          result,
-          parse(grammar.scope, withoutBracket, [
-            { byte: position, deleteBytes: 0, insert: "]" },
-          ]),
-          `${label}: insert payload bracket`,
-        );
-        assertIncrementalContract(
-          parseSuccessfully(grammar.scope, withoutBracket),
-          parse(grammar.scope, source, [
-            { byte: position, deleteBytes: 1, insert: "" },
-          ]),
-          `${label}: remove payload bracket`,
-        );
-      }
-    }
-  });
-
-  test(`${grammar.name}: unterminated collating terms own brackets through the source boundary`, () => {
-    for (const [type, marker] of collatingTerms) {
-      for (const suffix of ["", "\np\n"]) {
-        const source = `/[[${marker}a]b]]/p${suffix}`;
-        const label = `${type}: ${suffix === "" ? "EOF" : "physical newline"}`;
-        const result = parseSuccessfully(grammar.scope, source);
-        const outcome =
-          suffix === "" ? "incomplete_syntax" : "undefined_syntax";
-        const commandOutcome =
-          suffix === "" ? "incomplete_syntax" : "nonconforming_syntax";
-        assert.deepEqual(
-          issueSignatures(result.nodes),
-          [
-            {
-              outcome,
-              reason: "missing_bracket_term_close",
-              range: "[0, 11] - [0, 11]",
-            },
-            {
-              outcome,
-              reason: "unclosed_bracket_expression",
-              range: "[0, 11] - [0, 11]",
-            },
-            {
-              outcome: commandOutcome,
-              reason: "unterminated_regular_expression",
-              range: "[0, 11] - [0, 11]",
-            },
-            {
-              outcome: commandOutcome,
-              reason: "missing_function",
-              range: "[0, 11] - [0, 11]",
-            },
-          ],
-          label,
-        );
-        const owner = result.nodes.findIndex(({ kind }) => kind === type);
-        assert.notEqual(owner, -1, label);
-        assert.equal(nodeRange(result.nodes[owner]), "[0, 2] - [0, 11]", label);
-        assert.deepEqual(
-          syntaxSignatures(result.nodes, ["collating_element_multi"]),
-          ["element: collating_element_multi [0, 4] - [0, 11]"],
-          label,
-        );
-        assert.deepEqual(
-          directDelimiterLeafLines(result.nodes, type),
-          ['0:2 - 0:3 "["', `0:3 - 0:4 "${marker}"`],
-          label,
-        );
-        assertNoNodes(result.nodes, '"]"', "ERROR", "MISSING");
-        assert.deepEqual(
-          syntaxSignatures(result.nodes, ["print_function"]),
-          suffix === "" ? [] : ["print_function [1, 0] - [1, 1]"],
-          label,
-        );
-        const repaired = `/[[${marker}a]b${marker}]]/p${suffix}`;
-        const fresh = parseSuccessfully(grammar.scope, repaired);
-        assertNoNodes(fresh.nodes, "syntax_issue", "ERROR", "MISSING");
-        assertIncrementalContract(
-          result,
-          parse(grammar.scope, repaired, [
-            { byte: 7, deleteBytes: 1, insert: "" },
-          ]),
-          `${label}: remove closing marker`,
-        );
-        assertIncrementalContract(
-          fresh,
-          parse(grammar.scope, source, [
-            { byte: 7, deleteBytes: 0, insert: marker },
-          ]),
-          `${label}: restore closing marker`,
-        );
-      }
-    }
-  });
-
-  test(`${grammar.name}: bracket payload fragments retain closing brackets across NUL`, () => {
-    for (const [type, marker] of collatingTerms) {
-      const source = `/[[${marker}a]\0]b${marker}]]/p\n`;
-      const result = parseSuccessfully(grammar.scope, source);
-      assert.deepEqual(
-        issueSignatures(result.nodes),
+        issues.filter(({ reason }) => reason === "invalid_encoding"),
         [
           {
             outcome: "invalid_syntax",
-            reason: "invalid_regular_expression_character",
-            range: "[0, 6] - [0, 7]",
+            reason: "invalid_encoding",
+            range: `[0, ${prefix.length}] - [0, ${prefix.length + 1}]`,
           },
         ],
-        type,
-      );
-      const owner = result.nodes.findIndex(({ kind }) => kind === type);
-      assert.notEqual(owner, -1, type);
-      assert.deepEqual(
-        syntaxSignatures(result.nodes, undefined, owner),
-        [
-          `${type} [0, 2] - [0, 11]`,
-          '  "[" [0, 2] - [0, 3]',
-          `  "${marker}" [0, 3] - [0, 4]`,
-          "  element: collating_element_multi [0, 4] - [0, 6]",
-          "  issue: syntax_issue [0, 6] - [0, 7]",
-          "    invalid_syntax [0, 6] - [0, 7]",
-          "      invalid_regular_expression_character [0, 6] - [0, 7]",
-          "  element: collating_element_multi [0, 7] - [0, 9]",
-          `  "${marker}" [0, 9] - [0, 10]`,
-          '  "]" [0, 10] - [0, 11]',
-        ],
-        type,
-      );
-      assertNoNodes(result.nodes, "ERROR", "MISSING");
-      const history = `/[[${marker}a]q\0]b${marker}]]/p\n`;
-      assertIncrementalContract(
-        result,
-        parse(grammar.scope, history, [
-          { byte: 6, deleteBytes: 1, insert: "" },
-        ]),
-        `${type}: remove character before NUL`,
-      );
-      const repaired = `/[[${marker}a]c]b${marker}]]/p\n`;
-      const fresh = parseSuccessfully(grammar.scope, repaired);
-      assertNoNodes(fresh.nodes, "syntax_issue", "ERROR", "MISSING");
-      assert.deepEqual(
-        syntaxSignatures(fresh.nodes, ["collating_element_multi"]),
-        ["element: collating_element_multi [0, 4] - [0, 9]"],
-        type,
-      );
-      assertIncrementalContract(
-        fresh,
-        parse(grammar.scope, source, [
-          { byte: 6, deleteBytes: 1, insert: "c" },
-        ]),
-        `${type}: replace NUL with a character`,
       );
     }
   });
-}
 
-for (const grammar of grammars) {
-  test(`${grammar.name}: partial commands retain prefixes without invented functions`, () => {
-    for (const { source, outcome, position } of [
+  test(`${scope}: misplaced class lookahead follows decoding and bracket edits`, () => {
+    const source = "/[:alΣpha:]/p";
+    const damage = [{ byte: 5, deleteBytes: 1, insert: "" }];
+    const damaged = applyEdits(source, damage);
+    const fresh = parseSuccessfully(scope, damaged);
+    assert.deepEqual(
+      issueSignatures(fresh.nodes).map(({ reason }) => reason),
+      ["misplaced_character_class", "invalid_encoding"],
+    );
+    assertIncrementalContract(
+      fresh,
+      parseSuccessfully(scope, source, damage),
+      "split class name character",
+    );
+    for (const { edits, reasons } of [
       {
-        source: "1",
-        outcome: "incomplete_syntax/missing_function",
-        position: 1,
+        edits: [{ byte: 5, deleteBytes: 1, insert: "Σ" }],
+        reasons: ["misplaced_character_class"],
       },
       {
-        source: "1\n",
-        outcome: "nonconforming_syntax/missing_function",
-        position: 1,
+        edits: [
+          { byte: 2, deleteBytes: 0, insert: "[" },
+          { byte: damaged.length - 1, deleteBytes: 0, insert: "]" },
+        ],
+        reasons: ["invalid_encoding"],
       },
       {
-        source: "!",
-        outcome: "incomplete_syntax/missing_function",
-        position: 1,
+        edits: [{ byte: damaged.length - 4, deleteBytes: 1, insert: "" }],
+        reasons: ["invalid_encoding"],
       },
       {
-        source: "1!",
-        outcome: "incomplete_syntax/missing_function",
-        position: 2,
-      },
-      {
-        source: "Z",
-        outcome: "nonconforming_syntax/unknown_function",
-        position: 0,
-      },
-      {
-        source: "1Z",
-        outcome: "nonconforming_syntax/unknown_function",
-        position: 1,
+        edits: [{ byte: damaged.length - 3, deleteBytes: 3, insert: "" }],
+        reasons: [
+          "invalid_encoding",
+          "missing_closing_delimiter",
+          "unterminated_regex",
+          "missing_command",
+        ],
       },
     ]) {
-      const fresh = parseSuccessfully(grammar.scope, source);
-      const [classification, reason] = outcome.split("/");
-      const end = position + Number(source[position] === "Z");
-      assert.deepEqual(issueSignatures(fresh.nodes), [
+      const modified = applyEdits(damaged, edits);
+      const expected = parseSuccessfully(scope, modified);
+      assert.deepEqual(
+        issueSignatures(expected.nodes).map(({ reason }) => reason),
+        reasons,
+      );
+      assertIncrementalContract(
+        expected,
+        parseSuccessfully(scope, damaged, edits),
+        JSON.stringify(edits),
+      );
+    }
+    const partial = damaged.subarray(0, damaged.length - 3);
+    assertIncrementalContract(
+      fresh,
+      parseSuccessfully(scope, partial, [
+        { byte: partial.length, deleteBytes: 0, insert: "]/p" },
+      ]),
+      "complete misplaced class after decoding failure",
+    );
+  });
+
+  test(`${scope}: class candidates with unknown spans survive EOF completion and later edits`, () => {
+    for (const failure of [Buffer.from([0xff]), Buffer.from("\\c\\")]) {
+      const source = Buffer.concat([
+        Buffer.from("/[[:al"),
+        failure,
+        Buffer.from("p"),
+      ]);
+      const unknown = (nodes) =>
+        issueSignatures(nodes).filter(
+          ({ reason }) => reason === "unknown_character_class",
+        );
+      assert.deepEqual(unknown(parseSuccessfully(scope, source).nodes), [
         {
-          outcome: classification,
-          reason,
-          range: `[0, ${position}] - [0, ${end}]`,
+          outcome: "incomplete_syntax",
+          reason: "unknown_character_class",
+          range: `[0, 4] - [0, ${source.length}]`,
         },
       ]);
-      const nodes = publicNodes(fresh.nodes);
-      assert.ok(
-        nodes.some(({ kind }) => kind === "editing_command"),
-        source,
+      const completion = [
+        { byte: source.length, deleteBytes: 0, insert: "ha:]]/p" },
+      ];
+      const completed = applyEdits(source, completion);
+      const fresh = parseSuccessfully(scope, completed);
+      assert.deepEqual(unknown(fresh.nodes), []);
+      assertIncrementalContract(
+        fresh,
+        parseSuccessfully(scope, source, completion),
+        "complete class after unknown span",
       );
-      assert.ok(
-        !nodes.some(
-          ({ kind, field }) =>
-            kind === "function" ||
-            kind === "function_verb" ||
-            field === "function",
-        ),
-        source,
-      );
-      if (source.startsWith("1")) {
-        for (const kind of ["address_clause", "line_number_address"])
-          assert.ok(
-            nodes.some((node) => node.kind === kind),
-            source,
-          );
-      }
-      if (source.includes("!"))
-        assert.ok(
-          nodes.some(({ kind }) => kind === "negation"),
-          source,
-        );
-      const boundary =
-        source.indexOf("\n") < 0 ? source.length : source.indexOf("\n");
-      const complete = source.includes("Z")
-        ? source.replace("Z", "p")
-        : `${source.slice(0, boundary)}p${source.slice(boundary)}`;
-      const edits = source.includes("Z")
-        ? [{ byte: boundary - 1, deleteBytes: 1, insert: "Z" }]
-        : [{ byte: boundary, deleteBytes: 1, insert: "" }];
-      const incremental = parseSuccessfully(grammar.scope, complete, edits);
-      assertIncrementalContract(fresh, incremental, source);
-    }
-  });
-}
-
-const regularExpressionEofCases = [
-  {
-    name: "BRE interval escape without a minimum",
-    scope: "source.sed",
-    source: "s/a\\{\\",
-    outcome: "incomplete_syntax",
-    reason: "invalid_interval_close",
-    range: "[0, 5] - [0, 6]",
-    missingMinimum: true,
-    repaired: "s/a\\{1\\}//",
-    damage: [
-      { byte: 5, deleteBytes: 1, insert: "" },
-      { byte: 6, deleteBytes: 3, insert: "" },
-    ],
-    repair: [{ byte: 5, deleteBytes: 1, insert: "1\\}//" }],
-  },
-  {
-    name: "BRE interval escape after an exact count",
-    scope: "source.sed",
-    source: "s/a\\{1\\",
-    outcome: "incomplete_syntax",
-    reason: "invalid_interval_close",
-    range: "[0, 6] - [0, 7]",
-    repaired: "s/a\\{1\\}//",
-    damage: [{ byte: 7, deleteBytes: 3, insert: "" }],
-    repair: [{ byte: 7, deleteBytes: 0, insert: "}//" }],
-  },
-  {
-    name: "BRE interval escape after an unbounded minimum",
-    scope: "source.sed",
-    source: "s/a\\{1,\\",
-    outcome: "incomplete_syntax",
-    reason: "invalid_interval_close",
-    range: "[0, 7] - [0, 8]",
-    repaired: "s/a\\{1,\\}//",
-    damage: [{ byte: 8, deleteBytes: 3, insert: "" }],
-    repair: [{ byte: 8, deleteBytes: 0, insert: "}//" }],
-  },
-  {
-    name: "BRE interval escape after a maximum",
-    scope: "source.sed",
-    source: "s/a\\{1,2\\",
-    outcome: "incomplete_syntax",
-    reason: "invalid_interval_close",
-    range: "[0, 8] - [0, 9]",
-    repaired: "s/a\\{1,2\\}//",
-    damage: [{ byte: 9, deleteBytes: 3, insert: "" }],
-    repair: [{ byte: 9, deleteBytes: 0, insert: "}//" }],
-  },
-  {
-    name: "ERE group closer conflicts with the delimiter",
-    scope: "source.sed.ere",
-    source: "s)(a",
-    outcome: "undefined_syntax",
-    reason: "unclosed_subexpression",
-    range: "[0, 4] - [0, 4]",
-    repaired: "s/(a)//",
-    damage: [
-      { byte: 1, deleteBytes: 1, insert: ")" },
-      { byte: 4, deleteBytes: 3, insert: "" },
-    ],
-    repair: [
-      { byte: 1, deleteBytes: 1, insert: "/" },
-      { byte: 4, deleteBytes: 0, insert: ")//" },
-    ],
-  },
-  {
-    name: "BRE group closer conflicts with the delimiter",
-    scope: "source.sed",
-    source: "s)\\(a",
-    outcome: "undefined_syntax",
-    reason: "unclosed_subexpression",
-    range: "[0, 5] - [0, 5]",
-    repaired: "s/\\(a\\)//",
-    damage: [
-      { byte: 1, deleteBytes: 1, insert: ")" },
-      { byte: 5, deleteBytes: 4, insert: "" },
-    ],
-    repair: [
-      { byte: 1, deleteBytes: 1, insert: "/" },
-      { byte: 5, deleteBytes: 0, insert: "\\)//" },
-    ],
-  },
-  {
-    name: "empty ERE group with a conflicting delimiter",
-    scope: "source.sed.ere",
-    source: "s)(",
-    outcome: "undefined_syntax",
-    reason: "unclosed_subexpression",
-    range: "[0, 3] - [0, 3]",
-    repaired: "s/()//",
-    damage: [
-      { byte: 1, deleteBytes: 1, insert: ")" },
-      { byte: 3, deleteBytes: 3, insert: "" },
-    ],
-    repair: [
-      { byte: 1, deleteBytes: 1, insert: "/" },
-      { byte: 3, deleteBytes: 0, insert: ")//" },
-    ],
-  },
-  {
-    name: "empty BRE group with a conflicting delimiter",
-    scope: "source.sed",
-    source: "s)\\(",
-    outcome: "undefined_syntax",
-    reason: "unclosed_subexpression",
-    range: "[0, 4] - [0, 4]",
-    repaired: "s/\\(\\)//",
-    damage: [
-      { byte: 1, deleteBytes: 1, insert: ")" },
-      { byte: 4, deleteBytes: 4, insert: "" },
-    ],
-    repair: [
-      { byte: 1, deleteBytes: 1, insert: "/" },
-      { byte: 4, deleteBytes: 0, insert: "\\)//" },
-    ],
-  },
-  {
-    name: "ERE interval closer conflicts with the delimiter",
-    scope: "source.sed.ere",
-    source: "s}a{1",
-    outcome: "undefined_syntax",
-    reason: "missing_interval_close",
-    range: "[0, 5] - [0, 5]",
-    repaired: "s/a{1}//",
-    damage: [
-      { byte: 1, deleteBytes: 1, insert: "}" },
-      { byte: 5, deleteBytes: 3, insert: "" },
-    ],
-    repair: [
-      { byte: 1, deleteBytes: 1, insert: "/" },
-      { byte: 5, deleteBytes: 0, insert: "}//" },
-    ],
-  },
-  {
-    name: "BRE interval closer conflicts with the delimiter",
-    scope: "source.sed",
-    source: "s}a\\{1",
-    outcome: "undefined_syntax",
-    reason: "missing_interval_close",
-    range: "[0, 6] - [0, 6]",
-    repaired: "s/a\\{1\\}//",
-    damage: [
-      { byte: 1, deleteBytes: 1, insert: "}" },
-      { byte: 6, deleteBytes: 4, insert: "" },
-    ],
-    repair: [
-      { byte: 1, deleteBytes: 1, insert: "/" },
-      { byte: 6, deleteBytes: 0, insert: "\\}//" },
-    ],
-  },
-];
-
-for (const testCase of regularExpressionEofCases) {
-  const grammar = grammars.find(({ scope }) => scope === testCase.scope);
-  assert.ok(grammar);
-  test(`${grammar.name}: ${testCase.name}`, () => {
-    const result = parseSuccessfully(testCase.scope, testCase.source);
-    const end = testCase.source.length;
-    const expected = [];
-    if (testCase.missingMinimum) {
-      expected.push({
-        outcome: "undefined_syntax",
-        reason: "missing_interval_minimum",
-        range: "[0, 5] - [0, 5]",
-      });
-    }
-    expected.push(
-      {
-        outcome: testCase.outcome,
-        reason: testCase.reason,
-        range: testCase.range,
-      },
-      {
-        outcome: "incomplete_syntax",
-        reason: "unterminated_regular_expression",
-        range: `[0, ${end}] - [0, ${end}]`,
-      },
-    );
-    assert.deepEqual(issueSignatures(result.nodes), expected);
-    assertNoNodes(
-      result.nodes,
-      "ERROR",
-      "MISSING",
-      '"\\\\}"',
-      '"}"',
-      '"\\\\)"',
-      '")"',
-    );
-    assert.deepEqual(
-      applyEdits(testCase.repaired, testCase.damage),
-      Buffer.from(testCase.source),
-    );
-    assertIncrementalContract(
-      result,
-      parse(testCase.scope, testCase.repaired, testCase.damage),
-      testCase.name,
-    );
-    const repaired = parseSuccessfully(testCase.scope, testCase.repaired);
-    assertNoNodes(repaired.nodes, "syntax_issue", "ERROR", "MISSING");
-    assert.deepEqual(
-      applyEdits(testCase.source, testCase.repair),
-      Buffer.from(testCase.repaired),
-    );
-    assertIncrementalContract(
-      repaired,
-      parse(testCase.scope, testCase.source, testCase.repair),
-      `${testCase.name}: repair`,
-    );
-  });
-}
-
-const regexIssueOwnershipCases = [
-  {
-    name: "BRE vertical line escape",
-    scope: "source.sed",
-    source: "s/a\\|/x/\n",
-  },
-  {
-    name: "BRE question mark escape",
-    scope: "source.sed",
-    source: "s/a\\?/x/\n",
-  },
-  {
-    name: "BRE plus escape",
-    scope: "source.sed",
-    source: "s/a\\+/x/\n",
-  },
-  {
-    name: "leading BRE interval",
-    scope: "source.sed",
-    source: "s/\\{2\\}/x/\n",
-  },
-  {
-    name: "adjacent BRE star",
-    scope: "source.sed",
-    source: "s/a**/x/\n",
-  },
-  {
-    name: "adjacent malformed BRE interval",
-    scope: "source.sed",
-    source: "s/a*\\{2x\\}/x/\n",
-  },
-  {
-    name: "leading ERE repetition and modifier",
-    scope: "source.sed.ere",
-    source: "s/+?/x/\n",
-  },
-  {
-    name: "adjacent ERE repetition and modifier",
-    scope: "source.sed.ere",
-    source: "s/a**?/x/\n",
-  },
-  {
-    name: "adjacent malformed ERE interval",
-    scope: "source.sed.ere",
-    source: "s/a*{2x}/x/\n",
-  },
-  {
-    name: "character class range start",
-    scope: "source.sed",
-    source: "s/[[:alpha:]-z]/x/\n",
-  },
-  {
-    name: "character class range end",
-    scope: "source.sed",
-    source: "s/[a-[:alpha:]]/x/\n",
-  },
-  {
-    name: "equivalence class range start",
-    scope: "source.sed",
-    source: "s/[[=a=]-z]/x/\n",
-  },
-  {
-    name: "equivalence class range end",
-    scope: "source.sed",
-    source: "s/[a-[=b=]]/x/\n",
-  },
-  {
-    name: "ambiguous bracket expression",
-    scope: "source.sed",
-    source: "s/[.a.]/x/\n",
-  },
-  {
-    name: "ambiguous bracket expression with a nonportable endpoint",
-    scope: "source.sed",
-    source: "s/[.[=a=]-z.]/x/\n",
-  },
-  {
-    name: "character class range start",
-    scope: "source.sed.ere",
-    source: "s/[[:alpha:]-z]/x/\n",
-  },
-  {
-    name: "character class range end",
-    scope: "source.sed.ere",
-    source: "s/[a-[:alpha:]]/x/\n",
-  },
-  {
-    name: "equivalence class range start",
-    scope: "source.sed.ere",
-    source: "s/[[=a=]-z]/x/\n",
-  },
-  {
-    name: "equivalence class range end",
-    scope: "source.sed.ere",
-    source: "s/[a-[=b=]]/x/\n",
-  },
-  {
-    name: "ambiguous bracket expression",
-    scope: "source.sed.ere",
-    source: "s/[.a.]/x/\n",
-  },
-  {
-    name: "ambiguous bracket expression with a nonportable endpoint",
-    scope: "source.sed.ere",
-    source: "s/[.[=a=]-z.]/x/\n",
-  },
-];
-
-for (const testCase of regexIssueOwnershipCases) {
-  const grammar = grammars.find(({ scope }) => scope === testCase.scope);
-  assert.ok(grammar);
-  test(`${grammar.name}: ${testCase.name} converges after expression and replacement edits`, () => {
-    const fresh = parseSuccessfully(testCase.scope, testCase.source);
-    const replacementByte = testCase.source.lastIndexOf("/x/") + 1;
-    const changed = applyEdits(testCase.source, [
-      { byte: replacementByte, deleteBytes: 1, insert: "y" },
-    ]);
-    assertIncrementalContract(
-      fresh,
-      parseSuccessfully(testCase.scope, changed, [
-        { byte: replacementByte, deleteBytes: 1, insert: "x" },
-      ]),
-      testCase.name,
-    );
-    const expressionEnd = testCase.source.lastIndexOf("/x/");
-    assertIncrementalContract(
-      fresh,
-      parseSuccessfully(testCase.scope, "s//x/\n", [
+      const corrupt = [{ byte: source.length, deleteBytes: 2, insert: "z" }];
+      const corruptSource = applyEdits(completed, corrupt);
+      const corruptFresh = parseSuccessfully(scope, corruptSource);
+      assert.deepEqual(unknown(corruptFresh.nodes), [
         {
-          byte: 2,
-          deleteBytes: 0,
-          insert: testCase.source.slice(2, expressionEnd),
+          outcome: "invalid_syntax",
+          reason: "unknown_character_class",
+          range: `[0, 4] - [0, ${source.length + 1}]`,
         },
-      ]),
-      testCase.name,
-    );
+      ]);
+      assertIncrementalContract(
+        corruptFresh,
+        parseSuccessfully(scope, completed, corrupt),
+        "invalidate known suffix",
+      );
+      const restore = [{ byte: source.length, deleteBytes: 1, insert: "ha" }];
+      assertIncrementalContract(
+        fresh,
+        parseSuccessfully(scope, corruptSource, restore),
+        "restore known suffix",
+      );
+      const split = Buffer.concat([
+        Buffer.from("/[[:al"),
+        failure,
+        Buffer.from("p"),
+        failure,
+        Buffer.from("ha:]]/p"),
+      ]);
+      assert.deepEqual(unknown(parseSuccessfully(scope, split).nodes), []);
+    }
   });
-}
 
-test("sed: bracket term marker prefixes preserve payloads and converge after edits", () => {
-  const cases = [
-    {
-      type: "character_class",
-      marker: ":",
-      payload: "alpha",
-      kind: "class_name",
-      field: "name",
-    },
-    {
-      type: "collating_symbol",
-      marker: ".",
-      payload: "a",
-      kind: "collating_element_single",
-      field: "element",
-    },
-    {
-      type: "equivalence_class",
-      marker: "=",
-      payload: "a",
-      kind: "collating_element_single",
-      field: "element",
-    },
-  ];
-
-  for (const grammar of grammars) {
-    for (const testCase of cases) {
-      for (const payload of [testCase.payload, ""]) {
-        const source = `s/[[${testCase.marker}${payload}${testCase.marker}`;
-        const eof = source.length;
-        const label = `${grammar.name}: ${source}`;
-        const closingMarker = payload !== "" || testCase.marker === ":";
-        const missingPayload = payload === "" && closingMarker;
-        const result = parseSuccessfully(grammar.scope, source);
-        assert.deepEqual(
-          issueSignatures(result.nodes).filter(({ reason }) =>
-            [
-              "missing_bracket_term_payload",
-              "missing_bracket_term_close",
-            ].includes(reason),
-          ),
-          [
-            ...(missingPayload
-              ? [
-                  {
-                    outcome: "undefined_syntax",
-                    reason: "missing_bracket_term_payload",
-                    range: "[0, 5] - [0, 5]",
-                  },
-                ]
-              : []),
-            {
-              outcome: "incomplete_syntax",
-              reason: "missing_bracket_term_close",
-              range: `[0, ${eof}] - [0, ${eof}]`,
-            },
-          ],
-          label,
-        );
-        assertNoNodes(result.nodes, "ERROR", "MISSING");
-        const nodes = publicNodes(result.nodes);
-        const owner = nodes.findIndex(({ kind }) => kind === testCase.type);
-        assert.notEqual(owner, -1, label);
-        assert.deepEqual(
-          [nodes[owner].startByte, nodes[owner].endByte],
-          [3, eof],
-          label,
-        );
-        assert.deepEqual(
-          nodes
-            .filter(({ kind }) => kind === testCase.kind)
-            .map(({ parent, field, startByte, endByte }) => [
-              parent,
-              field,
-              startByte,
-              endByte,
-            ]),
-          missingPayload
-            ? []
-            : [[owner, testCase.field, 5, closingMarker ? eof - 1 : eof]],
-          label,
-        );
-        assert.deepEqual(
-          nodes
-            .filter(
-              ({ kind, parent }) => kind === "syntax_issue" && parent === owner,
-            )
-            .map(({ field, startByte, endByte }) => [
-              field,
-              startByte,
-              endByte,
-            ]),
-          [...(missingPayload ? [["issue", 5, 5]] : []), ["issue", eof, eof]],
-          label,
-        );
-        assert.deepEqual(
-          directDelimiterLeafLines(result.nodes, testCase.type),
-          [
-            '0:3 - 0:4 "["',
-            `0:4 - 0:5 "${testCase.marker}"`,
-            ...(closingMarker
-              ? [`0:${eof - 1} - 0:${eof} "${testCase.marker}"`]
-              : []),
-          ],
-          label,
-        );
-        if (missingPayload) continue;
-
-        const suffix = `x${testCase.marker}]]/x/`;
-        const initial = closingMarker ? `${source}]` : source;
-        const complete = closingMarker
-          ? `${source}]]/x/`
-          : `${source}${suffix}`;
-        const histories = closingMarker
+  test(`${scope}: interval characters remain independent of adjacent decoding failures`, () => {
+    const opening = scope === "source.sed" ? String.raw`/a\{` : "/a{";
+    const closing = scope === "source.sed" ? String.raw`\}/p` : "}/p";
+    for (const introducer of ["", "\\", String.raw`\x5c`, String.raw`\c`]) {
+      for (const badFirst of [false, true]) {
+        const content = Buffer.concat([
+          Buffer.from(`${badFirst ? "x" : "1"}${introducer}`),
+          Buffer.from([0xff]),
+          Buffer.from(badFirst ? "2" : "x"),
+        ]);
+        const source = Buffer.concat([
+          Buffer.from(opening),
+          content,
+          Buffer.from(closing),
+        ]);
+        const base = opening.length;
+        const faults = badFirst
           ? [
-              { edit: { byte: eof, deleteBytes: 1, insert: "" }, source },
+              { reason: "invalid_interval_character", byte: base },
               {
-                edit: { byte: eof, deleteBytes: 0, insert: "]" },
-                source: initial,
-              },
-              {
-                edit: { byte: eof + 1, deleteBytes: 0, insert: "]/x/" },
-                source: complete,
-              },
-              {
-                edit: { byte: eof, deleteBytes: 1, insert: "x" },
-                source: `${source}x]/x/`,
-              },
-              {
-                edit: { byte: eof, deleteBytes: 1, insert: "]" },
-                source: complete,
+                reason: "invalid_encoding",
+                byte: base + 1 + introducer.length,
               },
             ]
           : [
               {
-                edit: { byte: eof, deleteBytes: 0, insert: suffix },
-                source: complete,
+                reason: "invalid_encoding",
+                byte: base + 1 + introducer.length,
               },
               {
-                edit: { byte: eof, deleteBytes: suffix.length, insert: "" },
-                source,
+                reason: "invalid_interval_character",
+                byte: base + 2 + introducer.length,
               },
             ];
-        const edits = [];
-        for (const history of histories) {
-          edits.push(history.edit);
-          assert.deepEqual(
-            applyEdits(initial, edits),
-            Buffer.from(history.source),
-          );
-          const fresh = parse(grammar.scope, history.source);
-          assertIncrementalContract(
-            fresh,
-            parse(grammar.scope, initial, edits),
-            `${label}: ${history.source}`,
-          );
-          if (history.source === complete) {
-            assert.equal(fresh.status, 0, fresh.stdout + fresh.stderr);
-            assert.deepEqual(issueSignatures(fresh.nodes), [], label);
-            assertNoNodes(fresh.nodes, "ERROR", "MISSING");
-            if (!closingMarker) {
-              assert.deepEqual(
-                syntaxSignatures(fresh.nodes, ["collating_element_multi"]),
-                ["element: collating_element_multi [0, 5] - [0, 7]"],
-                label,
-              );
-            }
-          }
-        }
-      }
-    }
-  }
-});
-
-for (const grammar of grammars) {
-  test(`${grammar.name}: invalid interval characters preserve boundaries`, () => {
-    const opening = grammar.name === "sed" ? "\\{" : "{";
-    const closing = grammar.name === "sed" ? "\\}" : "}";
-    const prefix = Buffer.from(`/a${opening}1,x`);
-    const start = prefix.length - 1;
-    for (const testCase of [
-      {
-        name: "surrounding invalid text",
-        count: 1,
-        suffix: `y${closing}/p\n`,
-        trailingFault: true,
-      },
-      {
-        name: "consecutive invalid bytes",
-        count: 2,
-        suffix: `${closing}/p\n`,
-      },
-      {
-        name: "end of source",
-        count: 1,
-        suffix: "",
-        boundary: "incomplete_syntax",
-      },
-      {
-        name: "physical newline",
-        count: 1,
-        suffix: "\np\n",
-        boundary: "nonconforming_syntax",
-      },
-      {
-        name: "following bracket expression",
-        count: 1,
-        suffix: `[bc]${closing}/p\n`,
-        missingClose: true,
-        unmatchedCloser: grammar.name === "sed",
-      },
-    ]) {
-      for (const byte of [0, 0xff]) {
-        const invalidReason =
-          byte === 0
-            ? "invalid_regular_expression_character"
-            : "invalid_encoding";
-        const source = Buffer.concat([
-          prefix,
-          Buffer.alloc(testCase.count, byte),
-          Buffer.from(testCase.suffix),
-        ]);
-        const range = (first, last) => `[0, ${first}] - [0, ${last}]`;
-        const position = prefix.length + testCase.count;
-        const expected = [
-          {
-            outcome: "undefined_syntax",
-            reason: "invalid_interval_character",
-            range: range(start, start + 1),
-          },
-          {
+        assert.deepEqual(
+          issueSignatures(parseSuccessfully(scope, source).nodes),
+          faults.map(({ reason, byte }) => ({
             outcome: "invalid_syntax",
-            reason: invalidReason,
-            range: range(start + 1, position),
-          },
-        ];
-        if (testCase.trailingFault) {
-          expected.push({
-            outcome: "undefined_syntax",
-            reason: "invalid_interval_character",
-            range: range(position, position + 1),
-          });
-        }
-        if (testCase.missingClose || testCase.boundary !== undefined) {
-          expected.push({
-            outcome:
-              testCase.boundary === "incomplete_syntax"
-                ? "incomplete_syntax"
-                : "undefined_syntax",
-            reason: "missing_interval_close",
-            range: range(position, position),
-          });
-        }
-        if (testCase.boundary !== undefined) {
-          expected.push(
-            {
-              outcome: testCase.boundary,
-              reason: "unterminated_regular_expression",
-              range: range(start + 2, start + 2),
-            },
-            {
-              outcome: testCase.boundary,
-              reason: "missing_function",
-              range: range(start + 2, start + 2),
-            },
-          );
-        }
-        if (testCase.unmatchedCloser) {
-          expected.push({
-            outcome: "undefined_syntax",
-            reason: "unmatched_interval_close",
-            range: range(start + 6, start + 8),
-          });
-        }
-        const edits =
-          testCase.suffix === ""
-            ? [
-                { byte: position, deleteBytes: 0, insert: closing },
-                { byte: position, deleteBytes: closing.length, insert: "" },
-              ]
-            : [
-                { byte: position, deleteBytes: 1, insert: "" },
-                {
-                  byte: position,
-                  deleteBytes: 0,
-                  insert: testCase.suffix[0],
-                },
-              ];
-        assert.deepEqual(applyEdits(source, edits), source);
-        const fresh = parse(grammar.scope, source);
-        const incremental = parse(grammar.scope, source, edits);
-        const label = `${testCase.name}, byte ${byte}`;
-        assertIncrementalContract(fresh, incremental, label);
-        const retained = [
-          `minimum: duplication_count ${range(start - 2, start - 1)}`,
-          ...expected
-            .filter(
-              ({ reason }) =>
-                reason === "invalid_interval_character" ||
-                reason === invalidReason,
-            )
-            .map(({ reason, range }) => `${reason} ${range}`),
-        ];
-        for (const result of [fresh, incremental]) {
-          assert.deepEqual(issueSignatures(result.nodes), expected, label);
-          assert.deepEqual(
-            syntaxSignatures(result.nodes, [
-              "duplication_count",
-              "invalid_interval_character",
-              invalidReason,
-            ]),
-            retained,
-            label,
-          );
-        }
+            reason,
+            range: `[0, ${byte}] - [0, ${byte + 1}]`,
+          })),
+        );
       }
     }
   });
 
-  test(`${grammar.name}: character class names: invalid spellings own their source`, () => {
-    for (const { name, invalid, normal } of [
-      { name: "1", invalid: [[0, 1]], normal: [] },
-      { name: "1alpha", invalid: [[0, 1]], normal: [[1, 6]] },
-      {
-        name: "a-b",
-        invalid: [[1, 2]],
-        normal: [
-          [0, 1],
-          [2, 3],
-        ],
-      },
-      {
-        name: "a_b",
-        invalid: [[1, 2]],
-        normal: [
-          [0, 1],
-          [2, 3],
-        ],
-      },
-      {
-        name: " a ",
-        invalid: [
-          [0, 1],
-          [2, 3],
-        ],
-        normal: [[1, 2]],
-      },
-      { name: "α", invalid: [[0, 2]], normal: [] },
-      {
-        name: "a:b",
-        invalid: [[1, 2]],
-        normal: [
-          [0, 1],
-          [2, 3],
-        ],
-      },
+  test(`${scope}: undecodable interval escapes preserve prefixes, counts, and closing`, () => {
+    const opening = scope === "source.sed" ? String.raw`s/a\{` : "s/a{";
+    const closing = scope === "source.sed" ? String.raw`\}` : "}";
+    for (const [introducer, kind] of [
+      ["\\", "escape"],
+      [String.raw`\x5c`, "character_escape"],
+      [String.raw`\c`, "character_escape"],
     ]) {
-      const source = `s/[[:${name}:]]/x/\n`;
-      const result = parseSuccessfully(grammar.scope, source);
-      const range = (start, end) => `[0, ${5 + start}] - [0, ${5 + end}]`;
-      assert.deepEqual(
-        issueSignatures(result.nodes),
-        invalid.map(([start, end]) => ({
-          outcome: "undefined_syntax",
-          reason: "invalid_character_class_name",
-          range: range(start, end),
-        })),
-        source,
-      );
-      assert.deepEqual(
-        syntaxSignatures(result.nodes, ["class_name"]),
-        normal.map(([start, end]) => `name: class_name ${range(start, end)}`),
-        source,
-      );
-      for (const node of result.nodes.filter(
-        ({ kind }) => kind === "invalid_character_class_name",
-      )) {
-        assert.ok(
-          !result.nodes.some(
-            ({ parent }) => parent === result.nodes.indexOf(node),
-          ),
-          source,
-        );
-      }
-      const history = `s/[[:Alpha:]]/x/\n`;
-      const edits = [{ byte: 5, deleteBytes: 5, insert: name }];
-      assertIncrementalContract(
-        result,
-        parse(grammar.scope, history, edits),
-        source,
-      );
-      const repaired = parseSuccessfully(grammar.scope, history);
-      assertNoNodes(repaired.nodes, "syntax_issue", "ERROR", "MISSING");
-      assert.deepEqual(syntaxSignatures(repaired.nodes, ["class_name"]), [
-        "name: class_name [0, 5] - [0, 10]",
-      ]);
-      assertIncrementalContract(
-        repaired,
-        parse(grammar.scope, source, [
-          { byte: 5, deleteBytes: Buffer.byteLength(name), insert: "Alpha" },
-        ]),
-        `${source}: repair`,
-      );
-    }
-  });
-
-  test(`${grammar.name}: invalid regular expression characters retain byte ranges through repair`, () => {
-    const invalidValues = [
-      { name: "NUL", bytes: Buffer.from([0]) },
-      { name: "invalid UTF-8 byte", bytes: Buffer.from([0xff]) },
-      { name: "overlong UTF-8 sequence", bytes: Buffer.from([0xc0, 0x80]) },
-    ];
-    const contexts = [
-      { name: "ordinary character", prefix: "s/", suffix: "//\n" },
-      { name: "bracket element", prefix: "/[", suffix: "]/p\n" },
-      { name: "range start", prefix: "/[", suffix: "-z]/p\n" },
-      { name: "range end", prefix: "/[a-", suffix: "]/p\n" },
-      { name: "collating symbol middle", prefix: "/[[.a", suffix: "b.]]/p\n" },
-      { name: "collating symbol end", prefix: "/[[.a", suffix: ".]]/p\n" },
-      { name: "equivalence class", prefix: "/[[=", suffix: "=]]/p\n" },
-      {
-        name: "class name middle",
-        prefix: "/[[:a",
-        suffix: "1:]]/p\n",
-        classNames: ["name: class_name [0, 4] - [0, 5]"],
-        repairedClassNameRange: "[0, 4] - [0, 7]",
-      },
-      {
-        name: "class name start",
-        prefix: "/[[:",
-        suffix: "1:]]/p\n",
-        classNames: [],
-        repairedClassNameRange: "[0, 4] - [0, 6]",
-      },
-      {
-        name: "escaped repetition operand",
-        prefix: "/\\",
-        suffix: "*/p\n",
-        repair: "*",
-        quotedCharacterRange: "[0, 1] - [0, 3]",
-      },
-      {
-        name: "escaped grouped character",
-        prefix: grammar.name === "sed" ? "/\\(\\" : "/(\\",
-        suffix: grammar.name === "sed" ? "\\)/p\n" : ")/p\n",
-        repair: "*",
-        quotedCharacterRange:
-          grammar.name === "sed" ? "[0, 3] - [0, 5]" : "[0, 2] - [0, 4]",
-      },
-    ];
-    for (const invalid of invalidValues) {
-      for (const context of contexts) {
-        const prefix = Buffer.from(context.prefix);
-        const suffix = Buffer.from(context.suffix);
-        const source = Buffer.concat([prefix, invalid.bytes, suffix]);
-        const label = `${invalid.name}: ${context.name}`;
-        const result = parseSuccessfully(grammar.scope, source);
-        const expectedIssues = [
+      for (const failure of [Buffer.from([0xff]), Buffer.from([0xe3, 0x81])]) {
+        for (const { before, after, counts } of [
+          { before: "", after: "", counts: [] },
           {
-            outcome: "invalid_syntax",
-            reason:
-              invalid.name === "NUL"
-                ? "invalid_regular_expression_character"
-                : "invalid_encoding",
-            range: `[0, ${prefix.length}] - [0, ${prefix.length + invalid.bytes.length}]`,
+            before: "1",
+            after: "2,3",
+            counts: [
+              ["minimum", "1"],
+              ["minimum", "2"],
+              ["maximum", "3"],
+            ],
           },
-        ];
-        if (context.classNames !== undefined) {
-          const digit = prefix.length + invalid.bytes.length;
-          expectedIssues.push({
-            outcome: "undefined_syntax",
-            reason: "invalid_character_class_name",
-            range: `[0, ${digit}] - [0, ${digit + 1}]`,
-          });
+          {
+            before: "1,",
+            after: "2",
+            counts: [
+              ["minimum", "1"],
+              ["maximum", "2"],
+            ],
+          },
+        ]) {
+          const prefix = opening + before;
+          const failureStart = prefix.length + introducer.length;
+          const failureEnd = failureStart + failure.length;
+          const source = Buffer.concat([
+            Buffer.from(prefix + introducer),
+            failure,
+            Buffer.from(`${after}${closing}/r/`),
+          ]);
+          const { nodes } = parseSuccessfully(scope, source);
+          assert.deepEqual(issueSignatures(nodes), [
+            {
+              outcome: "invalid_syntax",
+              reason: "invalid_encoding",
+              range: `[0, ${failureStart}] - [0, ${failureEnd}]`,
+            },
+          ]);
+          const interval = nodes.findIndex((node) => node.kind === "interval");
+          assert.notEqual(interval, -1);
+          const children = nodes.filter((node) => node.parent === interval);
           assert.deepEqual(
-            syntaxSignatures(result.nodes, ["class_name"]),
-            context.classNames,
-            label,
+            children
+              .filter((node) =>
+                ["escape", "character_escape"].includes(node.kind),
+              )
+              .map((node) => [node.kind, node.startByte, node.endByte]),
+            [[kind, prefix.length, failureStart]],
           );
-        }
-        assert.deepEqual(issueSignatures(result.nodes), expectedIssues, label);
-        assertNoNodes(
-          result.nodes,
-          "invalid_character_token",
-          "quoted_character",
-          "ERROR",
-          "MISSING",
-        );
-        const history = Buffer.concat([
-          prefix,
-          Buffer.from("q"),
-          invalid.bytes,
-          suffix,
-        ]);
-        const edits = [{ byte: prefix.length, deleteBytes: 1, insert: "" }];
-        assertIncrementalContract(
-          result,
-          parse(grammar.scope, history, edits),
-          label,
-        );
-        const repair = context.repair ?? "a";
-        const repaired = Buffer.concat([prefix, Buffer.from(repair), suffix]);
-        const fresh = parseSuccessfully(grammar.scope, repaired);
-        assertNoNodes(fresh.nodes, "syntax_issue", "ERROR", "MISSING");
-        if (context.repairedClassNameRange !== undefined) {
           assert.deepEqual(
-            syntaxSignatures(fresh.nodes, ["class_name"]),
-            [`name: class_name ${context.repairedClassNameRange}`],
-            `${label}: repaired class name`,
+            children
+              .filter((node) => node.kind === "interval_count")
+              .map((node) => [
+                node.field,
+                source.subarray(node.startByte, node.endByte).toString(),
+              ]),
+            counts,
           );
-        }
-        if (context.quotedCharacterRange !== undefined) {
           assert.deepEqual(
-            syntaxSignatures(fresh.nodes, ["quoted_character"]),
-            [`quoted_character ${context.quotedCharacterRange}`],
-            `${label}: repaired quoted character range`,
-          );
-          const quoted = fresh.nodes.findIndex(
-            ({ kind }) => kind === "quoted_character",
+            children
+              .filter((node) => node.field === "closing")
+              .map((node) => [node.kind, node.startByte, node.endByte]),
+            [
+              [
+                "interval_close",
+                failureEnd + after.length,
+                failureEnd + after.length + closing.length,
+              ],
+            ],
           );
           assert.equal(
-            subtree(fresh.nodes, quoted).length,
+            children.filter((node) => node.kind === "syntax_issue").length,
             1,
-            `${label}: repaired quoted character must be a leaf`,
           );
         }
-        assertIncrementalContract(
-          fresh,
-          parse(grammar.scope, source, [
-            {
-              byte: prefix.length,
-              deleteBytes: invalid.bytes.length,
-              insert: repair,
-            },
-          ]),
-          `${label}: repair`,
-        );
       }
     }
   });
-}
 
-for (const grammar of grammars) {
-  test(`${grammar.name}: unexpected command text owns nested NUL issues`, () => {
-    const source = "{\npX\0Y\0\nq\n}\n";
-    const fresh = parseSuccessfully(grammar.scope, source);
-    const incremental = parseSuccessfully(grammar.scope, `p\n${source}`, [
-      { byte: 0, deleteBytes: 2, insert: "" },
-    ]);
-    assertIncrementalContract(
-      fresh,
-      incremental,
-      "nested unexpected command text",
-    );
-    for (const result of [fresh, incremental]) {
-      assertNoNodes(result.nodes, "ERROR", "MISSING");
-      assert.deepEqual(
-        syntaxSignatures(result.nodes, [
-          "block_function",
-          "print_function",
-          "quit_function",
-          "unexpected_command_text",
-          "nul_character",
-        ]),
-        [
-          "block_function [0, 0] - [3, 1]",
-          "  print_function [1, 0] - [1, 1]",
-          "  unexpected_command_text [1, 1] - [1, 5]",
-          "    nul_character [1, 2] - [1, 3]",
-          "    nul_character [1, 4] - [1, 5]",
-          "  quit_function [2, 0] - [2, 1]",
-        ],
-      );
-    }
-    const edits = [
-      { byte: 6, deleteBytes: 1, insert: "" },
-      { byte: 4, deleteBytes: 1, insert: "" },
-    ];
-    const repaired = "{\npXY\nq\n}\n";
-    assert.deepEqual(applyEdits(source, edits), Buffer.from(repaired));
-    const repairedFresh = parseSuccessfully(grammar.scope, repaired);
-    assert.deepEqual(issueSignatures(repairedFresh.nodes), [
-      {
-        outcome: "nonconforming_syntax",
-        reason: "unexpected_command_text",
-        range: "[1, 1] - [1, 3]",
-      },
-    ]);
-    assertIncrementalContract(
-      repairedFresh,
-      parseSuccessfully(grammar.scope, source, edits),
-      "remove only the nested NUL issues",
-    );
-  });
-}
-
-for (const grammar of grammars) {
-  test(`${grammar.name}: long unterminated replacements parse through EOF`, () => {
-    const replacementCharacters = 80_000;
-    const source = `s/a/${"x".repeat(replacementCharacters)}`;
-    const result = parseSuccessfully(grammar.scope, source);
-    assert.deepEqual(issuePaths(result.nodes), [
-      "incomplete_syntax/unterminated_replacement",
-    ]);
-  });
-}
-
-for (const grammar of grammars) {
-  test(`${grammar.name}: decoding failure does not change interval EOF and boundary outcomes`, () => {
-    const prefix = Buffer.from(grammar.name === "sed" ? "/a\\{1" : "/a{1");
-    const unfinished = Buffer.concat([prefix, Buffer.from([0xf0, 0x9f, 0x98])]);
-    const end = unfinished.length;
-    for (const { suffix, missing } of [
-      {
-        suffix: "",
-        missing: [
-          ["incomplete_syntax", "missing_interval_close"],
-          ["incomplete_syntax", "unterminated_regular_expression"],
-          ["incomplete_syntax", "missing_function"],
-        ],
-      },
-      {
-        suffix: "/p\n",
-        missing: [["undefined_syntax", "missing_interval_close"]],
-      },
-      {
-        suffix: "\np\n",
-        missing: [
-          ["undefined_syntax", "missing_interval_close"],
-          ["nonconforming_syntax", "unterminated_regular_expression"],
-          ["nonconforming_syntax", "missing_function"],
-        ],
-      },
-    ]) {
-      const source = Buffer.concat([unfinished, Buffer.from(suffix)]);
-      const fresh = parseSuccessfully(grammar.scope, source);
+  test(`${scope}: interval escape decoding failures track edits and repairs`, () => {
+    const opening = scope === "source.sed" ? String.raw`s/a\{1` : "s/a{1";
+    const closing = scope === "source.sed" ? String.raw`2\}/r/` : "2}/r/";
+    for (const introducer of ["\\", String.raw`\x5c`, String.raw`\c`]) {
+      const source = `${opening}${introducer}Σ${closing}`;
+      const damagedByte = opening.length + introducer.length;
+      const damage = [{ byte: damagedByte, deleteBytes: 1, insert: "" }];
+      const damaged = applyEdits(source, damage);
+      const fresh = parseSuccessfully(scope, damaged);
       assert.deepEqual(issueSignatures(fresh.nodes), [
         {
           outcome: "invalid_syntax",
           reason: "invalid_encoding",
-          range: `[0, ${prefix.length}] - [0, ${end}]`,
+          range: `[0, ${damagedByte}] - [0, ${damagedByte + 1}]`,
         },
-        ...missing.map(([outcome, reason]) => ({
-          outcome,
-          reason,
-          range: `[0, ${end}] - [0, ${end}]`,
-        })),
       ]);
-      const history = Buffer.concat([unfinished, Buffer.from("/p\n")]);
       assertIncrementalContract(
         fresh,
-        parse(grammar.scope, history, [
-          { byte: end, deleteBytes: 3, insert: suffix },
-        ]),
-        JSON.stringify(suffix),
+        parseSuccessfully(scope, source, damage),
+        "split the escaped multibyte character",
       );
-    }
-  });
-}
-
-const bracketDelimiterConvergenceCases = grammars.flatMap((grammar) => [
-  {
-    name: `bracket term opening marker`,
-    scope: grammar.scope,
-    source: "/[[:alpha:]]/p\n",
-    histories: [
-      {
-        source: "/[[xalpha:]]/p\n",
-        edits: [{ byte: 3, deleteBytes: 1, insert: ":" }],
-      },
-      {
-        source: "/[[=alpha=]]/p\n",
-        edits: [
-          { byte: 3, deleteBytes: 1, insert: ":" },
-          { byte: 9, deleteBytes: 1, insert: ":" },
-        ],
-      },
-    ],
-  },
-  {
-    name: `bracket term closing bracket restoration`,
-    scope: grammar.scope,
-    source: "/[[:alpha:]x]/p\n",
-    histories: [
-      {
-        source: "/[[:alpha:x]/p\n",
-        edits: [{ byte: 10, deleteBytes: 0, insert: "]" }],
-      },
-    ],
-  },
-  {
-    name: `bracket term closing bracket deletion`,
-    scope: grammar.scope,
-    source: "/[[:alpha:x]/p\n",
-    histories: [
-      {
-        source: "/[[:alpha:]x]/p\n",
-        edits: [{ byte: 10, deleteBytes: 1, insert: "" }],
-      },
-    ],
-  },
-]);
-
-const explicitConvergenceCases = [
-  ...bracketDelimiterConvergenceCases,
-  ...grammars.flatMap((grammar) => {
-    const [opening, closing] =
-      grammar.name === "sed" ? ["\\(", "\\)"] : ["(", ")"];
-    const bodyStart = 2 + opening.length;
-    return [
-      {
-        name: "empty regex groups converge after deleting their body or restoring their closer",
-        scope: grammar.scope,
-        source: `s/${opening}${closing}/x/\n`,
-        histories: [
-          {
-            source: `s/${opening}a${closing}/x/\n`,
-            edits: [{ byte: bodyStart, deleteBytes: 1, insert: "" }],
-          },
-          {
-            source: `s/${opening}/x/\n`,
-            edits: [{ byte: bodyStart, deleteBytes: 0, insert: closing }],
-          },
-          {
-            source: `s/${opening}`,
-            edits: [
-              { byte: bodyStart, deleteBytes: 0, insert: `${closing}/x/\n` },
-            ],
-          },
-        ],
-      },
-      {
-        name: "inserting a regex group body restores its expression field",
-        scope: grammar.scope,
-        source: `s/${opening}a${closing}/x/\n`,
-        histories: [
-          {
-            source: `s/${opening}${closing}/x/\n`,
-            edits: [{ byte: bodyStart, deleteBytes: 0, insert: "a" }],
-          },
-        ],
-      },
-    ];
-  }),
-  ...[
-    { source: "/a|/p", offsets: [3] },
-    { source: "/|a/p", offsets: [1] },
-    { source: "/(|a)/p", offsets: [2] },
-    { source: "/(a|)/p", offsets: [4] },
-    { source: "/(|)/p", offsets: [2, 3] },
-    { source: "/(a||b)/p", offsets: [4] },
-  ].map(({ source, offsets }) => ({
-    name: `empty alternatives remain issues after deleting a group from ${source}`,
-    scope: "source.sed.ere",
-    source,
-    histories: [
-      {
-        source: `${source.slice(0, offsets[0])}()${source.slice(offsets[0])}`,
-        edits: [{ byte: offsets[0], deleteBytes: 2, insert: "" }],
-      },
-    ],
-  })),
-  {
-    name: "recovery-free substitution",
-    scope: "source.sed",
-    source: "s/a/b/g\n",
-    histories: [
-      {
-        source: "s/a/c/g\n",
-        edits: [{ byte: 4, deleteBytes: 1, insert: "b" }],
-      },
-      { source: "s/a/b/\n", edits: [{ byte: 6, deleteBytes: 0, insert: "g" }] },
-    ],
-  },
-  {
-    name: "unclosed bracket expression at source end",
-    scope: "source.sed",
-    source: "/[a",
-    histories: [
-      { source: "/[", edits: [{ byte: 2, deleteBytes: 0, insert: "a" }] },
-      { source: "/[b", edits: [{ byte: 2, deleteBytes: 1, insert: "a" }] },
-    ],
-  },
-  {
-    name: "unmatched BRE subexpression close",
-    scope: "source.sed",
-    source: "/\\)/p\n",
-    histories: [
-      { source: "//p\n", edits: [{ byte: 1, deleteBytes: 0, insert: "\\)" }] },
-      {
-        source: "/\\(\\)/p\n",
-        edits: [{ byte: 1, deleteBytes: 2, insert: "" }],
-      },
-    ],
-  },
-  {
-    name: "unmatched BRE interval close",
-    scope: "source.sed",
-    source: "/\\}/p\n",
-    histories: [
-      { source: "//p\n", edits: [{ byte: 1, deleteBytes: 0, insert: "\\}" }] },
-      {
-        source: "/a\\{1\\}/p\n",
-        edits: [{ byte: 1, deleteBytes: 4, insert: "" }],
-      },
-    ],
-  },
-  {
-    name: "missing separator after an unmatched closing brace",
-    scope: "source.sed",
-    source: "}p\n",
-    histories: [
-      { source: "}\n", edits: [{ byte: 1, deleteBytes: 0, insert: "p" }] },
-      { source: "};p\n", edits: [{ byte: 1, deleteBytes: 1, insert: "" }] },
-    ],
-  },
-  {
-    name: "BRE subexpression anchor application requirements",
-    scope: "source.sed",
-    source: "/\\(^a$\\)/p\n",
-    histories: [
-      {
-        source: "/\\(a\\)/p\n",
-        edits: [
-          { byte: 3, deleteBytes: 0, insert: "^" },
-          { byte: 5, deleteBytes: 0, insert: "$" },
-        ],
-      },
-      {
-        source: "/^a$/p\n",
-        edits: [
-          { byte: 1, deleteBytes: 0, insert: "\\(" },
-          { byte: 6, deleteBytes: 0, insert: "\\)" },
-        ],
-      },
-    ],
-  },
-  {
-    name: "reserved unknown function after negation",
-    scope: "source.sed",
-    source: "1!/\np\n",
-    histories: [
-      { source: "1!x\np\n", edits: [{ byte: 2, deleteBytes: 1, insert: "/" }] },
-      { source: "1!$\np\n", edits: [{ byte: 2, deleteBytes: 1, insert: "/" }] },
-    ],
-  },
-  ...grammars.map((grammar) => ({
-    name: `flags after write remain deterministic`,
-    scope: grammar.scope,
-    source: "s/a/b/wp file\n",
-    histories: [
-      {
-        source: "s/a/b/wg file\n",
-        edits: [{ byte: 7, deleteBytes: 1, insert: "p" }],
-      },
-      {
-        source: "s/a/b/w file\n",
-        edits: [{ byte: 7, deleteBytes: 0, insert: "p" }],
-      },
-    ],
-  })),
-  ...grammars.map((grammar) => ({
-    name: `command after write remains deterministic`,
-    scope: grammar.scope,
-    source: "s/a/b/w file;p\n",
-    histories: [
-      {
-        source: "s/a/b/w file\np\n",
-        edits: [{ byte: 12, deleteBytes: 1, insert: ";" }],
-      },
-      {
-        source: "s/a/b/w file;d\n",
-        edits: [{ byte: 13, deleteBytes: 1, insert: "p" }],
-      },
-    ],
-  })),
-  ...grammars.flatMap((grammar) => {
-    return [
-      {
-        name: `omitted first address before the separator`,
-        source: ",2p\n",
-        histories: [
-          {
-            source: "1,2p\n",
-            edits: [{ byte: 0, deleteBytes: 1, insert: "" }],
-          },
-          { source: "2p\n", edits: [{ byte: 0, deleteBytes: 0, insert: "," }] },
-        ],
-      },
-      {
-        name: `omitted first and second addresses`,
-        source: ",p\n",
-        histories: [
-          { source: "1,p\n", edits: [{ byte: 0, deleteBytes: 1, insert: "" }] },
-          { source: ",2p\n", edits: [{ byte: 1, deleteBytes: 1, insert: "" }] },
-        ],
-      },
-      {
-        name: `omitted second address after the separator`,
-        source: "1,p\n",
-        histories: [
-          {
-            source: "1,2p\n",
-            edits: [{ byte: 2, deleteBytes: 1, insert: "" }],
-          },
-          { source: "1p\n", edits: [{ byte: 1, deleteBytes: 0, insert: "," }] },
-        ],
-      },
-      {
-        name: `excess address unit on a one-address function`,
-        source: "1,2q\n",
-        histories: [
-          {
-            source: "1,2p\n",
-            edits: [{ byte: 3, deleteBytes: 1, insert: "q" }],
-          },
-          {
-            source: "1q\n",
-            edits: [{ byte: 1, deleteBytes: 0, insert: ",2" }],
-          },
-        ],
-      },
-      {
-        name: `leading excess address on a zero-address function`,
-        source: "1:x\n",
-        histories: [
-          { source: ":x\n", edits: [{ byte: 0, deleteBytes: 0, insert: "1" }] },
-          {
-            source: "1,2:x\n",
-            edits: [{ byte: 1, deleteBytes: 2, insert: "" }],
-          },
-        ],
-      },
-      {
-        name: `blank-separated excess addresses on a zero-address function`,
-        source: "1 2:x\n",
-        histories: [
-          {
-            source: "1,2:x\n",
-            edits: [{ byte: 1, deleteBytes: 1, insert: " " }],
-          },
-          {
-            source: "1 2q\n",
-            edits: [{ byte: 3, deleteBytes: 1, insert: ":x" }],
-          },
-          {
-            source: "1 2p\n",
-            edits: [{ byte: 3, deleteBytes: 1, insert: ":x" }],
-          },
-          {
-            source: ":x\n",
-            edits: [{ byte: 0, deleteBytes: 0, insert: "1 2" }],
-          },
-        ],
-      },
-      {
-        name: `third address unit on a two-address function`,
-        source: "1,2,3p\n",
-        histories: [
-          {
-            source: "1,2p\n",
-            edits: [{ byte: 3, deleteBytes: 0, insert: ",3" }],
-          },
-          {
-            source: "1,2,3q\n",
-            edits: [{ byte: 5, deleteBytes: 1, insert: "p" }],
-          },
-        ],
-      },
-      {
-        name: `omission nested inside an excess address unit`,
-        source: "1,q\n",
-        histories: [
-          {
-            source: "1,2q\n",
-            edits: [{ byte: 2, deleteBytes: 1, insert: "" }],
-          },
-          { source: "1q\n", edits: [{ byte: 1, deleteBytes: 0, insert: "," }] },
-        ],
-      },
-      {
-        name: `blank runs around one separator`,
-        source: "1 , 2p\n",
-        histories: [
-          {
-            source: "1,2p\n",
-            edits: [
-              { byte: 1, deleteBytes: 0, insert: " " },
-              { byte: 3, deleteBytes: 0, insert: " " },
-            ],
-          },
-          {
-            source: "1 ,2p\n",
-            edits: [{ byte: 3, deleteBytes: 0, insert: " " }],
-          },
-        ],
-      },
-      {
-        name: `pre-function blanks after separator blanks`,
-        source: "1 , p\n",
-        histories: [
-          {
-            source: "1 , 2p\n",
-            edits: [{ byte: 4, deleteBytes: 1, insert: "" }],
-          },
-          {
-            source: "1,p\n",
-            edits: [
-              { byte: 1, deleteBytes: 0, insert: " " },
-              { byte: 3, deleteBytes: 0, insert: " " },
-            ],
-          },
-        ],
-      },
-      {
-        name: `blank run after negation`,
-        source: "! \tp\n",
-        histories: [
-          {
-            source: "! p\n",
-            edits: [{ byte: 2, deleteBytes: 0, insert: "\t" }],
-          },
-          {
-            source: "!\tp\n",
-            edits: [{ byte: 1, deleteBytes: 0, insert: " " }],
-          },
-        ],
-      },
-      {
-        name: `duplicated negation after an address`,
-        source: "1!!p\n",
-        histories: [
-          {
-            source: "1!p\n",
-            edits: [{ byte: 2, deleteBytes: 0, insert: "!" }],
-          },
-          {
-            source: "!!p\n",
-            edits: [{ byte: 0, deleteBytes: 0, insert: "1" }],
-          },
-        ],
-      },
-    ].map((testCase) => ({ ...testCase, scope: grammar.scope }));
-  }),
-];
-
-for (const testCase of explicitConvergenceCases) {
-  const grammar = grammars.find(({ scope }) => scope === testCase.scope);
-  assert.ok(grammar);
-  test(`${grammar.name}: ${testCase.name}`, () => {
-    const fresh = parseSuccessfully(testCase.scope, testCase.source);
-    for (const history of testCase.histories) {
-      assert.deepEqual(
-        applyEdits(history.source, history.edits),
-        Buffer.from(testCase.source),
-      );
-      assertIncrementalContract(
-        fresh,
-        parse(testCase.scope, history.source, history.edits),
-        testCase.name,
-      );
-    }
-  });
-}
-
-test("sed: BRE dollar classification tracks every byte of multibyte lookahead", () => {
-  for (const [delimiter, alternative] of [
-    ["é", "è"],
-    ["あ", "ぃ"],
-    ["😀", "😁"],
-  ]) {
-    const width = Buffer.byteLength(delimiter);
-    const dollarStart = 1 + width;
-    const edits = [{ byte: 2 * width + 1, deleteBytes: width, insert: "" }];
-    for (const [source, expected, beforeKind, afterKind] of [
-      [
-        `s${delimiter}$${alternative}${delimiter}x${delimiter}\n`,
-        `s${delimiter}$${delimiter}x${delimiter}\n`,
-        "ordinary_character",
-        '"$"',
-      ],
-      [
-        `s${delimiter}$${delimiter}${alternative}${delimiter}x${delimiter}\n`,
-        `s${delimiter}$${alternative}${delimiter}x${delimiter}\n`,
-        '"$"',
-        "ordinary_character",
-      ],
-    ]) {
-      const context = `${width}-byte lookahead: ${beforeKind} to ${afterKind}`;
-      assert.deepEqual(
-        applyEdits(source, edits),
-        Buffer.from(expected),
-        context,
-      );
-      const original = parseSuccessfully("source.sed", source);
-      const fresh = parseSuccessfully("source.sed", expected);
-      const incremental = parseSuccessfully("source.sed", source, edits);
-      assertIncrementalContract(fresh, incremental, context);
-      for (const [result, kind] of [
-        [original, beforeKind],
-        [fresh, afterKind],
-        [incremental, afterKind],
+      for (const edit of [
+        {
+          byte: opening.length,
+          deleteBytes: introducer.length + 1,
+          insert: "3",
+        },
+        { byte: opening.length, deleteBytes: introducer.length, insert: "" },
+        { byte: damaged.length, deleteBytes: 0, insert: ";p" },
       ]) {
-        assert.deepEqual(
-          publicNodes(result.nodes)
-            .filter(
-              (node) =>
-                ["ordinary_character", '"$"'].includes(node.kind) &&
-                node.startByte === dollarStart,
-            )
-            .map((node) => ({
-              kind: node.kind,
-              startByte: node.startByte,
-              endByte: node.endByte,
-              start: node.start,
-              end: node.end,
-            })),
-          [
-            {
-              kind,
-              startByte: dollarStart,
-              endByte: dollarStart + 1,
-              start: [0, dollarStart],
-              end: [0, dollarStart + 1],
-            },
-          ],
-          context,
+        const expected = parseSuccessfully(scope, applyEdits(damaged, [edit]));
+        assertIncrementalContract(
+          expected,
+          parseSuccessfully(scope, damaged, [edit]),
+          JSON.stringify(edit),
+        );
+        if (edit.insert === "3")
+          assert.deepEqual(issueSignatures(expected.nodes), []);
+      }
+    }
+  });
+
+  test(`${scope}: interval escape prefixes remain incomplete when decoding can fail after EOF`, () => {
+    const opening = scope === "source.sed" ? String.raw`s/a\{1` : "s/a{1";
+    const closing = scope === "source.sed" ? String.raw`\}/r/` : "}/r/";
+    for (const [prefix, completion] of [
+      [String.raw`\x5`, "c"],
+      [String.raw`\o13`, "4"],
+    ]) {
+      const source = opening + prefix;
+      const partial = parseSuccessfully(scope, source);
+      const intervalIssues = (result) =>
+        issueSignatures(result.nodes).filter(
+          ({ reason }) => reason === "invalid_interval_character",
+        );
+      assert.deepEqual(intervalIssues(partial), [
+        {
+          outcome: "incomplete_syntax",
+          reason: "invalid_interval_character",
+          range: `[0, ${opening.length}] - [0, ${source.length}]`,
+        },
+      ]);
+      assert.deepEqual(
+        intervalIssues(parseSuccessfully(scope, `${source}/r/`)),
+        [
+          {
+            outcome: "invalid_syntax",
+            reason: "invalid_interval_character",
+            range: `[0, ${opening.length}] - [0, ${source.length}]`,
+          },
+        ],
+      );
+      const completed = Buffer.concat([
+        Buffer.from(source + completion),
+        Buffer.from([0xff]),
+        Buffer.from(closing),
+      ]);
+      assert.deepEqual(
+        issueSignatures(parseSuccessfully(scope, completed).nodes),
+        [
+          {
+            outcome: "invalid_syntax",
+            reason: "invalid_encoding",
+            range: `[0, ${source.length + 1}] - [0, ${source.length + 2}]`,
+          },
+        ],
+      );
+      const removeCompletion = [
+        {
+          byte: source.length,
+          deleteBytes: completed.length - source.length,
+          insert: "",
+        },
+      ];
+      assertIncrementalContract(
+        partial,
+        parseSuccessfully(scope, completed, removeCompletion),
+        "remove the undecodable completion",
+      );
+    }
+  });
+
+  test(`${scope}: substitution CRLF termination is independent of flags and preceding blanks`, () => {
+    for (const flags of ["", "g", "2p", "g2pIM", "e"]) {
+      for (const blanks of ["", " \t"]) {
+        const prefix = `s/a/b/${flags}${blanks}`;
+        for (const { suffix, outcome } of [
+          { suffix: "\r\np", outcome: null },
+          { suffix: "\r", outcome: "incomplete_syntax" },
+          { suffix: "\r \np", outcome: "invalid_syntax" },
+        ]) {
+          const source = prefix + suffix;
+          const result = parseSuccessfully(scope, source);
+          assert.deepEqual(
+            issueSignatures(result.nodes),
+            outcome === null
+              ? []
+              : [
+                  {
+                    outcome,
+                    reason: "unknown_substitution_flag",
+                    range: `[0, ${prefix.length}] - [0, ${prefix.length + 1}]`,
+                  },
+                ],
+            JSON.stringify(source),
+          );
+          assert.deepEqual(
+            result.nodes
+              .filter(({ kind }) => kind === "flag" || kind === "number")
+              .map(({ startByte, endByte }) =>
+                source.slice(startByte, endByte),
+              ),
+            [...flags],
+          );
+          assert.equal(
+            result.nodes.find(({ kind }) => kind === "command")?.endByte,
+            outcome === null ? `s/a/b/${flags}`.length : prefix.length + 1,
+            `${JSON.stringify(source)}: command end`,
+          );
+        }
+      }
+    }
+  });
+
+  test(`${scope}: substitution CRLF edits preserve classification and command boundaries`, () => {
+    for (const flags of ["", "g"]) {
+      const source = `s/a/b/${flags}\r`;
+      const end = source.length;
+      const history = [
+        { byte: end, deleteBytes: 0, insert: "\np" },
+        { byte: end, deleteBytes: 1, insert: "" },
+        { byte: end, deleteBytes: 0, insert: "\n" },
+        { byte: end, deleteBytes: 0, insert: " " },
+        { byte: end, deleteBytes: 1, insert: "" },
+        { byte: end - 1, deleteBytes: 1, insert: "\v" },
+        { byte: end - 1, deleteBytes: 1, insert: "\f" },
+        { byte: end - 1, deleteBytes: 1, insert: "\r\r" },
+        { byte: end - 1, deleteBytes: 1, insert: "" },
+        { byte: end - 1, deleteBytes: 1, insert: "" },
+        { byte: end - 1, deleteBytes: 0, insert: "\r" },
+        { byte: end, deleteBytes: 2, insert: "" },
+      ];
+      for (let count = 1; count <= history.length; count++) {
+        const edits = history.slice(0, count);
+        assertIncrementalContract(
+          parseSuccessfully(scope, applyEdits(source, edits)),
+          parseSuccessfully(scope, source, edits),
+          `${JSON.stringify(source)}: ${JSON.stringify(edits)}`,
         );
       }
+    }
+  });
+
+  for (const { prefix, suffix, names, owner, separator } of [
+    {
+      prefix: "p",
+      suffix: "",
+      names: ["p"],
+      owner: "command",
+      separator: false,
+    },
+    {
+      prefix: "p",
+      suffix: ";p",
+      names: ["p", "p"],
+      owner: "command",
+      separator: false,
+    },
+    {
+      prefix: "p",
+      suffix: "\np",
+      names: ["p", "p"],
+      owner: "command",
+      separator: false,
+    },
+    {
+      prefix: "p",
+      suffix: "p",
+      names: ["p", "p"],
+      owner: "command",
+      separator: true,
+    },
+    {
+      prefix: "p ",
+      suffix: " p",
+      names: ["p", "p"],
+      owner: "command",
+      separator: true,
+    },
+    {
+      prefix: "{p}",
+      suffix: ";p",
+      names: ["p", "p"],
+      owner: "command",
+      separator: false,
+    },
+    {
+      prefix: "y/a/b/",
+      suffix: ";p",
+      names: ["y", "p"],
+      owner: "command",
+      separator: false,
+    },
+    {
+      prefix: "q5",
+      suffix: ";p",
+      names: ["q", "p"],
+      owner: "command",
+      separator: false,
+    },
+    {
+      prefix: "l",
+      suffix: ";p",
+      names: ["l", "p"],
+      owner: "command",
+      separator: false,
+    },
+    {
+      prefix: "=",
+      suffix: ";p",
+      names: ["=", "p"],
+      owner: "command",
+      separator: false,
+    },
+    {
+      prefix: "1",
+      suffix: "p",
+      names: ["p"],
+      owner: "command",
+      separator: false,
+    },
+    { prefix: "1", suffix: "", names: [], owner: "command", separator: false },
+    {
+      prefix: "1",
+      suffix: ";p",
+      names: ["p"],
+      owner: "command",
+      separator: false,
+    },
+    {
+      prefix: "1!",
+      suffix: "p",
+      names: ["p"],
+      owner: "command",
+      separator: false,
+    },
+    {
+      prefix: "!",
+      suffix: "p",
+      names: ["p"],
+      owner: "command",
+      separator: false,
+    },
+    {
+      prefix: "1",
+      suffix: "!p",
+      names: ["p"],
+      owner: "command",
+      separator: false,
+    },
+    {
+      prefix: "1,2",
+      suffix: "p",
+      names: ["p"],
+      owner: "command",
+      separator: false,
+    },
+    {
+      prefix: "/a/",
+      suffix: "p",
+      names: ["p"],
+      owner: "command",
+      separator: false,
+    },
+    {
+      prefix: "0",
+      suffix: "r file",
+      names: ["r"],
+      owner: "command",
+      separator: false,
+    },
+    {
+      prefix: "",
+      suffix: "p",
+      names: ["p"],
+      owner: "command_list",
+      separator: false,
+    },
+    {
+      prefix: "s/a/b/",
+      suffix: ";p",
+      names: ["s", "p"],
+      owner: "substitution_flags",
+      separator: false,
+    },
+  ]) {
+    test(`${scope}: command decoding failure between ${JSON.stringify(prefix)} and ${JSON.stringify(suffix)}`, () => {
+      const source = Buffer.concat([
+        Buffer.from(prefix),
+        Buffer.from([0xff, 0xfe]),
+        Buffer.from(suffix),
+      ]);
+      const start = prefix.length;
+      const end = start + 2;
+      const separatorPosition =
+        end + (suffix.length - suffix.trimStart().length);
+      const original = parseSuccessfully(scope, source);
+      assert.deepEqual(issueSignatures(original.nodes), [
+        {
+          outcome: "invalid_syntax",
+          reason: "invalid_encoding",
+          range: `[0, ${start}] - [0, ${end}]`,
+        },
+        ...(separator
+          ? [
+              {
+                outcome: "invalid_syntax",
+                reason: "missing_command_separator",
+                range: `[0, ${separatorPosition}] - [0, ${separatorPosition}]`,
+              },
+            ]
+          : []),
+      ]);
+      const issues = original.nodes.filter(
+        ({ kind }) => kind === "syntax_issue",
+      );
+      assert.equal(original.nodes[issues[0].parent].kind, owner);
+      if (separator) assert.equal(issues[0].parent, issues[1].parent);
+      assert.deepEqual(
+        original.nodes
+          .filter(({ kind }) => kind === "command_name")
+          .map(({ startByte, endByte }) =>
+            source.subarray(startByte, endByte).toString(),
+          ),
+        names,
+      );
+      for (const edits of [
+        [{ byte: start, deleteBytes: 2, insert: "" }],
+        [{ byte: 0, deleteBytes: 0, insert: " " }],
+        [{ byte: end, deleteBytes: 0, insert: ";" }],
+      ]) {
+        assertIncrementalContract(
+          parseSuccessfully(scope, applyEdits(source, edits)),
+          parseSuccessfully(scope, source, edits),
+          `${prefix} invalid UTF-8 ${suffix}: ${JSON.stringify(edits)}`,
+        );
+      }
+    });
+  }
+
+  test(`${scope}: command decoding failures preserve independent prefix violations`, () => {
+    for (const { prefix, suffix, expected } of [
+      {
+        prefix: "1",
+        suffix: "#x",
+        expected: ["excess_address", "invalid_encoding"],
+      },
+      {
+        prefix: "1",
+        suffix: "!#x",
+        expected: ["excess_address", "invalid_encoding"],
+      },
+      {
+        prefix: "1",
+        suffix: ":label",
+        expected: ["excess_address", "invalid_encoding"],
+      },
+      {
+        prefix: "1",
+        suffix: "!",
+        expected: ["invalid_encoding", "missing_command"],
+      },
+      {
+        prefix: "1",
+        suffix: "@",
+        expected: ["invalid_encoding", "unknown_command"],
+      },
+      {
+        prefix: "1",
+        suffix: "\0",
+        expected: ["invalid_encoding", "unknown_command"],
+      },
+      {
+        prefix: "!",
+        suffix: " \0",
+        expected: ["invalid_encoding", "unknown_command"],
+      },
+      {
+        prefix: "0",
+        suffix: ",/a/p",
+        expected: [
+          "invalid_zero_address",
+          "invalid_encoding",
+          "unknown_command",
+          "missing_command_separator",
+        ],
+      },
+    ]) {
+      const source = Buffer.concat([
+        Buffer.from(prefix),
+        Buffer.from([0xff]),
+        Buffer.from(suffix),
+      ]);
+      const result = parseSuccessfully(scope, source);
+      assert.deepEqual(
+        issueSignatures(result.nodes).map(({ reason }) => reason),
+        expected,
+      );
+      const edits = [{ byte: prefix.length, deleteBytes: 1, insert: "" }];
+      assertIncrementalContract(
+        parseSuccessfully(scope, applyEdits(source, edits)),
+        parseSuccessfully(scope, source, edits),
+        `${prefix} invalid UTF-8 ${suffix}`,
+      );
+    }
+  });
+
+  test(`${scope}: a zero range end at EOF is incomplete only while a step can follow`, () => {
+    const failure = Buffer.from([0xff]);
+    for (const { parts, outcome } of [
+      { parts: ["1,0"], outcome: "incomplete_syntax" },
+      { parts: ["1, 0 "], outcome: "incomplete_syntax" },
+      { parts: ["1,0~ "], outcome: "incomplete_syntax" },
+      { parts: ["1,0~0"], outcome: "incomplete_syntax" },
+      { parts: ["1,0~0 "], outcome: "invalid_syntax" },
+      { parts: ["/a/,0~ 0\t"], outcome: "invalid_syntax" },
+      { parts: ["1, 0 ", failure], outcome: "invalid_syntax" },
+      { parts: ["1,0~0", failure], outcome: "invalid_syntax" },
+      { parts: ["0~0 "], outcome: "incomplete_syntax" },
+      { parts: ["0", failure], outcome: "incomplete_syntax" },
+    ]) {
+      const source = Buffer.concat(parts.map((part) => Buffer.from(part)));
+      const zero = source.indexOf("0");
+      assert.deepEqual(
+        issueSignatures(parseSuccessfully(scope, source).nodes).filter(
+          ({ reason }) => reason === "invalid_zero_address",
+        ),
+        [
+          {
+            outcome,
+            reason: "invalid_zero_address",
+            range: `[0, ${zero}] - [0, ${zero + 1}]`,
+          },
+        ],
+        JSON.stringify(parts.map(String)),
+      );
+    }
+  });
+
+  test(`${scope}: hyphen runs preserve class boundaries through edits`, () => {
+    for (const source of [
+      "/[!---[:xdigit:]]/p",
+      "/[a---[=a=]]/p",
+      "/[[:alpha:]---c]/p",
+      "/[[=a=]---c]/p",
+      "/[a----[:alpha:]]/p",
+      "/[a-----[=a=]]/p",
+      "/[a------[:alpha:]]/p",
+      "/[!-------[=a=]]/p",
+      "/[a--------[:alpha:]]/p",
+      "/[a---------[:alpha:]]/p",
+      "/[------[:alpha:]]/p",
+      "/[^-------[=a=]]/p",
+      "/[a-b------c-d]/p",
+      "/[a-------]/p",
+      "/[a-b---c-d]/p",
+      String.raw`/[[=a=]-\x2d-[:xdigit:]]/p`,
+      String.raw`/[a---\x2d-\o055[:alpha:]]/p`,
+      String.raw`/[a------\x2`,
+    ]) {
+      const start = source.indexOf("---");
+      const byte = start < 0 ? source.indexOf("\\x2d") : start + 1;
+      const width = start < 0 ? 4 : 1;
+      for (const edits of [
+        [{ byte, deleteBytes: width, insert: "" }],
+        [{ byte, deleteBytes: 0, insert: "-" }],
+        [{ byte, deleteBytes: width, insert: "-" }],
+        [
+          { byte, deleteBytes: width, insert: "" },
+          { byte, deleteBytes: 0, insert: source.slice(byte, byte + width) },
+        ],
+      ]) {
+        assertIncrementalContract(
+          parseSuccessfully(scope, applyEdits(source, edits)),
+          parseSuccessfully(scope, source, edits),
+          `${source}: ${JSON.stringify(edits)}`,
+        );
+      }
+    }
+  });
+
+  test(`${scope}: repeated hyphen groups classify following classes independently of source spelling`, () => {
+    for (const { count, endpoint } of [
+      { count: 3, endpoint: false },
+      { count: 4, endpoint: true },
+      { count: 5, endpoint: false },
+      { count: 6, endpoint: false },
+      { count: 7, endpoint: true },
+      { count: 8, endpoint: false },
+      { count: 9, endpoint: false },
+      { count: 10, endpoint: true },
+      { count: 11, endpoint: false },
+      { count: 12, endpoint: false },
+      { count: 13, endpoint: true },
+      { count: 14, endpoint: false },
+      { count: 63, endpoint: false },
+      { count: 64, endpoint: true },
+      { count: 65, endpoint: false },
+      { count: 127, endpoint: true },
+    ]) {
+      for (const spellings of [
+        ["-"],
+        [String.raw`\x2d`],
+        [String.raw`\o055`],
+        ["-", String.raw`\x2d`, String.raw`\o055`],
+      ]) {
+        const hyphens = Array.from(
+          { length: count },
+          (_, i) => spellings[i % spellings.length],
+        ).join("");
+        for (const suffix of ["[:alpha:]", "[=a=]"]) {
+          const prefix = `/[a${hyphens}`;
+          const source = `${prefix}${suffix}]/p`;
+          const { nodes } = parseSuccessfully(scope, source);
+          assert.deepEqual(
+            issueSignatures(nodes),
+            endpoint
+              ? [
+                  {
+                    outcome: "invalid_syntax",
+                    reason: "invalid_range_endpoint",
+                    range: `[0, ${prefix.length}] - [0, ${prefix.length + suffix.length}]`,
+                  },
+                ]
+              : [],
+            source,
+          );
+          const member = nodes.find(
+            ({ kind }) =>
+              kind === "character_class" || kind === "equivalence_class",
+          );
+          assert.ok(member);
+          assert.equal(
+            nodes[member.parent].kind,
+            endpoint ? "invalid_range_endpoint" : "bracket_expression",
+            source,
+          );
+          const parents = new Set(nodes.map(({ parent }) => parent));
+          const leaves = nodes.filter(
+            ({ startByte, endByte }, index) =>
+              !parents.has(index) && startByte >= 3 && endByte <= prefix.length,
+          );
+          assert.deepEqual(
+            leaves.map(({ startByte, endByte }) =>
+              source.slice(startByte, endByte),
+            ),
+            Array.from(
+              { length: count },
+              (_, i) => spellings[i % spellings.length],
+            ),
+            source,
+          );
+        }
+      }
+    }
+  });
+
+  test(`${scope}: edits throughout a hyphen run preserve range regrouping`, () => {
+    for (const hyphens of [
+      "------",
+      "-------",
+      "--------",
+      String.raw`---\x2d-\o055`,
+    ]) {
+      const source = `/[a${hyphens}[:alpha:]]/p`;
+      for (let byte = 3; byte < 3 + hyphens.length; byte++) {
+        for (const insert of ["", "b", "--"]) {
+          const edits = [{ byte, deleteBytes: 1, insert }];
+          assertIncrementalContract(
+            parseSuccessfully(scope, applyEdits(source, edits)),
+            parseSuccessfully(scope, source, edits),
+            `${source}: ${JSON.stringify(edits)}`,
+          );
+          edits.push({
+            byte,
+            deleteBytes: insert.length,
+            insert: source[byte],
+          });
+          assertIncrementalContract(
+            parseSuccessfully(scope, source),
+            parseSuccessfully(scope, source, edits),
+            `${source}: ${JSON.stringify(edits)}`,
+          );
+        }
+      }
+    }
+  });
+}
+
+for (const scope of ["source.sed", "source.sed.ere"]) {
+  for (const [prefix, suffix, kind] of [
+    ["s/[", "^]/x/", "bracket_close"],
+    ["s/", "*/x/", "repetition"],
+  ]) {
+    test(`${scope}: invalid UTF-8 occupies the regex element before ${JSON.stringify(suffix)}`, () => {
+      const source = Buffer.concat([
+        Buffer.from(prefix),
+        Buffer.from([0xff]),
+        Buffer.from(suffix),
+      ]);
+      const result = parseSuccessfully(scope, source);
+      assert.deepEqual(
+        issueSignatures(result.nodes).map(({ reason }) => reason),
+        ["invalid_encoding"],
+        result.stdout,
+      );
+      assert.ok(
+        result.nodes.some((node) => node.kind === kind),
+        result.stdout,
+      );
+    });
+  }
+
+  for (const prefix of ["s/\\x5c", "s/\\x5c\\\\", "s/a\\"]) {
+    test(`${scope}: backslash pairing before invalid UTF-8 keeps the decode failure after ${JSON.stringify(prefix)}`, () => {
+      const result = parseSuccessfully(
+        scope,
+        Buffer.concat([
+          Buffer.from(prefix),
+          Buffer.from([0xff]),
+          Buffer.from("/x/"),
+        ]),
+      );
+      assert.deepEqual(issueSignatures(result.nodes), [
+        {
+          outcome: "invalid_syntax",
+          reason: "invalid_encoding",
+          range: `[0, ${prefix.length}] - [0, ${prefix.length + 1}]`,
+        },
+      ]);
+      assert.equal(
+        result.nodes.some(
+          ({ kind, endByte }) =>
+            (kind === "escape" || kind === "character_escape") &&
+            endByte > prefix.length,
+        ),
+        false,
+        result.stdout,
+      );
+    });
+  }
+
+  test(`${scope}: bracket backslash before invalid UTF-8 is literal`, () => {
+    const result = parseSuccessfully(
+      scope,
+      Buffer.concat([
+        Buffer.from("s/[\\"),
+        Buffer.from([0xff]),
+        Buffer.from("]/x/"),
+      ]),
+    );
+    assert.deepEqual(
+      issueSignatures(result.nodes).map(({ reason }) => reason),
+      ["invalid_encoding"],
+      result.stdout,
+    );
+    assert.equal(
+      result.nodes.filter((node) => node.kind === "escape").length,
+      0,
+      result.stdout,
+    );
+  });
+}
+
+for (const [scope, open, close] of [
+  ["source.sed", "\\{", "\\}"],
+  ["source.sed.ere", "{", "}"],
+]) {
+  test(`${scope}: invalid UTF-8 is interval content`, () => {
+    const result = parseSuccessfully(
+      scope,
+      Buffer.concat([
+        Buffer.from(`s/a${open}`),
+        Buffer.from([0xff]),
+        Buffer.from(`${close}/b/`),
+      ]),
+    );
+    assert.deepEqual(
+      issueSignatures(result.nodes).map(({ reason }) => reason),
+      ["invalid_encoding"],
+      result.stdout,
+    );
+  });
+}
+
+for (const scope of ["source.sed", "source.sed.ere"]) {
+  for (const verb of ["a", "e"]) {
+    for (const [name, suffix] of [
+      ["four backslashes before a terminating newline", `${"\\".repeat(4)}\nx`],
+      ["four backslashes at EOF", "\\".repeat(4)],
+      [
+        "two backslashes after the introducer continue the line",
+        `${"\\".repeat(3)}\nx`,
+      ],
+    ]) {
+      test(`${scope}: ${verb} ${name} preserves source boundaries across EOF edits`, () => {
+        const source = `1${verb}${suffix}`;
+        const original = parseSuccessfully(scope, source);
+        const edit = source.endsWith("\nx")
+          ? { byte: source.length - 2, deleteBytes: 2, insert: "" }
+          : { byte: source.length, deleteBytes: 0, insert: "\nx" };
+        const edited = applyEdits(source, [edit]);
+        assertIncrementalContract(
+          parseSuccessfully(scope, edited),
+          parseSuccessfully(scope, source, [edit]),
+          name,
+        );
+        const undo = {
+          byte: edit.byte,
+          deleteBytes: edit.insert.length,
+          insert: source.slice(edit.byte, edit.byte + edit.deleteBytes),
+        };
+        assertIncrementalContract(
+          original,
+          parseSuccessfully(scope, source, [edit, undo]),
+          `${name}: restored`,
+        );
+      });
+    }
+  }
+
+  for (const { name, source } of [
+    {
+      name: "pattern",
+      source: "s/\\cΣ*/x/",
+    },
+    {
+      name: "address",
+      source: "/^\\cΣ*$/p",
+    },
+    {
+      name: "bracket",
+      source: "s/[\\cΣ]/x/",
+    },
+    {
+      name: "replacement",
+      source: "s/x/\\cΣ/",
+    },
+    {
+      name: "translation",
+      source: "y/\\cΣ/x/",
+    },
+    { name: "text", source: "a x\\cΣ" },
+    {
+      name: "shell operand",
+      source: "e x\\cΣ",
+    },
+  ]) {
+    test(`${scope}: non-ASCII control escape in ${name} survives ASCII replacement and restoration`, () => {
+      const original = parseSuccessfully(scope, source);
+      const byte = Buffer.byteLength(source.slice(0, source.indexOf("Σ")));
+      const edit = { byte, deleteBytes: Buffer.byteLength("Σ"), insert: "A" };
+      assertIncrementalContract(
+        parseSuccessfully(scope, applyEdits(source, [edit])),
+        parseSuccessfully(scope, source, [edit]),
+        `${name}: ASCII operand`,
+      );
+      assertIncrementalContract(
+        original,
+        parseSuccessfully(scope, source, [
+          edit,
+          { byte, deleteBytes: Buffer.byteLength(edit.insert), insert: "Σ" },
+        ]),
+        `${name}: restored UTF-8 operand`,
+      );
+    });
+  }
+}
+
+for (const scope of ["source.sed", "source.sed.ere"]) {
+  test(`${scope}: reused bracket atoms follow the range operator decision`, () => {
+    for (const [source, byte] of [
+      ["/[Nabt-\\x5d", 10],
+      ["/[Nab[.t.]-\\x5d", 14],
+      ["/[Nab\\xce-\\x5d", 13],
+      ["/[Nab[-\\x5d", 10],
+    ]) {
+      const edits = [
+        { byte: 2, deleteBytes: 1, insert: "N" },
+        { byte, deleteBytes: 1, insert: "" },
+      ];
+      assertIncrementalContract(
+        parse(scope, applyEdits(source, edits)),
+        parse(scope, source, edits),
+        `${JSON.stringify(source)} ${JSON.stringify(edits)}`,
+      );
+    }
+  });
+
+  test(`${scope}: optional operands after a zero step range follow appended text`, () => {
+    for (const [source, insert] of [
+      ["0~0,/a/e ", ";"],
+      ["0~0,/a/b ", "x"],
+      ["0~0,/a/T ", "x"],
+      ["0~0,/a/v ", "4"],
+      ["0~,/a/l ", "5"],
+    ]) {
+      const edits = [
+        { byte: Buffer.byteLength(source), deleteBytes: 0, insert },
+      ];
+      const fresh = parseSuccessfully(scope, applyEdits(source, edits));
+      assertIncrementalContract(
+        fresh,
+        parseSuccessfully(scope, source, edits),
+        `${JSON.stringify(source)} + ${JSON.stringify(insert)}`,
+      );
+    }
+  });
+
+  test(`${scope}: zero address validity survives edits around nested zero addresses`, () => {
+    for (const { source, edits } of [
+      {
+        source: "00~0,//{$!\n0~!;0;$y",
+        edits: [{ byte: 0, deleteBytes: 3, insert: "" }],
+      },
+      {
+        source: "0,//{$!\n0~!;0;$y",
+        edits: [{ byte: 0, deleteBytes: 0, insert: "00~" }],
+      },
+      {
+        source: "0,/a/{p;0,/b/{0~0,/c/p}}",
+        edits: [{ byte: 1, deleteBytes: 4, insert: "q" }],
+      },
+    ]) {
+      assertIncrementalContract(
+        parseSuccessfully(scope, applyEdits(source, edits)),
+        parseSuccessfully(scope, source, edits),
+        `${JSON.stringify(source)} ${JSON.stringify(edits)}`,
+      );
+    }
+  });
+
+  test(`${scope}: optional operand after a missing range end preserves incremental CST`, () => {
+    for (const [source, insert] of [
+      ["1,e ", "x"],
+      ["1,b ", "x"],
+      ["1,l ", "5"],
+    ]) {
+      const edits = [{ byte: source.length, deleteBytes: 0, insert }];
+      assertIncrementalContract(
+        parse(scope, applyEdits(source, edits)),
+        parse(scope, source, edits),
+        `${JSON.stringify(source)} + ${JSON.stringify(insert)}`,
+      );
+    }
+  });
+
+  test(`${scope}: leading layout edits preserve directive placement`, () => {
+    for (const edits of [
+      [{ byte: 0, deleteBytes: 0, insert: " " }],
+      [
+        { byte: 0, deleteBytes: 0, insert: " " },
+        { byte: 0, deleteBytes: 1, insert: "" },
+      ],
+    ]) {
+      const source = "#n\np";
+      assertIncrementalContract(
+        parseSuccessfully(scope, applyEdits(source, edits)),
+        parseSuccessfully(scope, source, edits),
+        "leading layout",
+      );
+    }
+  });
+
+  for (const { source, suffix } of [
+    {
+      source: String.raw`/[[:a\c`,
+      suffix: ",pha:]]/p",
+    },
+    { source: "/[[:a\\", suffix: "x6cpha:]]/p" },
+    {
+      source: String.raw`/[[:a\x6`,
+      suffix: "cpha:]]/p",
+    },
+    {
+      source: String.raw`/[[:a\o1`,
+      suffix: "54pha:]]/p",
+    },
+    {
+      source: String.raw`/[[:a\d1`,
+      suffix: "08pha:]]/p",
+    },
+    {
+      source: String.raw`/[[:a\x`,
+      suffix: "6cpha:]]/p",
+    },
+    { source: String.raw`/[[:alph\d97`, suffix: ":]]/p" },
+  ]) {
+    test(`${scope}: character class escape completion ${JSON.stringify(source)}`, () => {
+      const edits = [
+        { byte: Buffer.byteLength(source), deleteBytes: 0, insert: suffix },
+      ];
+      const fresh = parseSuccessfully(scope, applyEdits(source, edits));
+      assertIncrementalContract(
+        fresh,
+        parseSuccessfully(scope, source, edits),
+        source,
+      );
+    });
+  }
+
+  test(`${scope}: boundary decisions survive edits`, () => {
+    for (const { source, byte, deleteBytes, insert } of [
+      { source: "{p;!}", byte: 3, deleteBytes: 0, insert: "1" },
+      { source: "{p;1!}", byte: 3, deleteBytes: 1, insert: "" },
+      { source: "{p;1!}", byte: 5, deleteBytes: 1, insert: "" },
+      { source: "1, p", byte: 2, deleteBytes: 0, insert: "2" },
+      { source: "1,2,  p", byte: 4, deleteBytes: 0, insert: "3" },
+      { source: ":\0x", byte: 1, deleteBytes: 0, insert: "a" },
+      { source: ":a\0x", byte: 1, deleteBytes: 1, insert: "" },
+      { source: "/[[:alpha:]--", byte: 13, deleteBytes: 0, insert: "-]/p" },
+      {
+        source: String.raw`s/\x5c\\x5e/x/`,
+        byte: 7,
+        deleteBytes: 1,
+        insert: "",
+      },
+      {
+        source: String.raw`s/\x5c\x5e/x/`,
+        byte: 7,
+        deleteBytes: 0,
+        insert: "\\",
+      },
+    ]) {
+      const edits = [{ byte, deleteBytes, insert }];
+      const fresh = parseSuccessfully(scope, applyEdits(source, edits));
+      assertIncrementalContract(
+        fresh,
+        parseSuccessfully(scope, source, edits),
+        JSON.stringify([source, edits]),
+      );
+    }
+  });
+
+  test(`${scope}: control escape, NUL and zero address edits agree with fresh parsing`, () => {
+    for (const { source, byte, deleteBytes, insert } of [
+      { source: "ax\\c\\", byte: 5, deleteBytes: 0, insert: "." },
+      { source: "ax\\c\\.", byte: 5, deleteBytes: 0, insert: "\\" },
+      { source: "r x\0tail", byte: 2, deleteBytes: 1, insert: "" },
+      { source: "s\0", byte: 1, deleteBytes: 1, insert: "/" },
+      { source: "0~0", byte: 3, deleteBytes: 0, insert: "r x" },
+      { source: "0~0,", byte: 4, deleteBytes: 0, insert: "/a/p" },
+      { source: "0~0r x", byte: 2, deleteBytes: 1, insert: "2" },
+    ]) {
+      const edits = [{ byte, deleteBytes, insert }];
+      assertIncrementalContract(
+        parseSuccessfully(scope, applyEdits(source, edits)),
+        parseSuccessfully(scope, source, edits),
+        source,
+      );
+    }
+  });
+
+  test(`${scope}: incomplete control backslash can be completed at EOF`, () => {
+    const source = "s/\\c\\";
+    const edits = [{ byte: 5, deleteBytes: 0, insert: "\\./x/" }];
+    const fresh = parseSuccessfully(scope, applyEdits(source, edits));
+    assertIncrementalContract(
+      fresh,
+      parseSuccessfully(scope, source, edits),
+      source,
+    );
+  });
+
+  test(`${scope}: address and control escape edits preserve the public CST`, () => {
+    for (const { source, byte, deleteBytes, insert } of [
+      { source: "+p", byte: 1, deleteBytes: 0, insert: "3" },
+      { source: "+3p", byte: 1, deleteBytes: 1, insert: "0" },
+      { source: "+0p", byte: 1, deleteBytes: 1, insert: "" },
+      { source: "1,+p", byte: 3, deleteBytes: 0, insert: "2" },
+      { source: "1~2p", byte: 2, deleteBytes: 1, insert: "" },
+      { source: String.raw`s/\c\./x/`, byte: 5, deleteBytes: 0, insert: "\\" },
+      { source: String.raw`s/\c\\./x/`, byte: 5, deleteBytes: 1, insert: "" },
+      { source: String.raw`s/\c\\c/x/`, byte: 6, deleteBytes: 1, insert: "." },
+      { source: String.raw`sc\c\.cxc`, byte: 1, deleteBytes: 1, insert: "/" },
+      {
+        source: String.raw`sx\c\\\\x5dxYx`,
+        byte: 7,
+        deleteBytes: 1,
+        insert: "",
+      },
+      {
+        source: String.raw`sx\c\\\x5dxYx`,
+        byte: 7,
+        deleteBytes: 0,
+        insert: "\\",
+      },
+      { source: "s/\\c\\\\\\\\\n/x/", byte: 7, deleteBytes: 1, insert: "" },
+      { source: "s/\\c\\\\\\\n/x/", byte: 6, deleteBytes: 0, insert: "\\" },
+    ]) {
+      const edits = [{ byte, deleteBytes, insert }];
+      const fresh = parseSuccessfully(scope, applyEdits(source, edits));
+      assertIncrementalContract(
+        fresh,
+        parseSuccessfully(scope, source, edits),
+        JSON.stringify({ source, edits }),
+      );
+    }
+  });
+}
+
+for (const [scope, pattern] of [
+  ["source.sed", "\\)"],
+  ["source.sed", "\\x5c)"],
+  ["source.sed.ere", ")"],
+  ["source.sed.ere", "\\x29"],
+  ["source.sed.ere", "*"],
+  ["source.sed.ere", "\\x2a"],
+  ["source.sed.ere", "{2}"],
+  ["source.sed.ere", "\\x7b2}"],
+]) {
+  test(`${scope}: deletion preserves issue structure in ${JSON.stringify(pattern)}`, () => {
+    const source = `s/${pattern}/x/`;
+    for (let byte = 0; byte < source.length; byte++) {
+      const edits = [{ byte, deleteBytes: 1, insert: "" }];
+      assertIncrementalContract(
+        parse(scope, applyEdits(source, edits)),
+        parse(scope, source, edits),
+        `delete ${byte} in ${source}`,
+      );
+    }
+  });
+}
+
+test("source.sed: literal interval lookahead survives edits and EOF completion", () => {
+  for (const { source, byte, deleteBytes, insert } of [
+    { source: String.raw`s/a\b\{1\}/x/`, byte: 7, deleteBytes: 1, insert: "x" },
+    { source: String.raw`s/a\b\{x\}/x/`, byte: 7, deleteBytes: 1, insert: "1" },
+    { source: String.raw`s/\b\{/x/`, byte: 2, deleteBytes: 0, insert: "a" },
+    {
+      source: String.raw`s/a\b\{`,
+      byte: 7,
+      deleteBytes: 0,
+      insert: String.raw`1\}/x/`,
+    },
+    {
+      source: String.raw`s/a\b\{1`,
+      byte: 8,
+      deleteBytes: 0,
+      insert: String.raw`\}/x/`,
+    },
+  ]) {
+    const edits = [{ byte, deleteBytes, insert }];
+    assertIncrementalContract(
+      parseSuccessfully("source.sed", applyEdits(source, edits)),
+      parseSuccessfully("source.sed", source, edits),
+      source,
+    );
+  }
+});
+
+test("source.sed: literal interval checks retain independent violations around unknown characters", () => {
+  for (const { prefix, suffix, outcome } of [
+    { prefix: String.raw`/a\b\{1`, suffix: String.raw`\}/p`, outcome: null },
+    {
+      prefix: String.raw`/a\b\{x`,
+      suffix: String.raw`\}/p`,
+      outcome: "invalid_syntax",
+    },
+    {
+      prefix: String.raw`/a\b\{1`,
+      suffix: String.raw`x\}/p`,
+      outcome: "invalid_syntax",
+    },
+    {
+      prefix: String.raw`/a\b\{,`,
+      suffix: String.raw`,\}/p`,
+      outcome: "invalid_syntax",
+    },
+    { prefix: String.raw`/a\b\{1`, suffix: String.raw`2\}/p`, outcome: null },
+    { prefix: String.raw`/a\b\{`, suffix: String.raw`\}/p`, outcome: null },
+    { prefix: String.raw`/a\b\{`, suffix: "", outcome: null },
+    { prefix: String.raw`/a\b\{`, suffix: "/p", outcome: null },
+    {
+      prefix: String.raw`/a\b\{`,
+      suffix: String.raw`\d9`,
+      outcome: "incomplete_syntax",
+    },
+  ]) {
+    for (const { failure, reason, offset, length } of [
+      {
+        failure: Buffer.from([0xff]),
+        reason: "invalid_encoding",
+        offset: 0,
+        length: 1,
+      },
+      {
+        failure: Buffer.from(String.raw`\c\1`),
+        reason: "invalid_control_escape",
+        offset: 0,
+        length: 3,
+      },
+      {
+        failure: Buffer.from([0x5c, 0x63, 0xff]),
+        reason: "invalid_encoding",
+        offset: 2,
+        length: 1,
+      },
+      {
+        failure: Buffer.from([0x5c, 0x63, 0x5c, 0xff]),
+        reason: "invalid_encoding",
+        offset: 3,
+        length: 1,
+      },
+      {
+        failure: Buffer.from([0x5c, 0xff]),
+        reason: "invalid_encoding",
+        offset: 1,
+        length: 1,
+      },
+      {
+        failure: Buffer.from([0x5c, 0x78, 0x35, 0x63, 0xff]),
+        reason: "invalid_encoding",
+        offset: 4,
+        length: 1,
+      },
+    ]) {
+      const source = Buffer.concat([
+        Buffer.from(prefix),
+        failure,
+        Buffer.from(suffix),
+      ]);
+      const result = parseSuccessfully("source.sed", source);
+      assert.deepEqual(issueSignatures(result.nodes), [
+        ...(outcome
+          ? [
+              {
+                outcome,
+                reason: "invalid_interval_syntax",
+                range: "[0, 4] - [0, 6]",
+              },
+            ]
+          : []),
+        {
+          outcome: "invalid_syntax",
+          reason,
+          range: `[0, ${prefix.length + offset}] - [0, ${prefix.length + offset + length}]`,
+        },
+        ...(!suffix.endsWith("/p")
+          ? [
+              {
+                outcome: "incomplete_syntax",
+                reason: "unterminated_regex",
+                range: `[0, ${source.length}] - [0, ${source.length}]`,
+              },
+              {
+                outcome: "incomplete_syntax",
+                reason: "missing_command",
+                range: `[0, ${source.length}] - [0, ${source.length}]`,
+              },
+            ]
+          : []),
+      ]);
+      const edits = [
+        { byte: 6, deleteBytes: source.length - 6, insert: String.raw`1\}/p` },
+      ];
+      assertIncrementalContract(
+        parseSuccessfully("source.sed", applyEdits(source, edits)),
+        parseSuccessfully("source.sed", source, edits),
+        `${prefix}: repair literal interval`,
+      );
     }
   }
 });
 
-for (const [name, opening] of [
-  ["sed", "\\{"],
-  ["sed_ere", "{"],
-]) {
-  test(`${name}: malformed interval content tracks every byte of a multibyte delimiter`, () => {
-    const { scope } = grammars.find((grammar) => grammar.name === name);
-    for (const [delimiter, alternative] of [
-      ["é", "è"],
-      ["あ", "ぃ"],
-      ["😀", "😁"],
-    ]) {
-      const width = Buffer.byteLength(delimiter);
-      const prefix = `s${delimiter}a${opening}x`;
-      const source = `${prefix}${delimiter}${alternative}${delimiter}\n`;
-      const expected = `${prefix}${alternative}${delimiter}\n`;
-      const contentStart = Buffer.byteLength(prefix) - 1;
-      const edits = [
-        { byte: contentStart + width, deleteBytes: width, insert: "" },
-      ];
-      const context = `${width}-byte delimiter`;
-      assert.deepEqual(
-        applyEdits(source, edits),
-        Buffer.from(expected),
-        context,
-      );
-      const fresh = parseSuccessfully(scope, expected);
-      const incremental = parseSuccessfully(scope, source, edits);
-      assertIncrementalContract(fresh, incremental, context);
-      for (const [result, contentEnd] of [
-        [parseSuccessfully(scope, source), contentStart + 1],
-        [fresh, contentStart + 1 + width],
-        [incremental, contentStart + 1 + width],
-      ]) {
-        assert.deepEqual(
-          issueSignatures(result.nodes).filter(
-            ({ reason }) => reason === "invalid_interval_character",
-          ),
-          [
-            {
-              outcome: "undefined_syntax",
-              reason: "invalid_interval_character",
-              range: `[0, ${contentStart}] - [0, ${contentEnd}]`,
-            },
+test("sed: GNU sed runtime checks the documented supplementary cases", (t) => {
+  const observations = {
+    version: "/opt/homebrew/bin/gsed (GNU sed) 4.10",
+    os: "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+    executable: "/opt/homebrew/bin/gsed",
+    environment: {
+      PATH: "/usr/bin:/bin",
+      LC_ALL: "en_US.UTF-8",
+      LANG: "en_US.UTF-8",
+    },
+    cases: [
+      ...[
+        {
+          name: "bracket_backslash_pairs_supply_separate_range_endpoints",
+          script: String.raw`s/[\\-\\-a]/x/`,
+          input: "",
+          stdout: "",
+          stderr: "",
+          status: 0,
+        },
+        {
+          name: "bracket_backslash_pair_with_hyphen_delimiter",
+          script: String.raw`s-[\-\\-\]--`,
+          input: "",
+          stdout: "",
+          stderr: "",
+          status: 0,
+        },
+        {
+          name: "bracket_backslash_pairs_after_encoded_opening",
+          script: String.raw`s/\x5b\\-\\-a]/x/`,
+          input: "",
+          stdout: "",
+          stderr: "",
+          status: 0,
+        },
+        {
+          name: "bracket_backslash_pair_prevents_newline_escape",
+          script: String.raw`N;s/[\\n]/x/g;p`,
+          input: "a\nb\n",
+          stdout: "a\nb\n",
+          stderr: "",
+          status: 0,
+        },
+        {
+          name: "bracket_single_backslash_starts_newline_escape",
+          script: String.raw`N;s/[\n]/x/g;p`,
+          input: "a\nb\n",
+          stdout: "axb\n",
+          stderr: "",
+          status: 0,
+        },
+        {
+          name: "bracket_single_backslashes_cannot_share_range_endpoint",
+          script: String.raw`s/[\-\-\]/x/`,
+          input: "",
+          stdout: "",
+          stderr:
+            "/opt/homebrew/bin/gsed: -e expression #1, char 12: Invalid range end\n",
+          status: 1,
+        },
+      ].flatMap((observation) =>
+        [false, true].map((extended) => ({
+          ...observation,
+          name: `${observation.name}_${extended ? "ere" : "bre"}`,
+          arguments: [
+            "-n",
+            ...(extended ? ["-E"] : []),
+            "-e",
+            observation.script,
           ],
-          context,
-        );
+        })),
+      ),
+      ...[
+        {
+          name: "crlf_after_substitution_flags",
+          script: "s/a/b/g\r\np",
+          errorColumn: 0,
+        },
+        {
+          name: "crlf_without_substitution_flags",
+          script: "s/a/b/\r\np",
+          errorColumn: 0,
+        },
+        {
+          name: "blank_before_substitution_crlf",
+          script: "s/a/b/g \t\r\np",
+          errorColumn: 0,
+        },
+        { name: "cr_at_substitution_eof", script: "s/a/b/g\r", errorColumn: 8 },
+        {
+          name: "cr_between_substitution_flags",
+          script: "s/a/b/g\rp",
+          errorColumn: 9,
+        },
+        {
+          name: "blank_after_substitution_cr",
+          script: "s/a/b/g\r \np",
+          errorColumn: 9,
+        },
+        {
+          name: "repeated_substitution_cr",
+          script: "s/a/b/g\r\r\np",
+          errorColumn: 9,
+        },
+        {
+          name: "vertical_tab_before_substitution_lf",
+          script: "s/a/b/g\v\np",
+          errorColumn: 8,
+        },
+        {
+          name: "form_feed_before_substitution_lf",
+          script: "s/a/b/g\f\np",
+          errorColumn: 8,
+        },
+        {
+          name: "cr_before_substitution_semicolon",
+          script: "s/a/b/g\r;p",
+          errorColumn: 9,
+        },
+      ].flatMap(({ name, script, errorColumn }) =>
+        [false, true].map((extended) => ({
+          name: `${name}_${extended ? "ere" : "bre"}`,
+          arguments: ["-n", ...(extended ? ["-E"] : []), "-e", script],
+          script,
+          input: "a\n",
+          stdout: errorColumn === 0 ? "b\n" : "",
+          stderr:
+            errorColumn === 0
+              ? ""
+              : `/opt/homebrew/bin/gsed: -e expression #1, char ${errorColumn}: unknown option to 's'\n`,
+          status: errorColumn === 0 ? 0 : 1,
+        })),
+      ),
+      ...[
+        {
+          name: "triple_hyphen_between_punctuation",
+          pattern: "[!---0]",
+          status: 0,
+        },
+        {
+          name: "triple_hyphen_between_letters",
+          pattern: "[a---c]",
+          status: 0,
+        },
+        { name: "triple_hyphen_after_range", pattern: "[a-b---c]", status: 0 },
+        { name: "triple_hyphen_before_range", pattern: "[a---c-d]", status: 0 },
+        {
+          name: "triple_hyphen_before_class",
+          pattern: "[!---[:xdigit:]]",
+          status: 0,
+        },
+        {
+          name: "triple_hyphen_before_equivalence",
+          pattern: "[a---[=a=]]",
+          status: 0,
+        },
+        {
+          name: "triple_hyphen_after_class",
+          pattern: "[[:alpha:]---c]",
+          status: 0,
+        },
+        {
+          name: "triple_hyphen_after_equivalence",
+          pattern: "[[=a=]---c]",
+          status: 0,
+        },
+        {
+          name: "four_hyphens_before_class",
+          pattern: "[a----[:alpha:]]",
+          status: 1,
+        },
+        {
+          name: "four_hyphens_before_equivalence",
+          pattern: "[a----[=a=]]",
+          status: 1,
+        },
+        {
+          name: "five_hyphens_before_class",
+          pattern: "[a-----[:alpha:]]",
+          status: 0,
+        },
+        {
+          name: "five_hyphens_before_equivalence",
+          pattern: "[a-----[=a=]]",
+          status: 0,
+        },
+        {
+          name: "six_hyphens_before_class",
+          pattern: "[a------[:alpha:]]",
+          status: 0,
+        },
+        {
+          name: "six_hyphens_before_equivalence",
+          pattern: "[a------[=a=]]",
+          status: 0,
+        },
+        {
+          name: "seven_hyphens_before_class",
+          pattern: "[a-------[:alpha:]]",
+          status: 1,
+        },
+        {
+          name: "seven_hyphens_before_equivalence",
+          pattern: "[a-------[=a=]]",
+          status: 1,
+        },
+        {
+          name: "eight_hyphens_before_class",
+          pattern: "[a--------[:alpha:]]",
+          status: 0,
+        },
+        {
+          name: "eight_hyphens_before_equivalence",
+          pattern: "[a--------[=a=]]",
+          status: 0,
+        },
+        {
+          name: "numeric_escape_in_hyphen_run",
+          pattern: String.raw`[a-\x2d-c]`,
+          status: 0,
+        },
+        { name: "shared_letter_range_endpoint", pattern: "[a-c-e]", status: 1 },
+        { name: "double_hyphen_after_range", pattern: "[a-b--c]", status: 1 },
+      ].flatMap(({ name, pattern, status }) =>
+        [false, true].map((extended) => ({
+          name: `${name}_${extended ? "ere" : "bre"}`,
+          arguments: ["-n", ...(extended ? ["-E"] : []), "-f", "script.sed"],
+          script: `/${pattern}/p`,
+          input: "",
+          stdout: "",
+          stderr:
+            status === 0
+              ? ""
+              : "/opt/homebrew/bin/gsed: file script.sed line 1: Invalid range end\n",
+          status,
+        })),
+      ),
+      {
+        name: "empty_group_bre",
+        arguments: ["-n", "-e", "s/\\(\\)/x/"],
+        script: "s/\\(\\)/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "empty_group_ere",
+        arguments: ["-n", "-E", "-e", "s/()/x/"],
+        script: "s/()/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "empty_alternative_bre",
+        arguments: ["-n", "-e", "s/a\\|/x/"],
+        script: "s/a\\|/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "empty_alternative_ere",
+        arguments: ["-n", "-E", "-e", "s/|a||/x/"],
+        script: "s/|a||/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "adjacent_stars_bre",
+        arguments: ["-n", "-e", "s/a**/x/"],
+        script: "s/a**/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "adjacent_quantifiers_ere",
+        arguments: ["-n", "-E", "-e", "s/a+?/x/"],
+        script: "s/a+?/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "bad_interval_bre",
+        arguments: ["-n", "-e", "s/a\\{b\\}/x/"],
+        script: "s/a\\{b\\}/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 11: Invalid content of \\{\\}\n",
+        status: 1,
+      },
+      {
+        name: "bad_interval_ere",
+        arguments: ["-n", "-E", "-e", "s/a{b}/x/"],
+        script: "s/a{b}/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: Invalid content of \\{\\}\n",
+        status: 1,
+      },
+      {
+        name: "open_interval_ere",
+        arguments: ["-n", "-E", "-e", "s/a{2/x/"],
+        script: "s/a{2/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 8: Unmatched \\{\n",
+        status: 1,
+      },
+      {
+        name: "missing_minimum_ere",
+        arguments: ["-n", "-E", "-e", "s/a{,2}/x/"],
+        script: "s/a{,2}/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "unknown_escape",
+        arguments: ["-n", "-e", "s/\\q/x/"],
+        script: "s/\\q/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "no_hex_digit",
+        arguments: ["-n", "-e", "s/\\x/x/"],
+        script: "s/\\x/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "one_hex_digit",
+        arguments: ["-n", "-e", "s/\\x6/x/"],
+        script: "s/\\x6/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "control_end",
+        arguments: ["-n", "-e", "s/\\c/x/"],
+        script: "s/\\c/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 7: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "hex_anchor",
+        arguments: ["-n", "-e", "s/\\x5e/x/"],
+        script: "s/\\x5e/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "hex_bracket",
+        arguments: ["-n", "-e", "s/\\x5ba\\x5d/x/"],
+        script: "s/\\x5ba\\x5d/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "hex_backslash_group",
+        arguments: ["-n", "-e", "s/\\x5c(a\\x5c)/x/"],
+        script: "s/\\x5c(a\\x5c)/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "delimiter_in_bracket",
+        arguments: ["-n", "-e", "s/[/]/x/"],
+        script: "s/[/]/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "bracket_after_term_close_marker",
+        arguments: ["-n", "-e", "s/[[=a=[]/]/x/"],
+        script: "s/[[=a=[]/]/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 14: Unmatched [, [^, [:, [., or [=\n",
+        status: 1,
+      },
+      {
+        name: "escaped_delimiter_alternation",
+        arguments: ["-n", "-e", "s|a\\|b|x|"],
+        script: "s|a\\|b|x|",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "empty_regex_modifier",
+        arguments: ["-n", "-e", "s//x/I"],
+        script: "s//x/I",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 6: cannot specify modifiers on empty regexp\n",
+        status: 1,
+      },
+      {
+        name: "evaluate_flag_separator",
+        arguments: ["-n", "-e", "s/a/b/e;p"],
+        script: "s/a/b/e;p",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "label_separator",
+        arguments: ["-n", "-e", ": loop ; b loop"],
+        script: ": loop ; b loop",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "text_single_line",
+        arguments: ["-n", "-e", "a hello; p"],
+        script: "a hello; p",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "short_text",
+        arguments: ["-n", "-e", "a"],
+        script: "a",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 1: expected \\ after 'a', 'c' or 'i'\n",
+        status: 1,
+      },
+      {
+        name: "trailing_text_slash",
+        arguments: ["-n", "-e", "a text\\"],
+        script: "a text\\",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "zero_print",
+        arguments: ["-n", "-e", "0p"],
+        script: "0p",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 2: invalid usage of line address 0\n",
+        status: 1,
+      },
+      {
+        name: "zero_step",
+        arguments: ["-n", "-e", "0~2p"],
+        script: "0~2p",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "zero_range",
+        arguments: ["-n", "-e", "0,/a/p"],
+        script: "0,/a/p",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "range_zero_step",
+        arguments: ["-n", "-e", "1,~0p"],
+        script: "1,~0p",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "unicode_delimiter",
+        arguments: ["-n", "-e", "séaébég"],
+        script: "séaébég",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 2: delimiter character is not a single-byte character\n",
+        status: 1,
+      },
+      {
+        name: "unmatched_group_ere",
+        arguments: ["-n", "-E", "-e", "s/)/x/"],
+        script: "s/)/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 6: Unmatched ) or \\)\n",
+        status: 1,
+      },
+      {
+        name: "start_star_bre",
+        arguments: ["-n", "-e", "s/*/x/"],
+        script: "s/*/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "start_star_ere",
+        arguments: ["-n", "-E", "-e", "s/*/x/"],
+        script: "s/*/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 6: Invalid preceding regular expression\n",
+        status: 1,
+      },
+      {
+        name: "interval_empty",
+        arguments: ["-n", "-E", "-f", "-"],
+        script: "s/a{}/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file - line 1: Invalid content of \\{\\}\n",
+        status: 1,
+      },
+      {
+        name: "interval_comma_only",
+        arguments: ["-n", "-E", "-f", "-"],
+        script: "s/a{,}/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "interval_extra_comma",
+        arguments: ["-n", "-E", "-f", "-"],
+        script: "s/a{1,,2}/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file - line 1: Invalid content of \\{\\}\n",
+        status: 1,
+      },
+      {
+        name: "interval_reversed",
+        arguments: ["-n", "-E", "-f", "-"],
+        script: "s/a{3,2}/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file - line 1: Invalid content of \\{\\}\n",
+        status: 1,
+      },
+      {
+        name: "interval_leading",
+        arguments: ["-n", "-E", "-f", "-"],
+        script: "s/{2}/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file - line 1: Invalid preceding regular expression\n",
+        status: 1,
+      },
+      {
+        name: "interval_unmatched_close",
+        arguments: ["-n", "-E", "-f", "-"],
+        script: "s/a}/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "duplicate_global",
+        arguments: ["-n", "-f", "-"],
+        script: "s/a/b/gg",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file - line 1: multiple 'g' options to 's' command\n",
+        status: 1,
+      },
+      {
+        name: "duplicate_print",
+        arguments: ["-n", "-f", "-"],
+        script: "s/a/b/pp",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file - line 1: multiple 'p' options to 's' command\n",
+        status: 1,
+      },
+      {
+        name: "duplicate_occurrence",
+        arguments: ["-n", "-f", "-"],
+        script: "s/a/b/2 3",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file - line 1: multiple number options to 's' command\n",
+        status: 1,
+      },
+      {
+        name: "zero_occurrence",
+        arguments: ["-n", "-f", "-"],
+        script: "s/a/b/0",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file - line 1: number option to 's' command may not be zero\n",
+        status: 1,
+      },
+      {
+        name: "empty_modifier_address",
+        arguments: ["-n", "-f", "-"],
+        script: "//Ip",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file - line 1: cannot specify modifiers on empty regexp\n",
+        status: 1,
+      },
+      {
+        name: "excess_quit_addresses",
+        arguments: ["-n", "-f", "-"],
+        script: "1,2q",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file - line 1: command only uses one address\n",
+        status: 1,
+      },
+      {
+        name: "comment_address",
+        arguments: ["-n", "-f", "-"],
+        script: "1# comment",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file - line 1: comments don't accept any addresses\n",
+        status: 1,
+      },
+      {
+        name: "label_address",
+        arguments: ["-n", "-f", "-"],
+        script: "1:loop",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file - line 1: : doesn't want any addresses\n",
+        status: 1,
+      },
+      {
+        name: "read_zero",
+        arguments: ["-n", "-f", "-"],
+        script: "0rmissing",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "filename_empty",
+        arguments: ["-n", "-f", "-"],
+        script: "r",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file - line 1: missing filename in r/R/w/W commands\n",
+        status: 1,
+      },
+      {
+        name: "label_empty",
+        arguments: ["-n", "-f", "-"],
+        script: ":",
+        input: "",
+        stdout: "",
+        stderr: '/opt/homebrew/bin/gsed: file - line 1: ":" lacks a label\n',
+        status: 1,
+      },
+      {
+        name: "label_brace",
+        arguments: ["-n", "-f", "-"],
+        script: ": }",
+        input: "",
+        stdout: "",
+        stderr: '/opt/homebrew/bin/gsed: file - line 1: ":" lacks a label\n',
+        status: 1,
+      },
+      {
+        name: "double_negation",
+        arguments: ["-n", "-f", "-"],
+        script: "!!p",
+        input: "",
+        stdout: "",
+        stderr: "/opt/homebrew/bin/gsed: file - line 1: multiple '!'s\n",
+        status: 1,
+      },
+      {
+        name: "missing_separator",
+        arguments: ["-n", "-f", "-"],
+        script: "pd",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file - line 1: extra characters after command\n",
+        status: 1,
+      },
+      {
+        name: "extra_address",
+        arguments: ["-n", "-f", "-"],
+        script: "1,2,3p",
+        input: "",
+        stdout: "",
+        stderr: "/opt/homebrew/bin/gsed: file - line 1: unknown command: ','\n",
+        status: 1,
+      },
+      {
+        name: "text_backslash_no_newline",
+        arguments: ["-n", "-f", "-"],
+        script: "a\\hello",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "text_empty_introducer",
+        arguments: ["-n", "-f", "-"],
+        script: "a\\",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "text_empty_line",
+        arguments: ["-n", "-f", "-"],
+        script: "a\\\n",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "raw_nul_regex",
+        arguments: ["-n", "-f", "-"],
+        script: "s/\u0000/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "numeric_nul_regex",
+        arguments: ["-n", "-f", "-"],
+        script: "s/\\x00/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "invalid_class",
+        arguments: ["-n", "-f", "-"],
+        script: "s/[[:unknown:]]/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file - line 1: Invalid character class name\n",
+        status: 1,
+      },
+      {
+        name: "empty_class",
+        arguments: ["-n", "-f", "-"],
+        script: "s/[[:]]/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file - line 1: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "trailing_bracket_dash",
+        arguments: ["-n", "-f", "-"],
+        script: "s/[a-]/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "leading_bracket_dash",
+        arguments: ["-n", "-f", "-"],
+        script: "s/[-a]/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "bracket_backslash",
+        arguments: ["-n", "-f", "-"],
+        script: "s/[\\*]/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "numeric_backslash",
+        arguments: ["-n", "-f", "-"],
+        script: "s/\\x5c(a\\x5c)/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "regex_continued_line",
+        arguments: ["-n", "-f", "-"],
+        script: "s/a\\\nb/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "backref_missing_group",
+        arguments: ["-n", "-E", "-f", "-"],
+        script: "s/\\1/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file - line 1: Invalid back reference\n",
+        status: 1,
+      },
+      {
+        name: "pattern_bad_utf8_escape",
+        arguments: ["-n", "-f", "-"],
+        script: "s/\\xff/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "pattern_utf8_escape_pair",
+        arguments: ["-n", "-f", "-"],
+        script: "s/\\xce\\xa3*/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "unknown_flag",
+        arguments: ["-n", "-f", "-"],
+        script: "s/a/b/k",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file - line 1: unknown option to 's'\n",
+        status: 1,
+      },
+      {
+        name: "address_modifier_lowercase",
+        arguments: ["-n", "-f", "-"],
+        script: "/a/id",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "s/a/b/pep",
+        arguments: ["-n", "-e", "s/a/b/pep"],
+        script: "s/a/b/pep",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: multiple 'p' options to 's' command\n",
+        status: 1,
+      },
+      {
+        name: "s/a/b/ee",
+        arguments: ["-n", "-e", "s/a/b/ee"],
+        script: "s/a/b/ee",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "s/a/b/II",
+        arguments: ["-n", "-e", "s/a/b/II"],
+        script: "s/a/b/II",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "s/a/b/mm",
+        arguments: ["-n", "-e", "s/a/b/mm"],
+        script: "s/a/b/mm",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "s/a/b/ww",
+        arguments: ["-n", "-e", "s/a/b/ww"],
+        script: "s/a/b/ww",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "s/a/b/00",
+        arguments: ["-n", "-e", "s/a/b/00"],
+        script: "s/a/b/00",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 8: number option to 's' command may not be zero\n",
+        status: 1,
+      },
+      {
+        name: "s/a/b/g g",
+        arguments: ["-n", "-e", "s/a/b/g g"],
+        script: "s/a/b/g g",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: multiple 'g' options to 's' command\n",
+        status: 1,
+      },
+      {
+        name: "s/a/b/2p3",
+        arguments: ["-n", "-e", "s/a/b/2p3"],
+        script: "s/a/b/2p3",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: multiple number options to 's' command\n",
+        status: 1,
+      },
+      {
+        name: "/a/IIMMp",
+        arguments: ["-n", "-e", "/a/IIMMp"],
+        script: "/a/IIMMp",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "//Mp",
+        arguments: ["-n", "-e", "//Mp"],
+        script: "//Mp",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 3: cannot specify modifiers on empty regexp\n",
+        status: 1,
+      },
+      {
+        name: "s//x/i",
+        arguments: ["-n", "-e", "s//x/i"],
+        script: "s//x/i",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 6: cannot specify modifiers on empty regexp\n",
+        status: 1,
+      },
+      {
+        name: "s//x/e",
+        arguments: ["-n", "-e", "s//x/e"],
+        script: "s//x/e",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "a\\",
+        arguments: ["-n", "-e", "a\\"],
+        script: "a\\",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p#x",
+        arguments: ["-n", "-e", "p#x"],
+        script: "p#x",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p #x",
+        arguments: ["-n", "-e", "p #x"],
+        script: "p #x",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p\\\np",
+        arguments: ["-n", "-e", "p\\\np"],
+        script: "p\\\np",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 2: extra characters after command\n",
+        status: 1,
+      },
+      {
+        name: "{p}p",
+        arguments: ["-n", "-e", "{p}p"],
+        script: "{p}p",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 4: extra characters after command\n",
+        status: 1,
+      },
+      {
+        name: "/a/!#x",
+        arguments: ["-n", "-e", "/a/!#x"],
+        script: "/a/!#x",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 5: comments don't accept any addresses\n",
+        status: 1,
+      },
+      {
+        name: "s/[a\\x5db]/x/g",
+        arguments: ["-e", "s/[a\\x5db]/x/g"],
+        script: "s/[a\\x5db]/x/g",
+        input: "a]b\nab]\n",
+        stdout: "a]b\nx\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "s/[a\\x2dz]/x/g",
+        arguments: ["-e", "s/[a\\x2dz]/x/g"],
+        script: "s/[a\\x2dz]/x/g",
+        input: "a-zb\n",
+        stdout: "x-xx\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "s/\\xce\\xa3*/X/g",
+        arguments: ["-e", "s/\\xce\\xa3*/X/g"],
+        script: "s/\\xce\\xa3*/X/g",
+        input: "ΣΣ\n",
+        stdout: "X\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "s/[\\*]/X/g",
+        arguments: ["-e", "s/[\\*]/X/g"],
+        script: "s/[\\*]/X/g",
+        input: "\\*\n",
+        stdout: "XX\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "s/\\x2a/X/g",
+        arguments: ["-e", "s/\\x2a/X/g"],
+        script: "s/\\x2a/X/g",
+        input: "*\n",
+        stdout: "X\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "s|a\\|b|X|",
+        arguments: ["-e", "s|a\\|b|X|"],
+        script: "s|a\\|b|X|",
+        input: "a|b\na\nb\n",
+        stdout: "X\na\nb\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "s/\\x5c(a\\x5c)/X/",
+        arguments: ["-e", "s/\\x5c(a\\x5c)/X/"],
+        script: "s/\\x5c(a\\x5c)/X/",
+        input: "a\n",
+        stdout: "X\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: two-address range for q",
+        arguments: ["-n", "-E", "-e", "1,2q"],
+        script: "1,2q",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 4: command only uses one address\n",
+        status: 1,
+      },
+      {
+        name: "ERE: two-address range for Q",
+        arguments: ["-n", "-E", "-e", "1,2Q"],
+        script: "1,2Q",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 4: command only uses one address\n",
+        status: 1,
+      },
+      {
+        name: "ERE: two-address range for l",
+        arguments: ["-n", "-E", "-e", "1,2l"],
+        script: "1,2l",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: two-address range for =",
+        arguments: ["-n", "-E", "-e", "1,2="],
+        script: "1,2=",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: two-address range for F",
+        arguments: ["-n", "-E", "-e", "1,2F"],
+        script: "1,2F",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: two-address range for v",
+        arguments: ["-n", "-E", "-e", "1,2v"],
+        script: "1,2v",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: two-address range for a label definition",
+        arguments: ["-n", "-E", "-e", "1,2:label"],
+        script: "1,2:label",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 4: : doesn't want any addresses\n",
+        status: 1,
+      },
+      {
+        name: "ERE: two-address range for append text",
+        arguments: ["-n", "-E", "-e", "1,2a hi"],
+        script: "1,2a hi",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: two-address range for insert text",
+        arguments: ["-n", "-E", "-e", "1,2i hi"],
+        script: "1,2i hi",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: two-address range for r",
+        arguments: ["-n", "-E", "-e", "1,2r absent"],
+        script: "1,2r absent",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: two-address range for R",
+        arguments: ["-n", "-E", "-e", "1,2R absent"],
+        script: "1,2R absent",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: two-address range for a comment",
+        arguments: ["-n", "-E", "-e", "1,2#comment"],
+        script: "1,2#comment",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 4: comments don't accept any addresses\n",
+        status: 1,
+      },
+      {
+        name: "ERE: two-address range for a resolved branch",
+        arguments: ["-n", "-E", "-e", "1,2b label\n:label"],
+        script: "1,2b label\n:label",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: zero address before p",
+        arguments: ["-n", "-E", "-e", "0p"],
+        script: "0p",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 2: invalid usage of line address 0\n",
+        status: 1,
+      },
+      {
+        name: "ERE: multiple zero digits before p",
+        arguments: ["-n", "-E", "-e", "00p"],
+        script: "00p",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 3: invalid usage of line address 0\n",
+        status: 1,
+      },
+      {
+        name: "ERE: zero start with a nonzero step",
+        arguments: ["-n", "-E", "-e", "0~2p"],
+        script: "0~2p",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: zero start with a regex range end",
+        arguments: ["-n", "-E", "-e", "0,/a/p"],
+        script: "0,/a/p",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: zero address before r",
+        arguments: ["-n", "-E", "-e", "0r absent"],
+        script: "0r absent",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: zero address before R",
+        arguments: ["-n", "-E", "-e", "0R absent"],
+        script: "0R absent",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 2: invalid usage of line address 0\n",
+        status: 1,
+      },
+      {
+        name: "ERE: zero address before w",
+        arguments: ["-n", "-E", "-e", "0w out"],
+        script: "0w out",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 2: invalid usage of line address 0\n",
+        status: 1,
+      },
+      {
+        name: "ERE: negated zero address before r",
+        arguments: ["-n", "-E", "-e", "0!r absent"],
+        script: "0!r absent",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 2: invalid usage of line address 0\n",
+        status: 1,
+      },
+      {
+        name: "ERE: zero start with a line number range end",
+        arguments: ["-n", "-E", "-e", "0,1p"],
+        script: "0,1p",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 4: invalid usage of line address 0\n",
+        status: 1,
+      },
+      {
+        name: "ERE: zero line number as a range end",
+        arguments: ["-n", "-E", "-e", "1,0p"],
+        script: "1,0p",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: zero step as a range end",
+        arguments: ["-n", "-E", "-e", "1,~0p"],
+        script: "1,~0p",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: zero start and zero step range end",
+        arguments: ["-n", "-E", "-e", "0,~0p"],
+        script: "0,~0p",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 5: invalid usage of line address 0\n",
+        status: 1,
+      },
+      {
+        name: "ERE: address before a comment",
+        arguments: ["-n", "-E", "-e", "1#comment"],
+        script: "1#comment",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 2: comments don't accept any addresses\n",
+        status: 1,
+      },
+      {
+        name: "ERE: address before a label definition",
+        arguments: ["-n", "-E", "-e", "1:label"],
+        script: "1:label",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 2: : doesn't want any addresses\n",
+        status: 1,
+      },
+      {
+        name: "ERE: address before a version command",
+        arguments: ["-n", "-E", "-e", "1v"],
+        script: "1v",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: three line number addresses",
+        arguments: ["-n", "-E", "-e", "1,2,3p"],
+        script: "1,2,3p",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 4: unknown command: ','\n",
+        status: 1,
+      },
+      {
+        name: "ERE: missing first address",
+        arguments: ["-n", "-E", "-e", ",2p"],
+        script: ",2p",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 1: unknown command: ','\n",
+        status: 1,
+      },
+      {
+        name: "ERE: missing second address",
+        arguments: ["-n", "-E", "-e", "1,p"],
+        script: "1,p",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 3: unexpected ','\n",
+        status: 1,
+      },
+      {
+        name: "ERE: missing step after a nonzero start",
+        arguments: ["-n", "-E", "-e", "1~p"],
+        script: "1~p",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: addressed substitution with a space delimiter",
+        arguments: ["-n", "-E", "-e", "1s a b "],
+        script: "1s a b ",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: nondigit interval maximum",
+        arguments: ["-n", "-E", "-e", "s/a{2,x}/x/"],
+        script: "s/a{2,x}/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 11: Invalid content of \\{\\}\n",
+        status: 1,
+      },
+      {
+        name: "BRE: substitution with a space delimiter",
+        arguments: ["-n", "-e", "s a b "],
+        script: "s a b ",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: substitution with a space delimiter",
+        arguments: ["-n", "-E", "-e", "s a b "],
+        script: "s a b ",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "BRE: space delimiter before slash-delimited text",
+        arguments: ["-n", "-e", "s /a/b/"],
+        script: "s /a/b/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 7: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "ERE: space delimiter before slash-delimited text",
+        arguments: ["-n", "-E", "-e", "s /a/b/"],
+        script: "s /a/b/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 7: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "BRE: translation with a space delimiter",
+        arguments: ["-n", "-e", "y ab cd "],
+        script: "y ab cd ",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: translation with a space delimiter",
+        arguments: ["-n", "-E", "-e", "y ab cd "],
+        script: "y ab cd ",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "BRE: missing step after a zero start",
+        arguments: ["-n", "-e", "0~p"],
+        script: "0~p",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 3: invalid usage of line address 0\n",
+        status: 1,
+      },
+      {
+        name: "ERE: missing step after a zero start",
+        arguments: ["-n", "-E", "-e", "0~p"],
+        script: "0~p",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 3: invalid usage of line address 0\n",
+        status: 1,
+      },
+      {
+        name: "BRE: zero start with a zero step",
+        arguments: ["-n", "-e", "0~0p"],
+        script: "0~0p",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 4: invalid usage of line address 0\n",
+        status: 1,
+      },
+      {
+        name: "ERE: zero start with a zero step",
+        arguments: ["-n", "-E", "-e", "0~0p"],
+        script: "0~0p",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 4: invalid usage of line address 0\n",
+        status: 1,
+      },
+      {
+        name: "BRE: missing step after a nonzero start",
+        arguments: ["-n", "-e", "1~p"],
+        script: "1~p",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "BRE: nonzero start with a zero step",
+        arguments: ["-n", "-e", "1~0p"],
+        script: "1~0p",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: nonzero start with a zero step",
+        arguments: ["-n", "-E", "-e", "1~0p"],
+        script: "1~0p",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "BRE: missing relative line count",
+        arguments: ["-n", "-e", "1,+p"],
+        script: "1,+p",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: missing relative line count",
+        arguments: ["-n", "-E", "-e", "1,+p"],
+        script: "1,+p",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "BRE: missing relative step",
+        arguments: ["-n", "-e", "1,~p"],
+        script: "1,~p",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: missing relative step",
+        arguments: ["-n", "-E", "-e", "1,~p"],
+        script: "1,~p",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "BRE: three line number addresses",
+        arguments: ["-n", "-e", "1,2,3p"],
+        script: "1,2,3p",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 4: unknown command: ','\n",
+        status: 1,
+      },
+      {
+        name: "BRE: escaped plus without a preceding atom",
+        arguments: ["-n", "-e", "s/\\+/x/"],
+        script: "s/\\+/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: escaped plus without a preceding atom",
+        arguments: ["-n", "-E", "-e", "s/\\+/x/"],
+        script: "s/\\+/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "BRE: escaped question mark without a preceding atom",
+        arguments: ["-n", "-e", "s/\\?/x/"],
+        script: "s/\\?/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: escaped question mark without a preceding atom",
+        arguments: ["-n", "-E", "-e", "s/\\?/x/"],
+        script: "s/\\?/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "BRE: escaped interval without a preceding atom",
+        arguments: ["-n", "-e", "s/\\{2\\}/x/"],
+        script: "s/\\{2\\}/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: escaped interval without a preceding atom",
+        arguments: ["-n", "-E", "-e", "s/\\{2\\}/x/"],
+        script: "s/\\{2\\}/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "BRE: raw interval without a preceding atom",
+        arguments: ["-n", "-e", "s/{2}/x/"],
+        script: "s/{2}/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: raw interval without a preceding atom",
+        arguments: ["-n", "-E", "-e", "s/{2}/x/"],
+        script: "s/{2}/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 8: Invalid preceding regular expression\n",
+        status: 1,
+      },
+      {
+        name: "BRE: consecutive start anchors",
+        arguments: ["-n", "-e", "s/^^a/x/"],
+        script: "s/^^a/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: consecutive start anchors",
+        arguments: ["-n", "-E", "-e", "s/^^a/x/"],
+        script: "s/^^a/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "BRE: star following an end anchor",
+        arguments: ["-n", "-e", "s/a$*/x/"],
+        script: "s/a$*/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: star following an end anchor",
+        arguments: ["-n", "-E", "-e", "s/a$*/x/"],
+        script: "s/a$*/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 8: Invalid preceding regular expression\n",
+        status: 1,
+      },
+      {
+        name: "BRE: star following a word boundary",
+        arguments: ["-n", "-e", "s/\\b*/x/"],
+        script: "s/\\b*/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: star following a word boundary",
+        arguments: ["-n", "-E", "-e", "s/\\b*/x/"],
+        script: "s/\\b*/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 8: Invalid preceding regular expression\n",
+        status: 1,
+      },
+      {
+        name: "BRE: escaped star as the host delimiter",
+        arguments: ["-n", "-e", "s*a\\**X*g;p"],
+        script: "s*a\\**X*g;p",
+        input: "aaa a*\n",
+        stdout: "X X*X\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: escaped star as the host delimiter",
+        arguments: ["-n", "-E", "-e", "s*a\\**X*g;p"],
+        script: "s*a\\**X*g;p",
+        input: "aaa a*\n",
+        stdout: "X X*X\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "BRE: escaped dot as the host delimiter",
+        arguments: ["-n", "-e", "s.a\\..X.g;p"],
+        script: "s.a\\..X.g;p",
+        input: "ab a.\n",
+        stdout: "X X\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: escaped dot as the host delimiter",
+        arguments: ["-n", "-E", "-e", "s.a\\..X.g;p"],
+        script: "s.a\\..X.g;p",
+        input: "ab a.\n",
+        stdout: "X X\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "BRE: escaped vertical bar as the host delimiter",
+        arguments: ["-n", "-e", "s|a\\|b|X|g;p"],
+        script: "s|a\\|b|X|g;p",
+        input: "a|b ab a b\n",
+        stdout: "X ab a b\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: escaped vertical bar as the host delimiter",
+        arguments: ["-n", "-E", "-e", "s|a\\|b|X|g;p"],
+        script: "s|a\\|b|X|g;p",
+        input: "a|b ab a b\n",
+        stdout: "X|X XX X X\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "BRE: escaped opening bracket as the host delimiter",
+        arguments: ["-n", "-e", "s[a\\[b[X[g;p"],
+        script: "s[a\\[b[X[g;p",
+        input: "a[b ab\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 11: Unmatched [, [^, [:, [., or [=\n",
+        status: 1,
+      },
+      {
+        name: "ERE: escaped opening bracket as the host delimiter",
+        arguments: ["-n", "-E", "-e", "s[a\\[b[X[g;p"],
+        script: "s[a\\[b[X[g;p",
+        input: "a[b ab\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 11: Unmatched [, [^, [:, [., or [=\n",
+        status: 1,
+      },
+      {
+        name: "BRE: encoded backslash before star in a bracket",
+        arguments: ["-n", "-e", "s/[\\x5c*]/X/g;p"],
+        script: "s/[\\x5c*]/X/g;p",
+        input: "\\*x\n",
+        stdout: "XXx\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "ERE: encoded backslash before star in a bracket",
+        arguments: ["-n", "-E", "-e", "s/[\\x5c*]/X/g;p"],
+        script: "s/[\\x5c*]/X/g;p",
+        input: "\\*x\n",
+        stdout: "XXx\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "raw_bracket_after_numeric_closer_bre",
+        arguments: ["-n", "-e", "s/[a-\\x5d]/x/"],
+        script: "s/[a-\\x5d]/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "raw_bracket_unclosed_bre",
+        arguments: ["-n", "-e", "s/[a-\\x5d/x/"],
+        script: "s/[a-\\x5d/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 12: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "encoded_bracket_before_delimiter_bre",
+        arguments: ["-n", "-e", "s/\\x5b/x/"],
+        script: "s/\\x5b/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: Invalid regular expression\n",
+        status: 1,
+      },
+      {
+        name: "delimiter_in_raw_bracket_bre",
+        arguments: ["-n", "-e", "s@[a\\x5d@]@x@"],
+        script: "s@[a\\x5d@]@x@",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "overlapping_ranges_bre",
+        arguments: ["-n", "-e", "s/[a-b-c]/x/"],
+        script: "s/[a-b-c]/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 12: Invalid range end\n",
+        status: 1,
+      },
+      {
+        name: "class_range_endpoint_bre",
+        arguments: ["-n", "-e", "s/[[:alpha:]-z]/x/"],
+        script: "s/[[:alpha:]-z]/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 18: Invalid range end\n",
+        status: 1,
+      },
+      {
+        name: "equivalence_range_endpoint_bre",
+        arguments: ["-n", "-e", "s/[a-[=z=]]/x/"],
+        script: "s/[a-[=z=]]/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 14: Invalid range end\n",
+        status: 1,
+      },
+      {
+        name: "collating_range_endpoint_bre",
+        arguments: ["-n", "-e", "s/[a-[.z.]]/x/"],
+        script: "s/[a-[.z.]]/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "orphan_group_close_bre",
+        arguments: ["-n", "-e", "s/)/x/"],
+        script: "s/)/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "host_escaped_dollar_bre",
+        arguments: ["-n", "-e", "s$\\$$x$"],
+        script: "s$\\$$x$",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "raw_bracket_after_numeric_closer_ere",
+        arguments: ["-n", "-E", "-e", "s/[a-\\x5d]/x/"],
+        script: "s/[a-\\x5d]/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "raw_bracket_unclosed_ere",
+        arguments: ["-n", "-E", "-e", "s/[a-\\x5d/x/"],
+        script: "s/[a-\\x5d/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 12: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "encoded_bracket_before_delimiter_ere",
+        arguments: ["-n", "-E", "-e", "s/\\x5b/x/"],
+        script: "s/\\x5b/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: Invalid regular expression\n",
+        status: 1,
+      },
+      {
+        name: "delimiter_in_raw_bracket_ere",
+        arguments: ["-n", "-E", "-e", "s@[a\\x5d@]@x@"],
+        script: "s@[a\\x5d@]@x@",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "overlapping_ranges_ere",
+        arguments: ["-n", "-E", "-e", "s/[a-b-c]/x/"],
+        script: "s/[a-b-c]/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 12: Invalid range end\n",
+        status: 1,
+      },
+      {
+        name: "class_range_endpoint_ere",
+        arguments: ["-n", "-E", "-e", "s/[[:alpha:]-z]/x/"],
+        script: "s/[[:alpha:]-z]/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 18: Invalid range end\n",
+        status: 1,
+      },
+      {
+        name: "equivalence_range_endpoint_ere",
+        arguments: ["-n", "-E", "-e", "s/[a-[=z=]]/x/"],
+        script: "s/[a-[=z=]]/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 14: Invalid range end\n",
+        status: 1,
+      },
+      {
+        name: "collating_range_endpoint_ere",
+        arguments: ["-n", "-E", "-e", "s/[a-[.z.]]/x/"],
+        script: "s/[a-[.z.]]/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "host_escaped_dollar_ere",
+        arguments: ["-n", "-E", "-e", "s$\\$$x$"],
+        script: "s$\\$$x$",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "control_consumes_pattern_delimiter",
+        arguments: ["-n", "-e", "s/\\c//x/"],
+        script: "s/\\c//x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "trailing_control_replacement",
+        arguments: ["-n", "-e", "s/a/\\c/"],
+        script: "s/a/\\c/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "encoded_backslash_before_pattern_end",
+        arguments: ["-n", "-e", "s/\\x5c/x/"],
+        script: "s/\\x5c/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: Trailing backslash\n",
+        status: 1,
+      },
+      {
+        name: "digit_delimiter_before_hex_digit",
+        arguments: ["-n", "-e", "s2\\x2x2"],
+        script: "s2\\x2x2",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "digit_delimiter_in_replacement",
+        arguments: ["-n", "-e", "s2a2\\x2"],
+        script: "s2a2\\x2",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_omitted_branch_and_execute_operands_bre",
+        arguments: ["-n", "-e", "b;t;T;e"],
+        script: "b;t;T;e",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_label_space_before_command_bre",
+        arguments: ["-n", "-e", ":x p"],
+        script: ":x p",
+        input: "input\n",
+        stdout: "input\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_branch_space_before_command_bre",
+        arguments: ["-n", "-e", ":x\nt x p"],
+        script: ":x\nt x p",
+        input: "input\n",
+        stdout: "input\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_label_hash_starts_comment_bre",
+        arguments: ["-n", "-e", ":x#comment\nb x"],
+        script: ":x#comment\nb x",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_missing_label_before_comment_bre",
+        arguments: ["-n", "-e", ":#comment"],
+        script: ":#comment",
+        input: "",
+        stdout: "",
+        stderr:
+          '/opt/homebrew/bin/gsed: -e expression #1, char 1: ":" lacks a label\n',
+        status: 1,
+      },
+      {
+        name: "review_label_carriage_return_bre",
+        arguments: ["-n", "-e", ":x\rfoo\nb x\rfoo"],
+        script: ":x\rfoo\nb x\rfoo",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_version_space_before_command_bre",
+        arguments: ["-n", "-e", "v4.10 p"],
+        script: "v4.10 p",
+        input: "input\n",
+        stdout: "input\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_version_suffix_word_bre",
+        arguments: ["-n", "-e", "v0alpha p"],
+        script: "v0alpha p",
+        input: "input\n",
+        stdout: "input\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_version_requirement_is_not_syntax_bre",
+        arguments: ["-n", "-e", "v4.10-rc1"],
+        script: "v4.10-rc1",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: expected newer version of sed\n",
+        status: 1,
+      },
+      {
+        name: "review_command_layout_controls_bre",
+        arguments: ["-n", "-e", "\rp;\u000bp;\fp"],
+        script: "\rp;\u000bp;\fp",
+        input: "input\n",
+        stdout: "input\ninput\ninput\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_carriage_return_after_address_bre",
+        arguments: ["-n", "-e", "1\rp"],
+        script: "1\rp",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 2: unknown command: '\r'\n",
+        status: 1,
+      },
+      {
+        name: "review_carriage_return_substitution_flag_bre",
+        arguments: ["-n", "-e", "s/a/b/\r"],
+        script: "s/a/b/\r",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 7: unknown option to 's'\n",
+        status: 1,
+      },
+      {
+        name: "review_control_bracket_delimiter_bre",
+        arguments: ["-n", "-e", "s[\\c[[x["],
+        script: "s[\\c[[x[",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_misplaced_class_bre",
+        arguments: ["-n", "-e", "s/[:alpha:]/x/"],
+        script: "s/[:alpha:]/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: character class syntax is [[:space:]], not [:space:]\n",
+        status: 4,
+      },
+      {
+        name: "review_misplaced_negated_class_bre",
+        arguments: ["-n", "-e", "s/[^:alpha:]/x/"],
+        script: "s/[^:alpha:]/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: character class syntax is [[:space:]], not [:space:]\n",
+        status: 4,
+      },
+      {
+        name: "review_misplaced_encoded_class_bre",
+        arguments: ["-n", "-e", "s/[\\x3a\\x61lpha\\x3a]/x/"],
+        script: "s/[\\x3a\\x61lpha\\x3a]/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: character class syntax is [[:space:]], not [:space:]\n",
+        status: 4,
+      },
+      {
+        name: "review_empty_colon_bracket_bre",
+        arguments: ["-n", "-e", "s/[::]/x/"],
+        script: "s/[::]/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_colon_bracket_range_bre",
+        arguments: ["-n", "-e", "s/[:a-b:]/x/"],
+        script: "s/[:a-b:]/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_omitted_branch_and_execute_operands_ere",
+        arguments: ["-n", "-E", "-e", "b;t;T;e"],
+        script: "b;t;T;e",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_label_space_before_command_ere",
+        arguments: ["-n", "-E", "-e", ":x p"],
+        script: ":x p",
+        input: "input\n",
+        stdout: "input\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_branch_space_before_command_ere",
+        arguments: ["-n", "-E", "-e", ":x\nt x p"],
+        script: ":x\nt x p",
+        input: "input\n",
+        stdout: "input\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_label_hash_starts_comment_ere",
+        arguments: ["-n", "-E", "-e", ":x#comment\nb x"],
+        script: ":x#comment\nb x",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_missing_label_before_comment_ere",
+        arguments: ["-n", "-E", "-e", ":#comment"],
+        script: ":#comment",
+        input: "",
+        stdout: "",
+        stderr:
+          '/opt/homebrew/bin/gsed: -e expression #1, char 1: ":" lacks a label\n',
+        status: 1,
+      },
+      {
+        name: "review_label_carriage_return_ere",
+        arguments: ["-n", "-E", "-e", ":x\rfoo\nb x\rfoo"],
+        script: ":x\rfoo\nb x\rfoo",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_version_space_before_command_ere",
+        arguments: ["-n", "-E", "-e", "v4.10 p"],
+        script: "v4.10 p",
+        input: "input\n",
+        stdout: "input\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_version_suffix_word_ere",
+        arguments: ["-n", "-E", "-e", "v0alpha p"],
+        script: "v0alpha p",
+        input: "input\n",
+        stdout: "input\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_version_requirement_is_not_syntax_ere",
+        arguments: ["-n", "-E", "-e", "v4.10-rc1"],
+        script: "v4.10-rc1",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: expected newer version of sed\n",
+        status: 1,
+      },
+      {
+        name: "review_command_layout_controls_ere",
+        arguments: ["-n", "-E", "-e", "\rp;\u000bp;\fp"],
+        script: "\rp;\u000bp;\fp",
+        input: "input\n",
+        stdout: "input\ninput\ninput\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_carriage_return_after_address_ere",
+        arguments: ["-n", "-E", "-e", "1\rp"],
+        script: "1\rp",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 2: unknown command: '\r'\n",
+        status: 1,
+      },
+      {
+        name: "review_carriage_return_substitution_flag_ere",
+        arguments: ["-n", "-E", "-e", "s/a/b/\r"],
+        script: "s/a/b/\r",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 7: unknown option to 's'\n",
+        status: 1,
+      },
+      {
+        name: "review_control_bracket_delimiter_ere",
+        arguments: ["-n", "-E", "-e", "s[\\c[[x["],
+        script: "s[\\c[[x[",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_misplaced_class_ere",
+        arguments: ["-n", "-E", "-e", "s/[:alpha:]/x/"],
+        script: "s/[:alpha:]/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: character class syntax is [[:space:]], not [:space:]\n",
+        status: 4,
+      },
+      {
+        name: "review_misplaced_negated_class_ere",
+        arguments: ["-n", "-E", "-e", "s/[^:alpha:]/x/"],
+        script: "s/[^:alpha:]/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: character class syntax is [[:space:]], not [:space:]\n",
+        status: 4,
+      },
+      {
+        name: "review_misplaced_encoded_class_ere",
+        arguments: ["-n", "-E", "-e", "s/[\\x3a\\x61lpha\\x3a]/x/"],
+        script: "s/[\\x3a\\x61lpha\\x3a]/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: character class syntax is [[:space:]], not [:space:]\n",
+        status: 4,
+      },
+      {
+        name: "review_empty_colon_bracket_ere",
+        arguments: ["-n", "-E", "-e", "s/[::]/x/"],
+        script: "s/[::]/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_colon_bracket_range_ere",
+        arguments: ["-n", "-E", "-e", "s/[:a-b:]/x/"],
+        script: "s/[:a-b:]/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_closing_negation_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "{p;!}",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_closing_address_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "{p;1}",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: '}' doesn't want any addresses\n",
+        status: 1,
+      },
+      {
+        name: "boundary_closing_address_negation_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "{p;1!}",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: '}' doesn't want any addresses\n",
+        status: 1,
+      },
+      {
+        name: "boundary_class_control_completion_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "/[[:a\\c,pha:]]/p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_class_hex_completion_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "/[[:a\\x6cpha:]]/p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_class_octal_completion_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "/[[:a\\o154pha:]]/p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_class_decimal_completion_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "/[[:a\\d108pha:]]/p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_generated_backslash_preserved_escape_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "s/a\\x5c\\{/x/p",
+        input: "a\\{\n",
+        stdout: "x\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_generated_backslash_preserved_pair_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "s/\\x5c\\\\x5e/x/p",
+        input: "\\x5e\n",
+        stdout: "x\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_generated_backslash_encoded_pair_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "s/a\\x5c\\x5c{/x/p",
+        input: "a\\{\n",
+        stdout: "x\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_leading_nul_label_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: ":\u0000",
+        input: "",
+        stdout: "",
+        stderr:
+          '/opt/homebrew/bin/gsed: file script.sed line 1: ":" lacks a label\n',
+        status: 1,
+      },
+      {
+        name: "boundary_leading_nul_label_suffix_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: ":\u0000x",
+        input: "",
+        stdout: "",
+        stderr:
+          '/opt/homebrew/bin/gsed: file script.sed line 1: ":" lacks a label\n',
+        status: 1,
+      },
+      {
+        name: "boundary_embedded_nul_label_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: ":x\u0000y p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_branch_nul_label_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "b\u0000x",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_first_relative_without_count_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "+p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_first_relative_tilde_without_count_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "~p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_first_relative_zero_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "+0p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_first_relative_positive_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "+3p",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: invalid usage of +N or ~N as first address\n",
+        status: 1,
+      },
+      {
+        name: "boundary_recursive_control_escape_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "s/\\c\\./x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "boundary_recursive_control_c_delimiter_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "sc\\c\\.cxc",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_closing_negation_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "{p;!}",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_closing_address_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "{p;1}",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: '}' doesn't want any addresses\n",
+        status: 1,
+      },
+      {
+        name: "boundary_closing_address_negation_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "{p;1!}",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: '}' doesn't want any addresses\n",
+        status: 1,
+      },
+      {
+        name: "boundary_class_control_completion_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "/[[:a\\c,pha:]]/p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_class_hex_completion_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "/[[:a\\x6cpha:]]/p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_class_octal_completion_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "/[[:a\\o154pha:]]/p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_class_decimal_completion_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "/[[:a\\d108pha:]]/p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_generated_backslash_preserved_escape_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "s/a\\x5c\\{/x/p",
+        input: "a\\{\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: Unmatched \\{\n",
+        status: 1,
+      },
+      {
+        name: "boundary_generated_backslash_preserved_pair_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "s/\\x5c\\\\x5e/x/p",
+        input: "\\x5e\n",
+        stdout: "x\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_generated_backslash_encoded_pair_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "s/a\\x5c\\x5c{/x/p",
+        input: "a\\{\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: Unmatched \\{\n",
+        status: 1,
+      },
+      {
+        name: "boundary_leading_nul_label_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: ":\u0000",
+        input: "",
+        stdout: "",
+        stderr:
+          '/opt/homebrew/bin/gsed: file script.sed line 1: ":" lacks a label\n',
+        status: 1,
+      },
+      {
+        name: "boundary_leading_nul_label_suffix_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: ":\u0000x",
+        input: "",
+        stdout: "",
+        stderr:
+          '/opt/homebrew/bin/gsed: file script.sed line 1: ":" lacks a label\n',
+        status: 1,
+      },
+      {
+        name: "boundary_embedded_nul_label_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: ":x\u0000y p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_branch_nul_label_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "b\u0000x",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_first_relative_without_count_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "+p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_first_relative_tilde_without_count_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "~p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_first_relative_zero_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "+0p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "boundary_first_relative_positive_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "+3p",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: invalid usage of +N or ~N as first address\n",
+        status: 1,
+      },
+      {
+        name: "boundary_recursive_control_escape_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "s/\\c\\./x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "boundary_recursive_control_c_delimiter_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script_file: "script.sed",
+        script: "sc\\c\\.cxc",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_2_bre",
+        arguments: ["-n", "-e", "+b"],
+        script: "+b",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_4_bre",
+        arguments: ["-n", "-e", "~0p"],
+        script: "~0p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_5_bre",
+        arguments: ["-n", "-e", "+00p"],
+        script: "+00p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_6_bre",
+        arguments: ["-n", "-e", "+3p"],
+        script: "+3p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 2: invalid usage of +N or ~N as first address\n",
+        status: 1,
+      },
+      {
+        name: "p15_address_extension_7_bre",
+        arguments: ["-n", "-e", "~12p"],
+        script: "~12p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 3: invalid usage of +N or ~N as first address\n",
+        status: 1,
+      },
+      {
+        name: "p15_address_extension_8_bre",
+        arguments: ["-n", "-e", "+ 00p"],
+        script: "+ 00p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_9_bre",
+        arguments: ["-n", "-e", "1~p"],
+        script: "1~p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_10_bre",
+        arguments: ["-n", "-e", "1~0p"],
+        script: "1~0p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_11_bre",
+        arguments: ["-n", "-e", "1,+p"],
+        script: "1,+p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_12_bre",
+        arguments: ["-n", "-e", "1,~p"],
+        script: "1,~p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_13_bre",
+        arguments: ["-n", "-e", "1,+0p"],
+        script: "1,+0p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_14_bre",
+        arguments: ["-n", "-e", "+,2p"],
+        script: "+,2p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_15_bre",
+        arguments: ["-n", "-e", "+:label"],
+        script: "+:label",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 2: : doesn't want any addresses\n",
+        status: 1,
+      },
+      {
+        name: "p15_address_extension_16_bre",
+        arguments: ["-n", "-e", "{+}"],
+        script: "{+}",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 3: '}' doesn't want any addresses\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_0_bre",
+        arguments: ["-n", "-e", "s/\\c\\./X/p"],
+        script: "s/\\c\\./X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 10: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_1_bre",
+        arguments: ["-n", "-e", "s/\\c\\c/X/p"],
+        script: "s/\\c\\c/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 10: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_2_bre",
+        arguments: ["-n", "-e", "s/\\c\\/X/p"],
+        script: "s/\\c\\/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_3_bre",
+        arguments: ["-n", "-e", "s/\\c\\\\./X/p"],
+        script: "s/\\c\\\\./X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_4_bre",
+        arguments: ["-n", "-e", "s/\\c\\\\c/X/p"],
+        script: "s/\\c\\\\c/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 11: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_5_bre",
+        arguments: ["-n", "-e", "s/\\c\\\\/X/p"],
+        script: "s/\\c\\\\/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 10: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_6_bre",
+        arguments: ["-n", "-e", "s/\\c\\\\\\./X/p"],
+        script: "s/\\c\\\\\\./X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_7_bre",
+        arguments: ["-n", "-e", "s/\\c\\\\\\c/X/p"],
+        script: "s/\\c\\\\\\c/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 12: Trailing backslash\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_8_bre",
+        arguments: ["-n", "-e", "s/\\c\\\\\\/X/p"],
+        script: "s/\\c\\\\\\/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 11: Trailing backslash\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_9_bre",
+        arguments: ["-n", "-e", "s/\\c\\\\\\\\./X/p"],
+        script: "s/\\c\\\\\\\\./X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_10_bre",
+        arguments: ["-n", "-e", "s/\\c\\\\\\\\c/X/p"],
+        script: "s/\\c\\\\\\\\c/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 13: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_11_bre",
+        arguments: ["-n", "-e", "s/\\c\\\\\\\\/X/p"],
+        script: "s/\\c\\\\\\\\/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 12: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_12_bre",
+        arguments: ["-n", "-e", "s/[\\c\\.]/X/p"],
+        script: "s/[\\c\\.]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 12: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_13_bre",
+        arguments: ["-n", "-e", "s/[\\c\\c]/X/p"],
+        script: "s/[\\c\\c]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 12: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_14_bre",
+        arguments: ["-n", "-e", "s/[\\c\\]/X/p"],
+        script: "s/[\\c\\]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 11: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_15_bre",
+        arguments: ["-n", "-e", "s/[\\c\\\\.]/X/p"],
+        script: "s/[\\c\\\\.]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_16_bre",
+        arguments: ["-n", "-e", "s/[\\c\\\\c]/X/p"],
+        script: "s/[\\c\\\\c]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_17_bre",
+        arguments: ["-n", "-e", "s/[\\c\\\\]/X/p"],
+        script: "s/[\\c\\\\]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_18_bre",
+        arguments: ["-n", "-e", "s/[\\c\\\\\\.]/X/p"],
+        script: "s/[\\c\\\\\\.]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_19_bre",
+        arguments: ["-n", "-e", "s/[\\c\\\\\\c]/X/p"],
+        script: "s/[\\c\\\\\\c]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 14: Unmatched [, [^, [:, [., or [=\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_20_bre",
+        arguments: ["-n", "-e", "s/[\\c\\\\\\]/X/p"],
+        script: "s/[\\c\\\\\\]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_21_bre",
+        arguments: ["-n", "-e", "s/[\\c\\\\\\\\.]/X/p"],
+        script: "s/[\\c\\\\\\\\.]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_22_bre",
+        arguments: ["-n", "-e", "s/[\\c\\\\\\\\c]/X/p"],
+        script: "s/[\\c\\\\\\\\c]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_23_bre",
+        arguments: ["-n", "-e", "s/[\\c\\\\\\\\]/X/p"],
+        script: "s/[\\c\\\\\\\\]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_24_bre",
+        arguments: ["-n", "-e", "s/a/\\c\\./p"],
+        script: "s/a/\\c\\./p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_25_bre",
+        arguments: ["-n", "-e", "s/a/\\c\\c/p"],
+        script: "s/a/\\c\\c/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_26_bre",
+        arguments: ["-n", "-e", "s/a/\\c\\/p"],
+        script: "s/a/\\c\\/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_27_bre",
+        arguments: ["-n", "-e", "s/a/\\c\\\\./p"],
+        script: "s/a/\\c\\\\./p",
+        input: "a\n",
+        stdout: "\u001c.\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_28_bre",
+        arguments: ["-n", "-e", "s/a/\\c\\\\c/p"],
+        script: "s/a/\\c\\\\c/p",
+        input: "a\n",
+        stdout: "\u001cc\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_29_bre",
+        arguments: ["-n", "-e", "s/a/\\c\\\\/p"],
+        script: "s/a/\\c\\\\/p",
+        input: "a\n",
+        stdout: "\u001c\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_36_bre",
+        arguments: ["-n", "-e", "a \\c\\."],
+        script: "a \\c\\.",
+        input: "a\n",
+        stdout: "c.\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_37_bre",
+        arguments: ["-n", "-e", "a \\c\\c"],
+        script: "a \\c\\c",
+        input: "a\n",
+        stdout: "cJ",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_38_bre",
+        arguments: ["-n", "-e", "a \\c\\"],
+        script: "a \\c\\",
+        input: "a\n",
+        stdout: "c\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_39_bre",
+        arguments: ["-n", "-e", "a \\c\\\\."],
+        script: "a \\c\\\\.",
+        input: "a\n",
+        stdout: "c\\.\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_40_bre",
+        arguments: ["-n", "-e", "a \\c\\\\c"],
+        script: "a \\c\\\\c",
+        input: "a\n",
+        stdout: "c\\c\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_41_bre",
+        arguments: ["-n", "-e", "a \\c\\\\"],
+        script: "a \\c\\\\",
+        input: "a\n",
+        stdout: "c\\\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_48_bre",
+        arguments: ["-n", "-e", "y/\\c\\./X/"],
+        script: "y/\\c\\./X/",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 7: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_49_bre",
+        arguments: ["-n", "-e", "y/\\c\\c/X/"],
+        script: "y/\\c\\c/X/",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 7: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_50_bre",
+        arguments: ["-n", "-e", "y/\\c\\/X/"],
+        script: "y/\\c\\/X/",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 8: unterminated 'y' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_51_bre",
+        arguments: ["-n", "-e", "y/\\c\\\\./X/"],
+        script: "y/\\c\\\\./X/",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 10: 'y' command strings have different lengths\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_52_bre",
+        arguments: ["-n", "-e", "y/\\c\\\\c/X/"],
+        script: "y/\\c\\\\c/X/",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 10: 'y' command strings have different lengths\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_53_bre",
+        arguments: ["-n", "-e", "y/\\c\\\\/X/"],
+        script: "y/\\c\\\\/X/",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_60_bre",
+        arguments: ["-n", "-e", "y/a/\\c\\./"],
+        script: "y/a/\\c\\./",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_61_bre",
+        arguments: ["-n", "-e", "y/a/\\c\\c/"],
+        script: "y/a/\\c\\c/",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_62_bre",
+        arguments: ["-n", "-e", "y/a/\\c\\/"],
+        script: "y/a/\\c\\/",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 8: unterminated 'y' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_63_bre",
+        arguments: ["-n", "-e", "y/a/\\c\\\\./"],
+        script: "y/a/\\c\\\\./",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 10: 'y' command strings have different lengths\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_64_bre",
+        arguments: ["-n", "-e", "y/a/\\c\\\\c/"],
+        script: "y/a/\\c\\\\c/",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 10: 'y' command strings have different lengths\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_65_bre",
+        arguments: ["-n", "-e", "y/a/\\c\\\\/"],
+        script: "y/a/\\c\\\\/",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_72_bre",
+        arguments: ["-n", "-e", "sc\\c\\.cXcp"],
+        script: "sc\\c\\.cXcp",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_73_bre",
+        arguments: ["-n", "-e", "sc\\c\\ccXcp"],
+        script: "sc\\c\\ccXcp",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 8: unknown option to 's'\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_74_bre",
+        arguments: ["-n", "-e", "sc\\c\\cXcp"],
+        script: "sc\\c\\cXcp",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: Trailing backslash\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_75_bre",
+        arguments: ["-n", "-e", "sc\\c\\\\.cXcp"],
+        script: "sc\\c\\\\.cXcp",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_76_bre",
+        arguments: ["-n", "-e", "sc\\c\\\\ccXcp"],
+        script: "sc\\c\\\\ccXcp",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 11: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_77_bre",
+        arguments: ["-n", "-e", "sc\\c\\\\cXcp"],
+        script: "sc\\c\\\\cXcp",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 10: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_78_bre",
+        arguments: ["-n", "-e", "sc\\c\\\\\\.cXcp"],
+        script: "sc\\c\\\\\\.cXcp",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_79_bre",
+        arguments: ["-n", "-e", "sc\\c\\\\\\ccXcp"],
+        script: "sc\\c\\\\\\ccXcp",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 10: unknown option to 's'\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_80_bre",
+        arguments: ["-n", "-e", "sc\\c\\\\\\cXcp"],
+        script: "sc\\c\\\\\\cXcp",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 11: Trailing backslash\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_81_bre",
+        arguments: ["-n", "-e", "sc\\c\\\\\\\\.cXcp"],
+        script: "sc\\c\\\\\\\\.cXcp",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_82_bre",
+        arguments: ["-n", "-e", "sc\\c\\\\\\\\ccXcp"],
+        script: "sc\\c\\\\\\\\ccXcp",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 13: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_83_bre",
+        arguments: ["-n", "-e", "sc\\c\\\\\\\\cXcp"],
+        script: "sc\\c\\\\\\\\cXcp",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 12: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_context_0_bre",
+        arguments: ["-n", "-e", "/\\c\\./p"],
+        script: "/\\c\\./p",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 6: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_context_1_bre",
+        arguments: ["-n", "-e", "\\c\\c\\.cp"],
+        script: "\\c\\c\\.cp",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_context_2_bre",
+        arguments: ["-n", "-e", "sc\\cccxc"],
+        script: "sc\\cccxc",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_context_3_bre",
+        arguments: ["-n", "-e", "s/[[:a\\c\\.:]]/x/"],
+        script: "s/[[:a\\c\\.:]]/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 16: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_context_4_bre",
+        arguments: ["-n", "-e", "s/a{\\c\\}/x/"],
+        script: "s/a{\\c\\}/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 11: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_context_5_bre",
+        arguments: ["-n", "-e", "s/\\x5cc\\./x/"],
+        script: "s/\\x5cc\\./x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_2_ere",
+        arguments: ["-n", "-E", "-e", "+b"],
+        script: "+b",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_4_ere",
+        arguments: ["-n", "-E", "-e", "~0p"],
+        script: "~0p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_5_ere",
+        arguments: ["-n", "-E", "-e", "+00p"],
+        script: "+00p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_6_ere",
+        arguments: ["-n", "-E", "-e", "+3p"],
+        script: "+3p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 2: invalid usage of +N or ~N as first address\n",
+        status: 1,
+      },
+      {
+        name: "p15_address_extension_7_ere",
+        arguments: ["-n", "-E", "-e", "~12p"],
+        script: "~12p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 3: invalid usage of +N or ~N as first address\n",
+        status: 1,
+      },
+      {
+        name: "p15_address_extension_8_ere",
+        arguments: ["-n", "-E", "-e", "+ 00p"],
+        script: "+ 00p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_9_ere",
+        arguments: ["-n", "-E", "-e", "1~p"],
+        script: "1~p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_10_ere",
+        arguments: ["-n", "-E", "-e", "1~0p"],
+        script: "1~0p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_11_ere",
+        arguments: ["-n", "-E", "-e", "1,+p"],
+        script: "1,+p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_12_ere",
+        arguments: ["-n", "-E", "-e", "1,~p"],
+        script: "1,~p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_13_ere",
+        arguments: ["-n", "-E", "-e", "1,+0p"],
+        script: "1,+0p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_14_ere",
+        arguments: ["-n", "-E", "-e", "+,2p"],
+        script: "+,2p",
+        input: "a\n",
+        stdout: "a\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_address_extension_15_ere",
+        arguments: ["-n", "-E", "-e", "+:label"],
+        script: "+:label",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 2: : doesn't want any addresses\n",
+        status: 1,
+      },
+      {
+        name: "p15_address_extension_16_ere",
+        arguments: ["-n", "-E", "-e", "{+}"],
+        script: "{+}",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 3: '}' doesn't want any addresses\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_0_ere",
+        arguments: ["-n", "-E", "-e", "s/\\c\\./X/p"],
+        script: "s/\\c\\./X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 10: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_1_ere",
+        arguments: ["-n", "-E", "-e", "s/\\c\\c/X/p"],
+        script: "s/\\c\\c/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 10: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_2_ere",
+        arguments: ["-n", "-E", "-e", "s/\\c\\/X/p"],
+        script: "s/\\c\\/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_3_ere",
+        arguments: ["-n", "-E", "-e", "s/\\c\\\\./X/p"],
+        script: "s/\\c\\\\./X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_4_ere",
+        arguments: ["-n", "-E", "-e", "s/\\c\\\\c/X/p"],
+        script: "s/\\c\\\\c/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 11: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_5_ere",
+        arguments: ["-n", "-E", "-e", "s/\\c\\\\/X/p"],
+        script: "s/\\c\\\\/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 10: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_6_ere",
+        arguments: ["-n", "-E", "-e", "s/\\c\\\\\\./X/p"],
+        script: "s/\\c\\\\\\./X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_7_ere",
+        arguments: ["-n", "-E", "-e", "s/\\c\\\\\\c/X/p"],
+        script: "s/\\c\\\\\\c/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 12: Trailing backslash\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_8_ere",
+        arguments: ["-n", "-E", "-e", "s/\\c\\\\\\/X/p"],
+        script: "s/\\c\\\\\\/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 11: Trailing backslash\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_9_ere",
+        arguments: ["-n", "-E", "-e", "s/\\c\\\\\\\\./X/p"],
+        script: "s/\\c\\\\\\\\./X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_10_ere",
+        arguments: ["-n", "-E", "-e", "s/\\c\\\\\\\\c/X/p"],
+        script: "s/\\c\\\\\\\\c/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 13: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_11_ere",
+        arguments: ["-n", "-E", "-e", "s/\\c\\\\\\\\/X/p"],
+        script: "s/\\c\\\\\\\\/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 12: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_12_ere",
+        arguments: ["-n", "-E", "-e", "s/[\\c\\.]/X/p"],
+        script: "s/[\\c\\.]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 12: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_13_ere",
+        arguments: ["-n", "-E", "-e", "s/[\\c\\c]/X/p"],
+        script: "s/[\\c\\c]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 12: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_14_ere",
+        arguments: ["-n", "-E", "-e", "s/[\\c\\]/X/p"],
+        script: "s/[\\c\\]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 11: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_15_ere",
+        arguments: ["-n", "-E", "-e", "s/[\\c\\\\.]/X/p"],
+        script: "s/[\\c\\\\.]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_16_ere",
+        arguments: ["-n", "-E", "-e", "s/[\\c\\\\c]/X/p"],
+        script: "s/[\\c\\\\c]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_17_ere",
+        arguments: ["-n", "-E", "-e", "s/[\\c\\\\]/X/p"],
+        script: "s/[\\c\\\\]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_18_ere",
+        arguments: ["-n", "-E", "-e", "s/[\\c\\\\\\.]/X/p"],
+        script: "s/[\\c\\\\\\.]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_19_ere",
+        arguments: ["-n", "-E", "-e", "s/[\\c\\\\\\c]/X/p"],
+        script: "s/[\\c\\\\\\c]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 14: Unmatched [, [^, [:, [., or [=\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_20_ere",
+        arguments: ["-n", "-E", "-e", "s/[\\c\\\\\\]/X/p"],
+        script: "s/[\\c\\\\\\]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_21_ere",
+        arguments: ["-n", "-E", "-e", "s/[\\c\\\\\\\\.]/X/p"],
+        script: "s/[\\c\\\\\\\\.]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_22_ere",
+        arguments: ["-n", "-E", "-e", "s/[\\c\\\\\\\\c]/X/p"],
+        script: "s/[\\c\\\\\\\\c]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_23_ere",
+        arguments: ["-n", "-E", "-e", "s/[\\c\\\\\\\\]/X/p"],
+        script: "s/[\\c\\\\\\\\]/X/p",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_24_ere",
+        arguments: ["-n", "-E", "-e", "s/a/\\c\\./p"],
+        script: "s/a/\\c\\./p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_25_ere",
+        arguments: ["-n", "-E", "-e", "s/a/\\c\\c/p"],
+        script: "s/a/\\c\\c/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_26_ere",
+        arguments: ["-n", "-E", "-e", "s/a/\\c\\/p"],
+        script: "s/a/\\c\\/p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_27_ere",
+        arguments: ["-n", "-E", "-e", "s/a/\\c\\\\./p"],
+        script: "s/a/\\c\\\\./p",
+        input: "a\n",
+        stdout: "\u001c.\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_28_ere",
+        arguments: ["-n", "-E", "-e", "s/a/\\c\\\\c/p"],
+        script: "s/a/\\c\\\\c/p",
+        input: "a\n",
+        stdout: "\u001cc\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_29_ere",
+        arguments: ["-n", "-E", "-e", "s/a/\\c\\\\/p"],
+        script: "s/a/\\c\\\\/p",
+        input: "a\n",
+        stdout: "\u001c\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_36_ere",
+        arguments: ["-n", "-E", "-e", "a \\c\\."],
+        script: "a \\c\\.",
+        input: "a\n",
+        stdout: "c.\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_37_ere",
+        arguments: ["-n", "-E", "-e", "a \\c\\c"],
+        script: "a \\c\\c",
+        input: "a\n",
+        stdout: "cJ",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_38_ere",
+        arguments: ["-n", "-E", "-e", "a \\c\\"],
+        script: "a \\c\\",
+        input: "a\n",
+        stdout: "c\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_39_ere",
+        arguments: ["-n", "-E", "-e", "a \\c\\\\."],
+        script: "a \\c\\\\.",
+        input: "a\n",
+        stdout: "c\\.\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_40_ere",
+        arguments: ["-n", "-E", "-e", "a \\c\\\\c"],
+        script: "a \\c\\\\c",
+        input: "a\n",
+        stdout: "c\\c\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_41_ere",
+        arguments: ["-n", "-E", "-e", "a \\c\\\\"],
+        script: "a \\c\\\\",
+        input: "a\n",
+        stdout: "c\\\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_48_ere",
+        arguments: ["-n", "-E", "-e", "y/\\c\\./X/"],
+        script: "y/\\c\\./X/",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 7: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_49_ere",
+        arguments: ["-n", "-E", "-e", "y/\\c\\c/X/"],
+        script: "y/\\c\\c/X/",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 7: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_50_ere",
+        arguments: ["-n", "-E", "-e", "y/\\c\\/X/"],
+        script: "y/\\c\\/X/",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 8: unterminated 'y' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_51_ere",
+        arguments: ["-n", "-E", "-e", "y/\\c\\\\./X/"],
+        script: "y/\\c\\\\./X/",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 10: 'y' command strings have different lengths\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_52_ere",
+        arguments: ["-n", "-E", "-e", "y/\\c\\\\c/X/"],
+        script: "y/\\c\\\\c/X/",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 10: 'y' command strings have different lengths\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_53_ere",
+        arguments: ["-n", "-E", "-e", "y/\\c\\\\/X/"],
+        script: "y/\\c\\\\/X/",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_60_ere",
+        arguments: ["-n", "-E", "-e", "y/a/\\c\\./"],
+        script: "y/a/\\c\\./",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_61_ere",
+        arguments: ["-n", "-E", "-e", "y/a/\\c\\c/"],
+        script: "y/a/\\c\\c/",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_62_ere",
+        arguments: ["-n", "-E", "-e", "y/a/\\c\\/"],
+        script: "y/a/\\c\\/",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 8: unterminated 'y' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_63_ere",
+        arguments: ["-n", "-E", "-e", "y/a/\\c\\\\./"],
+        script: "y/a/\\c\\\\./",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 10: 'y' command strings have different lengths\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_64_ere",
+        arguments: ["-n", "-E", "-e", "y/a/\\c\\\\c/"],
+        script: "y/a/\\c\\\\c/",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 10: 'y' command strings have different lengths\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_65_ere",
+        arguments: ["-n", "-E", "-e", "y/a/\\c\\\\/"],
+        script: "y/a/\\c\\\\/",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_72_ere",
+        arguments: ["-n", "-E", "-e", "sc\\c\\.cXcp"],
+        script: "sc\\c\\.cXcp",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_73_ere",
+        arguments: ["-n", "-E", "-e", "sc\\c\\ccXcp"],
+        script: "sc\\c\\ccXcp",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 8: unknown option to 's'\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_74_ere",
+        arguments: ["-n", "-E", "-e", "sc\\c\\cXcp"],
+        script: "sc\\c\\cXcp",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: Trailing backslash\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_75_ere",
+        arguments: ["-n", "-E", "-e", "sc\\c\\\\.cXcp"],
+        script: "sc\\c\\\\.cXcp",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_76_ere",
+        arguments: ["-n", "-E", "-e", "sc\\c\\\\ccXcp"],
+        script: "sc\\c\\\\ccXcp",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 11: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_77_ere",
+        arguments: ["-n", "-E", "-e", "sc\\c\\\\cXcp"],
+        script: "sc\\c\\\\cXcp",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 10: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_78_ere",
+        arguments: ["-n", "-E", "-e", "sc\\c\\\\\\.cXcp"],
+        script: "sc\\c\\\\\\.cXcp",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_79_ere",
+        arguments: ["-n", "-E", "-e", "sc\\c\\\\\\ccXcp"],
+        script: "sc\\c\\\\\\ccXcp",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 10: unknown option to 's'\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_80_ere",
+        arguments: ["-n", "-E", "-e", "sc\\c\\\\\\cXcp"],
+        script: "sc\\c\\\\\\cXcp",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 11: Trailing backslash\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_81_ere",
+        arguments: ["-n", "-E", "-e", "sc\\c\\\\\\\\.cXcp"],
+        script: "sc\\c\\\\\\\\.cXcp",
+        input: "a\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_escape_82_ere",
+        arguments: ["-n", "-E", "-e", "sc\\c\\\\\\\\ccXcp"],
+        script: "sc\\c\\\\\\\\ccXcp",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 13: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_escape_83_ere",
+        arguments: ["-n", "-E", "-e", "sc\\c\\\\\\\\cXcp"],
+        script: "sc\\c\\\\\\\\cXcp",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 12: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_context_0_ere",
+        arguments: ["-n", "-E", "-e", "/\\c\\./p"],
+        script: "/\\c\\./p",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 6: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_context_1_ere",
+        arguments: ["-n", "-E", "-e", "\\c\\c\\.cp"],
+        script: "\\c\\c\\.cp",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_context_2_ere",
+        arguments: ["-n", "-E", "-e", "sc\\cccxc"],
+        script: "sc\\cccxc",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "p15_control_context_3_ere",
+        arguments: ["-n", "-E", "-e", "s/[[:a\\c\\.:]]/x/"],
+        script: "s/[[:a\\c\\.:]]/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 16: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_context_4_ere",
+        arguments: ["-n", "-E", "-e", "s/a{\\c\\}/x/"],
+        script: "s/a{\\c\\}/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 11: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "p15_control_context_5_ere",
+        arguments: ["-n", "-E", "-e", "s/\\x5cc\\./x/"],
+        script: "s/\\x5cc\\./x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_shell_continuation_bre",
+        arguments: ["-n", "-e", "e x\\\npp"],
+        script: "e x\\\npp",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_shell_escaped_backslash_newline_bre",
+        arguments: ["-n", "-e", "e x\\\\\npp"],
+        script: "e x\\\\\npp",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 8: extra characters after command\n",
+        status: 1,
+      },
+      {
+        name: "audit_shell_paired_backslash_continuation_bre",
+        arguments: ["-n", "-e", "e x\\\\\\\npp"],
+        script: "e x\\\\\\\npp",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_replacement_control_escaped_newline_bre",
+        arguments: ["-n", "-e", "s/a/\\c\\\ny/p"],
+        script: "s/a/\\c\\\ny/p",
+        input: "a\n",
+        stdout: "Jy\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_translation_control_escaped_newline_bre",
+        arguments: ["-n", "-e", "y/ab/x\\c\\\n/;p"],
+        script: "y/ab/x\\c\\\n/;p",
+        input: "ab\n",
+        stdout: "xJ\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_pattern_control_escaped_newline_bre",
+        arguments: ["-n", "-e", "s/a\\c\\\n/x/"],
+        script: "s/a\\c\\\n/x/",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 6: unterminated 's' command\n",
+        status: 1,
+      },
+      {
+        name: "audit_replacement_control_escaped_slash_bre",
+        arguments: ["-n", "-e", "s/a/\\c\\//p"],
+        script: "s/a/\\c\\//p",
+        input: "a\n",
+        stdout: "o\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_replacement_escaped_ampersand_delimiter_bre",
+        arguments: ["-n", "-e", "s&a&x\\&y&p"],
+        script: "s&a&x\\&y&p",
+        input: "a\n",
+        stdout: "x&y\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_replacement_control_escaped_ampersand_bre",
+        arguments: ["-n", "-e", "s&a&\\c\\&&"],
+        script: "s&a&\\c\\&&",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "audit_translation_control_escaped_ampersand_bre",
+        arguments: ["-n", "-e", "y&a&\\c\\&&"],
+        script: "y&a&\\c\\&&",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "audit_text_raw_leadin_backslash_bre",
+        arguments: ["-n", "-e", "a\\\\\np"],
+        script: "a\\\\\np",
+        input: "L1\n",
+        stdout: "L1\n\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_text_backslash_after_raw_leadin_bre",
+        arguments: ["-n", "-e", "a\\\\\\\np"],
+        script: "a\\\\\\\np",
+        input: "L1\n",
+        stdout: "\\\np\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_text_raw_leadin_before_command_bre",
+        arguments: ["-n", "-e", "i\\\\\n\\bb"],
+        script: "i\\\\\n\\bb",
+        input: "",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: -e expression #1, char 7: missing command\n",
+        status: 1,
+      },
+      {
+        name: "audit_pattern_paired_control_backslashes_bre",
+        arguments: ["-n", "-e", "s/\\c\\\\\\c\\\\/x/"],
+        script: "s/\\c\\\\\\c\\\\/x/",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_zero_first_step_ending_in_zero_read_bre",
+        arguments: ["-n", "-e", "0~10r x"],
+        script: "0~10r x",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_zero_first_step_ending_in_zero_range_bre",
+        arguments: ["-n", "-e", "0~100,/b/p"],
+        script: "0~100,/b/p",
+        input: "",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_class_name_digitless_escape_bre",
+        arguments: ["-n", "-e", "s/[[:\\digit:]]/Y/gp"],
+        script: "s/[[:\\digit:]]/Y/gp",
+        input: "a1b2\n",
+        stdout: "aYbY\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_collating_digitless_escape_bre",
+        arguments: ["-n", "-e", "s/[[.\\x.]]/Y/p"],
+        script: "s/[[.\\x.]]/Y/p",
+        input: "x\n",
+        stdout: "Y\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_text_control_unpaired_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "ax\\c\\.",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_text_control_continued_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "a x\\c\\\np",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 2: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_text_control_paired_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "ax\\c\\\\.",
+        input: "a{1}\na{\na\n",
+        stdout: "x\u001c.\nx\u001c.\nx\u001c.\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_text_control_trailing_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "ax\\c\\",
+        input: "a{1}\na{\na\n",
+        stdout: "x\\c\nx\\c\nx\\c\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_text_control_multiline_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "a\\\nx\\c\\.",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 2: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_nul_substitute_delimiter_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s\u0000a\u0000b\u0000",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: delimiter character is not a single-byte character\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_nul_translate_delimiter_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "y\u0000a\u0000b\u0000",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: delimiter character is not a single-byte character\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_nul_address_delimiter_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "\\\u0000a\u0000p",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: delimiter character is not a single-byte character\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_nul_read_filename_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "r \u0000tail",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: missing filename in r/R/w/W commands\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_nul_read_line_filename_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "R\u0000",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: missing filename in r/R/w/W commands\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_nul_write_filename_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "w \u0000",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: missing filename in r/R/w/W commands\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_nul_write_line_filename_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "W\u0000",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: missing filename in r/R/w/W commands\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_nul_flag_filename_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s/a/b/w \u0000tail",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: missing filename in r/R/w/W commands\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_nul_internal_filename_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "r x\u0000tail",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_zero_step_read_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "0~0r x",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_omitted_step_read_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "0~r x",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_zero_step_spaced_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "00 ~ 00r x",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_zero_step_range_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "0~0,/a/p",
+        input: "a{1}\na{\na\n",
+        stdout: "a{1}\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_omitted_step_range_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "0~,/a/p",
+        input: "a{1}\na{\na\n",
+        stdout: "a{1}\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_zero_step_negated_range_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "0~0,/a/!p",
+        input: "a{1}\na{\na\n",
+        stdout: "a{\na\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_zero_step_print_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "0~0p",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: invalid usage of line address 0\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_zero_step_negated_read_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "0~0!r x",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: invalid usage of line address 0\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_zero_step_numeric_range_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "0~0,1p",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: invalid usage of line address 0\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_interval_control_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s/a\\{1\\n\\}/x/",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: Invalid content of \\{\\}\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_interval_escaped_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s/a\\{1\\q\\}/x/",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: Invalid content of \\{\\}\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_interval_encoded_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s/a\\{1\\x61\\}/x/",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: Invalid content of \\{\\}\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_boundary_interval_0_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s/a\\b\\{/x/p",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr: "/opt/homebrew/bin/gsed: invalid content of \\{\\}\n",
+        status: 4,
+      },
+      {
+        name: "review_seven_boundary_interval_1_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s/\\b\\{/x/p",
+        input: "a{1}\na{\na\n",
+        stdout: "ax1}\nax\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_boundary_interval_2_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s/a\\b\\{1\\}/x/p",
+        input: "a{1}\na{\na\n",
+        stdout: "x\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_boundary_interval_3_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s/a\\b\\{x\\}/x/p",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr: "/opt/homebrew/bin/gsed: invalid content of \\{\\}\n",
+        status: 4,
+      },
+      {
+        name: "review_seven_boundary_interval_4_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s/a\\b\\B\\{/x/p",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr: "/opt/homebrew/bin/gsed: invalid content of \\{\\}\n",
+        status: 4,
+      },
+      {
+        name: "review_seven_boundary_interval_5_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s/\\(a\\)\\b\\{/x/p",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr: "/opt/homebrew/bin/gsed: invalid content of \\{\\}\n",
+        status: 4,
+      },
+      {
+        name: "review_seven_boundary_interval_6_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s/a\\|\\b\\{/x/p",
+        input: "a{1}\na{\na\n",
+        stdout: "x{1}\nx{\nx\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_boundary_interval_7_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s/\\(\\b\\{\\)/x/p",
+        input: "a{1}\na{\na\n",
+        stdout: "ax1}\nax\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_boundary_interval_8_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s/a\\b\\{,\\}/x/p",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_boundary_interval_9_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s/a\\b\\{\\x31\\}/x/p",
+        input: "a{1}\na{\na\n",
+        stdout: "x\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_text_control_unpaired_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "ax\\c\\.",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_text_control_continued_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "a x\\c\\\np",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 2: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_text_control_paired_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "ax\\c\\\\.",
+        input: "a{1}\na{\na\n",
+        stdout: "x\u001c.\nx\u001c.\nx\u001c.\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_text_control_trailing_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "ax\\c\\",
+        input: "a{1}\na{\na\n",
+        stdout: "x\\c\nx\\c\nx\\c\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_text_control_multiline_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "a\\\nx\\c\\.",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 2: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_nul_substitute_delimiter_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "s\u0000a\u0000b\u0000",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: delimiter character is not a single-byte character\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_nul_translate_delimiter_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "y\u0000a\u0000b\u0000",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: delimiter character is not a single-byte character\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_nul_address_delimiter_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "\\\u0000a\u0000p",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: delimiter character is not a single-byte character\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_nul_read_filename_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "r \u0000tail",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: missing filename in r/R/w/W commands\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_nul_read_line_filename_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "R\u0000",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: missing filename in r/R/w/W commands\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_nul_write_filename_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "w \u0000",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: missing filename in r/R/w/W commands\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_nul_write_line_filename_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "W\u0000",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: missing filename in r/R/w/W commands\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_nul_flag_filename_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "s/a/b/w \u0000tail",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: missing filename in r/R/w/W commands\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_nul_internal_filename_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "r x\u0000tail",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_zero_step_read_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "0~0r x",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_omitted_step_read_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "0~r x",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_zero_step_spaced_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "00 ~ 00r x",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_zero_step_range_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "0~0,/a/p",
+        input: "a{1}\na{\na\n",
+        stdout: "a{1}\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_omitted_step_range_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "0~,/a/p",
+        input: "a{1}\na{\na\n",
+        stdout: "a{1}\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_zero_step_negated_range_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "0~0,/a/!p",
+        input: "a{1}\na{\na\n",
+        stdout: "a{\na\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "review_seven_zero_step_print_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "0~0p",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: invalid usage of line address 0\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_zero_step_negated_read_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "0~0!r x",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: invalid usage of line address 0\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_zero_step_numeric_range_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "0~0,1p",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: invalid usage of line address 0\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_interval_control_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "s/a{1\\n}/x/",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: Invalid content of \\{\\}\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_interval_escaped_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "s/a{1\\q}/x/",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: Invalid content of \\{\\}\n",
+        status: 1,
+      },
+      {
+        name: "review_seven_interval_encoded_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "s/a{1\\x61}/x/",
+        input: "a{1}\na{\na\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: Invalid content of \\{\\}\n",
+        status: 1,
+      },
+      {
+        name: "audit_paired_control_escaped_hex_delimiter_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "sx\\c\\\\\\\\x5dxYxp",
+        input: "\u001c]\n\u001cx5d\n",
+        stdout: "Y\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_paired_control_escaped_hex_delimiter_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "sx\\c\\\\\\\\x5dxYxp",
+        input: "\u001c]\n\u001cx5d\n",
+        stdout: "Y\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_paired_control_escaped_tab_delimiter_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "st\\c\\\\\\\\ttYtp",
+        input: "\u001c\t\n\u001ct\n",
+        stdout: "Y\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_paired_control_escaped_tab_delimiter_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "st\\c\\\\\\\\ttYtp",
+        input: "\u001c\t\n\u001ct\n",
+        stdout: "Y\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_paired_control_escaped_bracket_delimiter_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "sx\\c\\\\\\\\x5bxYxp",
+        input: "\u001c[\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: Invalid regular expression\n",
+        status: 1,
+      },
+      {
+        name: "audit_paired_control_escaped_bracket_delimiter_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "sx\\c\\\\\\\\x5bxYxp",
+        input: "\u001c[\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: Invalid regular expression\n",
+        status: 1,
+      },
+      {
+        name: "audit_control_pair_before_escaped_newline_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "N;s/\\c\\\\\n/X/p",
+        input: "\u001c\n\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 2: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "audit_control_pair_before_escaped_newline_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "N;s/\\c\\\\\n/X/p",
+        input: "\u001c\n\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 2: recursive escaping after \\c not allowed\n",
+        status: 1,
+      },
+      {
+        name: "audit_paired_control_escaped_newline_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "N;s/\\c\\\\\\\\\n/X/p",
+        input: "\u001c\n\n",
+        stdout: "X\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_paired_control_escaped_newline_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "N;s/\\c\\\\\\\\\n/X/p",
+        input: "\u001c\n\n",
+        stdout: "X\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_encoded_bracket_escaped_newline_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "N;s/a\\x5b\\\n]b/X/p",
+        input: "a\nb\n",
+        stdout: "X\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_encoded_bracket_escaped_newline_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "N;s/a\\x5b\\\n]b/X/p",
+        input: "a\nb\n",
+        stdout: "X\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_control_argument_escaped_newline_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "N;sca\\c\\\\\ncQcp",
+        input: "ac\n\n",
+        stdout: "Q\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_control_argument_escaped_newline_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "N;sca\\c\\\\\ncQcp",
+        input: "ac\n\n",
+        stdout: "Q\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_offset_control_escaped_delimiter_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s/\\c\\\\\\c\\//Q/p",
+        input: "\u001co\n",
+        stdout: "Q\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_offset_control_escaped_delimiter_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "s/\\c\\\\\\c\\//Q/p",
+        input: "\u001co\n",
+        stdout: "Q\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "audit_paired_control_bracket_letter_delimiter_bre",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "st\\x5b\\c\\\\\\tQtp",
+        input: "\u001c\\\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: Unmatched [, [^, [:, [., or [=\n",
+        status: 1,
+      },
+      {
+        name: "audit_paired_control_bracket_letter_delimiter_ere",
+        arguments: ["-n", "-E", "-f", "script.sed"],
+        script: "st\\x5b\\c\\\\\\tQtp",
+        input: "\u001c\\\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: Unmatched [, [^, [:, [., or [=\n",
+        status: 1,
+      },
+      {
+        name: "backslash_address_matches",
+        script: "\\\\b\\p",
+        arguments: ["-n", "-f", "script.sed"],
+        stdout: "b\n",
+        stderr: "",
+        status: 0,
+        input: "b\n",
+      },
+      {
+        name: "text_eof_backslash_preserves_tab_escape",
+        script: "a x\\t\\",
+        arguments: ["-n", "-f", "script.sed"],
+        stdout: "x\\t\n",
+        stderr: "",
+        status: 0,
+        input: "q\n",
+      },
+      {
+        name: "text_eof_backslash_preserves_control_escape",
+        script: "a x\\c\\.\\",
+        arguments: ["-n", "-f", "script.sed"],
+        stdout: "x\\c\\.\n",
+        stderr: "",
+        status: 0,
+        input: "q\n",
+      },
+      {
+        name: "terminated_text_decodes_tab_escape",
+        script: "a x\\t\n",
+        arguments: ["-n", "-f", "script.sed"],
+        stdout: "x\t\n",
+        stderr: "",
+        status: 0,
+        input: "q\n",
+      },
+      {
+        name: "execute_operand_decodes_tab_escape",
+        script: "e printf '%s' 'x\\ty' ",
+        arguments: ["-n", "-f", "script.sed"],
+        stdout: "x\ty",
+        stderr: "",
+        status: 0,
+        input: "q\n",
+      },
+      {
+        name: "execute_operand_decodes_hexadecimal_escape",
+        script: "e printf '%s' '\\x41' ",
+        arguments: ["-n", "-f", "script.sed"],
+        stdout: "A",
+        stderr: "",
+        status: 0,
+        input: "q\n",
+      },
+      {
+        name: "execute_operand_rejects_recursive_control_escape",
+        script: "e x\\c\\y",
+        arguments: ["-n", "-f", "script.sed"],
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: recursive escaping after \\c not allowed\n",
+        status: 1,
+        input: "",
+      },
+      {
+        name: "regex_numeric_digit_from_escaped_delimiter",
+        script: "s5\\x\\55X5p",
+        arguments: ["-n", "-f", "script.sed"],
+        stdout: "X\n",
+        stderr: "",
+        status: 0,
+        input: "\u0005\n",
+      },
+      {
+        name: "text_odd_3",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "a x\\t\\\\\\",
+        input: "q\n",
+        stdout: "x\\t\\\\\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "text_even_2",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "a x\\t\\\\",
+        input: "q\n",
+        stdout: "x\t\\\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "text_continued_raw",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "a x\\t\\\ny\\n\\",
+        input: "q\n",
+        stdout: "x\\t\\\ny\\n\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "text_raw_leadin",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "a\\\\t\\",
+        input: "q\n",
+        stdout: "\\t\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "shell_raw",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "e printf '%s' 'x\\ty' \\",
+        input: "q\n",
+        stdout: "x\\ty",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "digit_not_delimiter",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s5\\x\\65X5p",
+        input: "x6\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: Invalid back reference\n",
+        status: 1,
+      },
+      {
+        name: "digit_second",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s5\\x6\\55X5p",
+        input: "e\n",
+        stdout: "X\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "digit_twice",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s5\\x\\5\\55X5p",
+        input: "U\n",
+        stdout: "X\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "digit_replacement",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s5a5\\x\\55p",
+        input: "a\n",
+        stdout: "\u0005\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "digit_translation",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "y5\\x\\55X5;p",
+        input: "\u0005\n",
+        stdout: "X\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "digit_bracket",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s5[\\x\\5]5X5p",
+        input: "x\\5\n",
+        stdout: "X\\5\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "slash_pattern",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s\\\\\\p",
+        input: "a\n",
+        stdout: "",
+        stderr:
+          "/opt/homebrew/bin/gsed: file script.sed line 1: no previous regular expression\n",
+        status: 1,
+      },
+      {
+        name: "slash_bracket",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s\\[\\t]\\X\\p",
+        input: "\t\n",
+        stdout: "X\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "backslash_substitution_output",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s\\b\\X\\p",
+        input: "b\n",
+        stdout: "X\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "backslash_translation_output",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "y\\abc\\xyz\\;p",
+        input: "abc\n",
+        stdout: "xyz\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "text_leadin_terminal_pair",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "a\\\\\\",
+        input: "q\n",
+        stdout: "\\\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "text_leadin_terminal_triple",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "a\\\\\\\\",
+        input: "q\n",
+        stdout: "\\\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "shell_initial_numeric_escape",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "e \\x70rintf '%s' 'ok'",
+        input: "q\n",
+        stdout: "",
+        stderr: "sh: x70rintf: command not found\n",
+        status: 0,
+      },
+      {
+        name: "text_continued_decoded",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "a x\\t\\\ny\\n",
+        input: "q\n",
+        stdout: "x\t\ny\n\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "numeric_decimal_delimiter",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s5\\d6\\55X5p",
+        input: "A\n",
+        stdout: "X\n",
+        stderr: "",
+        status: 0,
+      },
+      {
+        name: "numeric_octal_delimiter",
+        arguments: ["-n", "-f", "script.sed"],
+        script: "s5\\o10\\55X5p",
+        input: "E\n",
+        stdout: "X\n",
+        stderr: "",
+        status: 0,
+      },
+    ],
+  };
+  if (process.platform !== "darwin") {
+    t.skip("These GNU sed diagnostics were recorded on macOS");
+    return;
+  }
+  const expectedVersion = observations.version
+    .replace(observations.executable, "")
+    .trim();
+  const executable = (process.env.PATH ?? "")
+    .split(delimiter)
+    .flatMap((directory) => [join(directory, "gsed"), join(directory, "sed")])
+    .find((candidate) => {
+      if (!existsSync(candidate)) return false;
+      const version = spawnSync(candidate, ["--version"], {
+        encoding: "utf8",
+        env: observations.environment,
+        timeout: runtimeTimeoutMs,
+      });
+      return (
+        version.status === 0 &&
+        version.stdout.split("\n")[0].endsWith(expectedVersion)
+      );
+    });
+  if (executable === undefined) {
+    t.skip(`${expectedVersion} is required for these observations`);
+    return;
+  }
+  const directory = mkdtempSync(join(tmpdir(), "gsed-observations-"));
+  try {
+    for (const observation of observations.cases) {
+      const cwd = mkdtempSync(join(directory, "case-"));
+      const fileIndex = observation.arguments.indexOf("-f");
+      const scriptFile =
+        fileIndex < 0 ? undefined : observation.arguments[fileIndex + 1];
+      if (scriptFile !== undefined && scriptFile !== "-") {
+        writeFileSync(join(cwd, scriptFile), observation.script);
       }
+      const result = spawnSync(executable, observation.arguments, {
+        cwd,
+        env: observations.environment,
+        input: scriptFile === "-" ? observation.script : observation.input,
+        encoding: "utf8",
+        timeout: runtimeTimeoutMs,
+      });
+      assert.ifError(result.error);
+      assert.equal(result.status, observation.status, observation.name);
+      assert.equal(result.stdout, observation.stdout, observation.name);
+      assert.equal(
+        result.stderr,
+        observation.stderr.replaceAll(observations.executable, executable),
+        observation.name,
+      );
     }
-  });
-}
+    t.diagnostic(
+      `${observations.version} on ${observations.os}: ${observations.cases.length} observations match`,
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

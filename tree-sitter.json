@@ -3,7 +3,7 @@
   "grammars": [
     {
       "name": "sed",
-      "title": "POSIX sed",
+      "title": "GNU sed",
       "scope": "source.sed",
       "path": ".",
       "file-types": ["sed"],
@@ -13,18 +13,18 @@
     },
     {
       "name": "sed_ere",
-      "title": "POSIX sed (ERE)",
+      "title": "GNU sed (ERE)",
       "scope": "source.sed.ere",
       "path": "sed_ere",
       "injection-regex": "^sed_ere$",
-      "highlights": "sed_ere/queries/highlights.scm",
+      "highlights": "queries/highlights.scm",
       "external-files": ["common/scanner.h", "common/tokens.h"]
     }
   ],
   "metadata": {
     "version": "0.21.0",
     "license": "MIT",
-    "description": "Tree-sitter grammars for POSIX sed.",
+    "description": "Tree-sitter grammars for GNU sed 4.10.",
     "links": {
       "repository": "https://github.com/konomanoasa/tree-sitter-sed"
     }

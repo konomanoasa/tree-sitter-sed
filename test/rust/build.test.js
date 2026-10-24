@@ -174,7 +174,7 @@ test("npm and Cargo archives contain buildable bindings for every language", () 
         join(directory, "build"),
         "--test",
         "bindings",
-        "parses_valid_source",
+        "languages_parse_gnu_scripts_and_highlight_queries_compile",
         "--",
         "--exact",
       ]);

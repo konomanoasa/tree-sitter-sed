@@ -1,1628 +1,1888 @@
 ==================
-exposes addresses, negation, and the selected function
+Commands and GNU address forms — "0,/a/!{p;d}\n1~2p;3,+2d;4,~3p\n"
 :language(sed)
+:language(sed_ere)
 ==================
-001,$!s|a|b|g
+0,/a/!{p;d}
+1~2p;3,+2d;4,~3p
 
 ------------------
-
 (script
   (command_list
-    (editing_command
-      (address_clause
+    (command
+      address: (address_clause
         (address
-          (line_number_address))
+          (line_address
+            first: (number)))
         (address_separator)
         (address
-          (last_line_address)))
-      (negation
-        (negation_operator))
-      (function
-        (substitute_function
-          (function_verb)
-          (delimiter)
-          (basic_reg_exp
-            (bre_branch
-              (bre_expression
-                (simple_bre
-                  (nondupl_bre
-                    (one_char_or_coll_elem_bre
-                      (ordinary_character)))))))
-          (delimiter)
-          (replacement
-            (replacement_literal))
-          (delimiter)
-          (substitution_flags
-            (global_flag)))))
+          (regex_address
+            opening: (delimiter)
+            (regular_expression
+              (alternation
+                (regex_branch
+                  (regex_character
+                    (literal)))))
+            closing: (delimiter))))
+      negation: (negation)
+      (block
+        (command_list
+          (command
+            (simple_command
+              name: (command_name)))
+          (command_separator)
+          (command
+            (simple_command
+              name: (command_name))))))
+    (command_separator)
+    (command
+      address: (address_clause
+        (address
+          (line_address
+            first: (number)
+            (address_operator)
+            step: (number))))
+      (simple_command
+        name: (command_name)))
+    (command_separator)
+    (command
+      address: (address_clause
+        (address
+          (line_address
+            first: (number)))
+        (address_separator)
+        (relative_address
+          (address_operator)
+          count: (number)))
+      (simple_command
+        name: (command_name)))
+    (command_separator)
+    (command
+      address: (address_clause
+        (address
+          (line_address
+            first: (number)))
+        (address_separator)
+        (relative_address
+          (address_operator)
+          count: (number)))
+      (simple_command
+        name: (command_name)))
     (command_separator)))
 
 ==================
-keeps an append function after an address and a blank
+Optional address counts and first relative addresses — "+p;~0p;+3p;1~p;1,+p\n{+}\n"
 :language(sed)
+:language(sed_ere)
 ==================
-1 a\
-x
++p;~0p;+3p;1~p;1,+p
+{+}
 
 ------------------
-
 (script
   (command_list
-    (editing_command
+    (command
+      (address_clause
+        (relative_address
+          (address_operator)))
+      (simple_command
+        (command_name)))
+    (command_separator)
+    (command
+      (address_clause
+        (relative_address
+          (address_operator)
+          (number)))
+      (simple_command
+        (command_name)))
+    (command_separator)
+    (command
+      (address_clause
+        (relative_address
+          (address_operator)
+          (syntax_issue
+            (invalid_syntax
+              (invalid_relative_address
+                (number))))))
+      (simple_command
+        (command_name)))
+    (command_separator)
+    (command
       (address_clause
         (address
-          (line_number_address)))
-      (function
-        (append_function
-          (function_verb)
-          (text_introducer)
-          (text
-            (text_literal)))))
-    (command_separator)))
-
-==================
-keeps an insert function after a last-line address and negation
-:language(sed)
-==================
-$!i\
-y
-
-------------------
-
-(script
-  (command_list
-    (editing_command
+          (line_address
+            (number)
+            (address_operator))))
+      (simple_command
+        (command_name)))
+    (command_separator)
+    (command
       (address_clause
         (address
-          (last_line_address)))
-      (negation
-        (negation_operator))
-      (function
-        (insert_function
-          (function_verb)
-          (text_introducer)
-          (text
-            (text_literal)))))
-    (command_separator)))
-
-==================
-keeps a read function after address blanks and negation
-:language(sed)
-==================
-2 !r file
-
-------------------
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (address
-          (line_number_address)))
-      (negation
-        (negation_operator))
-      (function
-        (read_function
-          (function_verb)
-          (rfile
-            (file_literal)))))
-    (command_separator)))
-
-==================
-keeps a quit function after a last-line address and a blank
-:language(sed)
-==================
-$ q
-
-------------------
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (address
-          (last_line_address)))
-      (function
-        (quit_function
-          (function_verb))))
-    (command_separator)))
-
-==================
-classifies blanks after address negation
-:language(sed)
-==================
-1! p
-
-------------------
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (address
-          (line_number_address)))
-      (negation
-        (negation_operator)
+          (line_address
+            (number)))
+        (address_separator)
+        (relative_address
+          (address_operator)))
+      (simple_command
+        (command_name)))
+    (command_separator)
+    (command
+      (block
         (syntax_issue
-          (unspecified_syntax
-            (blanks_after_negation
-              (blank)))))
-      (function
-        (print_function
-          (function_verb))))
+          (invalid_syntax
+            (excess_address
+              (address_clause
+                (relative_address
+                  (address_operator))))))))
     (command_separator)))
 
 ==================
-Both omitted addresses retain their separator
+Address count and zero restrictions — "0p;1,2q;1,2,3p;1:label\n"
+:language(sed)
+:language(sed_ere)
+==================
+0p;1,2q;1,2,3p;1:label
+
+------------------
+(script
+  (command_list
+    (command
+      address: (address_clause
+        (address
+          (line_address
+            issue: (syntax_issue
+              (invalid_syntax
+                (invalid_zero_address
+                  (number)))))))
+      (simple_command
+        name: (command_name)))
+    (command_separator)
+    (command
+      address: (address_clause
+        (address
+          (line_address
+            first: (number)))
+        issue: (syntax_issue
+          (invalid_syntax
+            (excess_address
+              (address_separator)
+              (address
+                (line_address
+                  first: (number)))))))
+      (numeric_command
+        name: (command_name)))
+    (command_separator)
+    (command
+      address: (address_clause
+        (address
+          (line_address
+            first: (number)))
+        (address_separator)
+        (address
+          (line_address
+            first: (number)))
+        issue: (syntax_issue
+          (invalid_syntax
+            (excess_address
+              (address_separator)
+              (address
+                (line_address
+                  first: (number)))))))
+      (simple_command
+        name: (command_name)))
+    (command_separator)
+    (command
+      issue: (syntax_issue
+        (invalid_syntax
+          (excess_address
+            address: (address_clause
+              (address
+                (line_address
+                  first: (number)))))))
+      (label_command
+        name: (command_name)
+        label: (label
+          (label_text))))
+    (command_separator)))
+
+==================
+Missing address and separator — "1,p;pd\n"
+:language(sed)
+:language(sed_ere)
+==================
+1,p;pd
+
+------------------
+(script
+  (command_list
+    (command
+      address: (address_clause
+        (address
+          (line_address
+            first: (number)))
+        (address_separator)
+        issue: (syntax_issue
+          (invalid_syntax
+            (missing_address))))
+      (simple_command
+        name: (command_name)))
+    (command_separator)
+    (command
+      (simple_command
+        name: (command_name))
+      issue: (syntax_issue
+        (invalid_syntax
+          (missing_command_separator))))
+    (command
+      (simple_command
+        name: (command_name)))
+    (command_separator)))
+
+==================
+GNU address forms — "0,/a/Ip;1~2p;3,+2d;4,~3p\n"
 :language(sed)
 :language(sed_ere)
 :cst
 ==================
-,p
+0,/a/Ip;1~2p;3,+2d;4,~3p
 
 ------------------
-
-0:0 - 1:0   script
-0:0 - 1:0     command_list
-0:0 - 0:2       editing_command
-0:0 - 0:1         addresses: address_clause
-0:0 - 0:0           issue: syntax_issue
-0:0 - 0:0             undefined_syntax
-0:0 - 0:0               omitted_address
-0:0 - 0:1           separator: address_separator `,`
-0:1 - 0:1           issue: syntax_issue
-0:1 - 0:1             undefined_syntax
-0:1 - 0:1               omitted_address
-0:1 - 0:2         function: function
-0:1 - 0:2           print_function
-0:1 - 0:2             verb: function_verb `p`
-0:2 - 1:0       command_separator
-0:2 - 0:3         `\n`
+0:0  - 1:0    script
+0:0  - 1:0      command_list
+0:0  - 0:7        command
+0:0  - 0:6          address: address_clause
+0:0  - 0:1            address
+0:0  - 0:1              line_address
+0:0  - 0:1                first: number `0`
+0:1  - 0:2            address_separator `,`
+0:2  - 0:6            address
+0:2  - 0:6              regex_address
+0:2  - 0:3                opening: delimiter `/`
+0:3  - 0:4                regular_expression
+0:3  - 0:4                  alternation
+0:3  - 0:4                    regex_branch
+0:3  - 0:4                      regex_character
+0:3  - 0:4                        literal `a`
+0:4  - 0:5                closing: delimiter `/`
+0:5  - 0:6                address_modifier `I`
+0:6  - 0:7          simple_command
+0:6  - 0:7            name: command_name `p`
+0:7  - 0:8        command_separator `;`
+0:8  - 0:12       command
+0:8  - 0:11         address: address_clause
+0:8  - 0:11           address
+0:8  - 0:11             line_address
+0:8  - 0:9                first: number `1`
+0:9  - 0:10               address_operator `~`
+0:10 - 0:11               step: number `2`
+0:11 - 0:12         simple_command
+0:11 - 0:12           name: command_name `p`
+0:12 - 0:13       command_separator `;`
+0:13 - 0:18       command
+0:13 - 0:17         address: address_clause
+0:13 - 0:14           address
+0:13 - 0:14             line_address
+0:13 - 0:14               first: number `3`
+0:14 - 0:15           address_separator `,`
+0:15 - 0:17           relative_address
+0:15 - 0:16             address_operator `+`
+0:16 - 0:17             count: number `2`
+0:17 - 0:18         simple_command
+0:17 - 0:18           name: command_name `d`
+0:18 - 0:19       command_separator `;`
+0:19 - 0:24       command
+0:19 - 0:23         address: address_clause
+0:19 - 0:20           address
+0:19 - 0:20             line_address
+0:19 - 0:20               first: number `4`
+0:20 - 0:21           address_separator `,`
+0:21 - 0:23           relative_address
+0:21 - 0:22             address_operator `~`
+0:22 - 0:23             count: number `3`
+0:23 - 0:24         simple_command
+0:23 - 0:24           name: command_name `p`
+0:24 - 1:0        command_separator
+0:24 - 0:25         `\n`
 
 ==================
-An excess address unit owns its separator and address
+Modifier on empty regex address — "//Mp"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+//Mp
+------------------
+0:0 - 0:4   script
+0:0 - 0:4     command_list
+0:0 - 0:4       command
+0:0 - 0:3         address: address_clause
+0:0 - 0:3           address
+0:0 - 0:3             regex_address
+0:0 - 0:1               opening: delimiter `/`
+0:1 - 0:2               closing: delimiter `/`
+0:2 - 0:3               issue: syntax_issue
+0:2 - 0:3                 invalid_syntax
+0:2 - 0:3                   modifier_on_empty_regexp
+0:2 - 0:3                     address_modifier `M`
+0:3 - 0:4         simple_command
+0:3 - 0:4           name: command_name `p`
+
+==================
+Missing or invalid address delimiter "Σ" — "\\Σp"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+\Σp
+------------------
+0:0 - 0:4   script
+0:0 - 0:4     command_list
+0:0 - 0:4       command
+0:0 - 0:3         address: address_clause
+0:0 - 0:3           address
+0:0 - 0:3             regex_address
+0:0 - 0:1               opening: delimiter `\\`
+0:1 - 0:3               issue: syntax_issue
+0:1 - 0:3                 invalid_syntax
+0:1 - 0:3                   invalid_delimiter `Σ`
+0:3 - 0:4         simple_command
+0:3 - 0:4           name: command_name `p`
+
+==================
+Missing or invalid address delimiter "" — "\\"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+\
+------------------
+0:0 - 0:1   script
+0:0 - 0:1     command_list
+0:0 - 0:1       command
+0:0 - 0:1         address: address_clause
+0:0 - 0:1           address
+0:0 - 0:1             regex_address
+0:0 - 0:1               opening: delimiter `\\`
+0:1 - 0:1               issue: syntax_issue
+0:1 - 0:1                 incomplete_syntax
+0:1 - 0:1                   missing_opening_delimiter
+0:1 - 0:1         issue: syntax_issue
+0:1 - 0:1           incomplete_syntax
+0:1 - 0:1             missing_command
+
+==================
+Missing or invalid address delimiter "\n" — "\\\np"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+\
+p
+------------------
+0:0 - 1:1   script
+0:0 - 1:1     command_list
+0:0 - 0:1       command
+0:0 - 0:1         address: address_clause
+0:0 - 0:1           address
+0:0 - 0:1             regex_address
+0:0 - 0:1               opening: delimiter `\\`
+0:1 - 0:1               issue: syntax_issue
+0:1 - 0:1                 invalid_syntax
+0:1 - 0:1                   missing_opening_delimiter
+0:1 - 0:1         issue: syntax_issue
+0:1 - 0:1           invalid_syntax
+0:1 - 0:1             missing_command
+0:1 - 1:0       command_separator
+0:1 - 0:2         `\n`
+1:0 - 1:1       command
+1:0 - 1:1         simple_command
+1:0 - 1:1           name: command_name `p`
+
+==================
+NUL address delimiter — "\\\u0000p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+\ p
+------------------
+0:0 - 0:3   script
+0:0 - 0:3     command_list
+0:0 - 0:3       command
+0:0 - 0:2         address: address_clause
+0:0 - 0:2           address
+0:0 - 0:2             regex_address
+0:0 - 0:1               opening: delimiter `\\`
+0:1 - 0:2               issue: syntax_issue
+0:1 - 0:2                 invalid_syntax
+0:1 - 0:2                   invalid_delimiter `\0`
+0:2 - 0:3         simple_command
+0:2 - 0:3           name: command_name `p`
+
+==================
+Zero address "0p" — "0p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+0p
+------------------
+0:0 - 0:2   script
+0:0 - 0:2     command_list
+0:0 - 0:2       command
+0:0 - 0:1         address: address_clause
+0:0 - 0:1           address
+0:0 - 0:1             line_address
+0:0 - 0:1               issue: syntax_issue
+0:0 - 0:1                 invalid_syntax
+0:0 - 0:1                   invalid_zero_address
+0:0 - 0:1                     number `0`
+0:1 - 0:2         simple_command
+0:1 - 0:2           name: command_name `p`
+
+==================
+Zero address "0!r file\n" — "0!r file\n"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+0!r file
+
+------------------
+0:0 - 1:0   script
+0:0 - 1:0     command_list
+0:0 - 0:8       command
+0:0 - 0:1         address: address_clause
+0:0 - 0:1           address
+0:0 - 0:1             line_address
+0:0 - 0:1               issue: syntax_issue
+0:0 - 0:1                 invalid_syntax
+0:0 - 0:1                   invalid_zero_address
+0:0 - 0:1                     number `0`
+0:1 - 0:2         negation: negation
+0:1 - 0:2           "!"
+0:2 - 0:8         file_command
+0:2 - 0:3           name: command_name `r`
+0:4 - 0:8           file: filename
+0:4 - 0:8             filename_text `file`
+0:8 - 1:0       command_separator
+0:8 - 0:9         `\n`
+
+==================
+Zero address "0~2p" — "0~2p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+0~2p
+------------------
+0:0 - 0:4   script
+0:0 - 0:4     command_list
+0:0 - 0:4       command
+0:0 - 0:3         address: address_clause
+0:0 - 0:3           address
+0:0 - 0:3             line_address
+0:0 - 0:1               first: number `0`
+0:1 - 0:2               address_operator `~`
+0:2 - 0:3               step: number `2`
+0:3 - 0:4         simple_command
+0:3 - 0:4           name: command_name `p`
+
+==================
+Zero address "0~10r x" — "0~10r x"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+0~10r x
+------------------
+0:0 - 0:7   script
+0:0 - 0:7     command_list
+0:0 - 0:7       command
+0:0 - 0:4         address: address_clause
+0:0 - 0:4           address
+0:0 - 0:4             line_address
+0:0 - 0:1               first: number `0`
+0:1 - 0:2               address_operator `~`
+0:2 - 0:4               step: number `10`
+0:4 - 0:7         file_command
+0:4 - 0:5           name: command_name `r`
+0:6 - 0:7           file: filename
+0:6 - 0:7             filename_text `x`
+
+==================
+Zero address "0~0p" — "0~0p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+0~0p
+------------------
+0:0 - 0:4   script
+0:0 - 0:4     command_list
+0:0 - 0:4       command
+0:0 - 0:3         address: address_clause
+0:0 - 0:3           address
+0:0 - 0:3             line_address
+0:0 - 0:1               issue: syntax_issue
+0:0 - 0:1                 invalid_syntax
+0:0 - 0:1                   invalid_zero_address
+0:0 - 0:1                     number `0`
+0:1 - 0:2               address_operator `~`
+0:2 - 0:3               step: number `0`
+0:3 - 0:4         simple_command
+0:3 - 0:4           name: command_name `p`
+
+==================
+Zero address "0~p" — "0~p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+0~p
+------------------
+0:0 - 0:3   script
+0:0 - 0:3     command_list
+0:0 - 0:3       command
+0:0 - 0:2         address: address_clause
+0:0 - 0:2           address
+0:0 - 0:2             line_address
+0:0 - 0:1               issue: syntax_issue
+0:0 - 0:1                 invalid_syntax
+0:0 - 0:1                   invalid_zero_address
+0:0 - 0:1                     number `0`
+0:1 - 0:2               address_operator `~`
+0:2 - 0:3         simple_command
+0:2 - 0:3           name: command_name `p`
+
+==================
+Zero address "0~0r x" — "0~0r x"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+0~0r x
+------------------
+0:0 - 0:6   script
+0:0 - 0:6     command_list
+0:0 - 0:6       command
+0:0 - 0:3         address: address_clause
+0:0 - 0:3           address
+0:0 - 0:3             line_address
+0:0 - 0:1               first: number `0`
+0:1 - 0:2               address_operator `~`
+0:2 - 0:3               step: number `0`
+0:3 - 0:6         file_command
+0:3 - 0:4           name: command_name `r`
+0:5 - 0:6           file: filename
+0:5 - 0:6             filename_text `x`
+
+==================
+Zero address "0~r x" — "0~r x"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+0~r x
+------------------
+0:0 - 0:5   script
+0:0 - 0:5     command_list
+0:0 - 0:5       command
+0:0 - 0:2         address: address_clause
+0:0 - 0:2           address
+0:0 - 0:2             line_address
+0:0 - 0:1               first: number `0`
+0:1 - 0:2               address_operator `~`
+0:2 - 0:5         file_command
+0:2 - 0:3           name: command_name `r`
+0:4 - 0:5           file: filename
+0:4 - 0:5             filename_text `x`
+
+==================
+Zero address "00 ~ 00r x" — "00 ~ 00r x"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+00 ~ 00r x
+------------------
+0:0  - 0:10   script
+0:0  - 0:10     command_list
+0:0  - 0:10       command
+0:0  - 0:7          address: address_clause
+0:0  - 0:7            address
+0:0  - 0:7              line_address
+0:0  - 0:2                first: number `00`
+0:3  - 0:4                address_operator `~`
+0:5  - 0:7                step: number `00`
+0:7  - 0:10         file_command
+0:7  - 0:8            name: command_name `r`
+0:9  - 0:10           file: filename
+0:9  - 0:10             filename_text `x`
+
+==================
+Zero address "0~0!r x" — "0~0!r x"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+0~0!r x
+------------------
+0:0 - 0:7   script
+0:0 - 0:7     command_list
+0:0 - 0:7       command
+0:0 - 0:3         address: address_clause
+0:0 - 0:3           address
+0:0 - 0:3             line_address
+0:0 - 0:1               issue: syntax_issue
+0:0 - 0:1                 invalid_syntax
+0:0 - 0:1                   invalid_zero_address
+0:0 - 0:1                     number `0`
+0:1 - 0:2               address_operator `~`
+0:2 - 0:3               step: number `0`
+0:3 - 0:4         negation: negation
+0:3 - 0:4           "!"
+0:4 - 0:7         file_command
+0:4 - 0:5           name: command_name `r`
+0:6 - 0:7           file: filename
+0:6 - 0:7             filename_text `x`
+
+==================
+Zero regex range [null,"a",false] — "0,/a/p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+0,/a/p
+------------------
+0:0 - 0:6   script
+0:0 - 0:6     command_list
+0:0 - 0:6       command
+0:0 - 0:5         address: address_clause
+0:0 - 0:1           address
+0:0 - 0:1             line_address
+0:0 - 0:1               first: number `0`
+0:1 - 0:2           address_separator `,`
+0:2 - 0:5           address
+0:2 - 0:5             regex_address
+0:2 - 0:3               opening: delimiter `/`
+0:3 - 0:4               regular_expression
+0:3 - 0:4                 alternation
+0:3 - 0:4                   regex_branch
+0:3 - 0:4                     regex_character
+0:3 - 0:4                       literal `a`
+0:4 - 0:5               closing: delimiter `/`
+0:5 - 0:6         simple_command
+0:5 - 0:6           name: command_name `p`
+
+==================
+Zero regex range ["100","b",false] — "0~100,/b/p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+0~100,/b/p
+------------------
+0:0  - 0:10   script
+0:0  - 0:10     command_list
+0:0  - 0:10       command
+0:0  - 0:9          address: address_clause
+0:0  - 0:5            address
+0:0  - 0:5              line_address
+0:0  - 0:1                first: number `0`
+0:1  - 0:2                address_operator `~`
+0:2  - 0:5                step: number `100`
+0:5  - 0:6            address_separator `,`
+0:6  - 0:9            address
+0:6  - 0:9              regex_address
+0:6  - 0:7                opening: delimiter `/`
+0:7  - 0:8                regular_expression
+0:7  - 0:8                  alternation
+0:7  - 0:8                    regex_branch
+0:7  - 0:8                      regex_character
+0:7  - 0:8                        literal `b`
+0:8  - 0:9                closing: delimiter `/`
+0:9  - 0:10         simple_command
+0:9  - 0:10           name: command_name `p`
+
+==================
+Zero regex range ["","a",false] — "0~,/a/p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+0~,/a/p
+------------------
+0:0 - 0:7   script
+0:0 - 0:7     command_list
+0:0 - 0:7       command
+0:0 - 0:6         address: address_clause
+0:0 - 0:2           address
+0:0 - 0:2             line_address
+0:0 - 0:1               first: number `0`
+0:1 - 0:2               address_operator `~`
+0:2 - 0:3           address_separator `,`
+0:3 - 0:6           address
+0:3 - 0:6             regex_address
+0:3 - 0:4               opening: delimiter `/`
+0:4 - 0:5               regular_expression
+0:4 - 0:5                 alternation
+0:4 - 0:5                   regex_branch
+0:4 - 0:5                     regex_character
+0:4 - 0:5                       literal `a`
+0:5 - 0:6               closing: delimiter `/`
+0:6 - 0:7         simple_command
+0:6 - 0:7           name: command_name `p`
+
+==================
+Zero regex range ["0","a",false] — "0~0,/a/p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+0~0,/a/p
+------------------
+0:0 - 0:8   script
+0:0 - 0:8     command_list
+0:0 - 0:8       command
+0:0 - 0:7         address: address_clause
+0:0 - 0:3           address
+0:0 - 0:3             line_address
+0:0 - 0:1               first: number `0`
+0:1 - 0:2               address_operator `~`
+0:2 - 0:3               step: number `0`
+0:3 - 0:4           address_separator `,`
+0:4 - 0:7           address
+0:4 - 0:7             regex_address
+0:4 - 0:5               opening: delimiter `/`
+0:5 - 0:6               regular_expression
+0:5 - 0:6                 alternation
+0:5 - 0:6                   regex_branch
+0:5 - 0:6                     regex_character
+0:5 - 0:6                       literal `a`
+0:6 - 0:7               closing: delimiter `/`
+0:7 - 0:8         simple_command
+0:7 - 0:8           name: command_name `p`
+
+==================
+Zero regex range ["0","a",true] — "0~0,/a/!p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+0~0,/a/!p
+------------------
+0:0 - 0:9   script
+0:0 - 0:9     command_list
+0:0 - 0:9       command
+0:0 - 0:7         address: address_clause
+0:0 - 0:3           address
+0:0 - 0:3             line_address
+0:0 - 0:1               first: number `0`
+0:1 - 0:2               address_operator `~`
+0:2 - 0:3               step: number `0`
+0:3 - 0:4           address_separator `,`
+0:4 - 0:7           address
+0:4 - 0:7             regex_address
+0:4 - 0:5               opening: delimiter `/`
+0:5 - 0:6               regular_expression
+0:5 - 0:6                 alternation
+0:5 - 0:6                   regex_branch
+0:5 - 0:6                     regex_character
+0:5 - 0:6                       literal `a`
+0:6 - 0:7               closing: delimiter `/`
+0:7 - 0:8         negation: negation
+0:7 - 0:8           "!"
+0:8 - 0:9         simple_command
+0:8 - 0:9           name: command_name `p`
+
+==================
+Invalid zero initial range undefined — "0,1p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+0,1p
+------------------
+0:0 - 0:4   script
+0:0 - 0:4     command_list
+0:0 - 0:4       command
+0:0 - 0:3         address: address_clause
+0:0 - 0:1           address
+0:0 - 0:1             line_address
+0:0 - 0:1               issue: syntax_issue
+0:0 - 0:1                 invalid_syntax
+0:0 - 0:1                   invalid_zero_address
+0:0 - 0:1                     number `0`
+0:1 - 0:2           address_separator `,`
+0:2 - 0:3           address
+0:2 - 0:3             line_address
+0:2 - 0:3               first: number `1`
+0:3 - 0:4         simple_command
+0:3 - 0:4           name: command_name `p`
+
+==================
+Invalid zero initial range "0" — "0~0,1p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+0~0,1p
+------------------
+0:0 - 0:6   script
+0:0 - 0:6     command_list
+0:0 - 0:6       command
+0:0 - 0:5         address: address_clause
+0:0 - 0:3           address
+0:0 - 0:3             line_address
+0:0 - 0:1               issue: syntax_issue
+0:0 - 0:1                 invalid_syntax
+0:0 - 0:1                   invalid_zero_address
+0:0 - 0:1                     number `0`
+0:1 - 0:2               address_operator `~`
+0:2 - 0:3               step: number `0`
+0:3 - 0:4           address_separator `,`
+0:4 - 0:5           address
+0:4 - 0:5             line_address
+0:4 - 0:5               first: number `1`
+0:5 - 0:6         simple_command
+0:5 - 0:6           name: command_name `p`
+
+==================
+Invalid zero final range undefined — "1,0p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+1,0p
+------------------
+0:0 - 0:4   script
+0:0 - 0:4     command_list
+0:0 - 0:4       command
+0:0 - 0:3         address: address_clause
+0:0 - 0:1           address
+0:0 - 0:1             line_address
+0:0 - 0:1               first: number `1`
+0:1 - 0:2           address_separator `,`
+0:2 - 0:3           address
+0:2 - 0:3             line_address
+0:2 - 0:3               issue: syntax_issue
+0:2 - 0:3                 invalid_syntax
+0:2 - 0:3                   invalid_zero_address
+0:2 - 0:3                     number `0`
+0:3 - 0:4         simple_command
+0:3 - 0:4           name: command_name `p`
+
+==================
+Invalid zero final range "0" — "1,0~0p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+1,0~0p
+------------------
+0:0 - 0:6   script
+0:0 - 0:6     command_list
+0:0 - 0:6       command
+0:0 - 0:5         address: address_clause
+0:0 - 0:1           address
+0:0 - 0:1             line_address
+0:0 - 0:1               first: number `1`
+0:1 - 0:2           address_separator `,`
+0:2 - 0:5           address
+0:2 - 0:5             line_address
+0:2 - 0:3               issue: syntax_issue
+0:2 - 0:3                 invalid_syntax
+0:2 - 0:3                   invalid_zero_address
+0:2 - 0:3                     number `0`
+0:3 - 0:4               address_operator `~`
+0:4 - 0:5               step: number `0`
+0:5 - 0:6         simple_command
+0:5 - 0:6           name: command_name `p`
+
+==================
+Quit accepts only one address "1,2" — "1,2q"
 :language(sed)
 :language(sed_ere)
 :cst
 ==================
 1,2q
-
 ------------------
-
-0:0 - 1:0   script
-0:0 - 1:0     command_list
-0:0 - 0:4       editing_command
-0:0 - 0:3         addresses: address_clause
-0:0 - 0:1           first: address
-0:0 - 0:1             line_number_address `1`
+0:0 - 0:4   script
+0:0 - 0:4     command_list
+0:0 - 0:4       command
+0:0 - 0:3         address: address_clause
+0:0 - 0:1           address
+0:0 - 0:1             line_address
+0:0 - 0:1               first: number `1`
 0:1 - 0:3           issue: syntax_issue
-0:1 - 0:3             nonconforming_syntax
+0:1 - 0:3             invalid_syntax
 0:1 - 0:3               excess_address
-0:1 - 0:2                 separator: address_separator `,`
-0:2 - 0:3                 address: address
-0:2 - 0:3                   line_number_address `2`
-0:3 - 0:4         function: function
-0:3 - 0:4           quit_function
-0:3 - 0:4             verb: function_verb `q`
-0:4 - 1:0       command_separator
-0:4 - 0:5         `\n`
+0:1 - 0:2                 address_separator `,`
+0:2 - 0:3                 address
+0:2 - 0:3                   line_address
+0:2 - 0:3                     first: number `2`
+0:3 - 0:4         numeric_command
+0:3 - 0:4           name: command_name `q`
 
 ==================
-recovers an unterminated excess context address at a newline
-:language(sed)
-==================
-1,2/
-p
-
-------------------
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (address
-          (line_number_address))
-        (address_separator)
-        (address
-          (line_number_address))
-        (syntax_issue
-          (nonconforming_syntax
-            (excess_address
-              (syntax_issue
-                (nonconforming_syntax
-                  (missing_address_separator)))
-              (address
-                (context_address
-                  (delimiter)
-                  (syntax_issue
-                    (nonconforming_syntax
-                      (unterminated_regular_expression)))))))))
-      (syntax_issue
-        (nonconforming_syntax
-          (missing_function))))
-    (command_separator)
-    (editing_command
-      (function
-        (print_function
-          (function_verb))))
-    (command_separator)))
-
-==================
-Duplicate negation owns its operator leaf
+Quit accepts only one address ",2" — ",2q"
 :language(sed)
 :language(sed_ere)
 :cst
 ==================
-!!p
-
+,2q
 ------------------
-
-0:0 - 1:0   script
-0:0 - 1:0     command_list
-0:0 - 0:3       editing_command
-0:0 - 0:2         negation: negation
-0:0 - 0:1           operator: negation_operator `!`
-0:1 - 0:2           issue: syntax_issue
-0:1 - 0:2             nonconforming_syntax
-0:1 - 0:2               duplicate_negation
-0:1 - 0:2                 operator: negation_operator `!`
-0:2 - 0:3         function: function
-0:2 - 0:3           print_function
-0:2 - 0:3             verb: function_verb `p`
-0:3 - 1:0       command_separator
-0:3 - 0:4         `\n`
-
-==================
-owns a duplicate negation operator after a blank
-:language(sed)
-==================
-! !p
-
-------------------
-
-(script
-  (command_list
-    (editing_command
-      (negation
-        (negation_operator)
-        (syntax_issue
-          (unspecified_syntax
-            (blanks_after_negation
-              (blank))))
-        (syntax_issue
-          (nonconforming_syntax
-            (duplicate_negation
-              (negation_operator)))))
-      (function
-        (print_function
-          (function_verb))))
-    (command_separator)))
+0:0 - 0:3   script
+0:0 - 0:3     command_list
+0:0 - 0:3       command
+0:0 - 0:2         address: address_clause
+0:0 - 0:0           issue: syntax_issue
+0:0 - 0:0             invalid_syntax
+0:0 - 0:0               missing_address
+0:0 - 0:2           issue: syntax_issue
+0:0 - 0:2             invalid_syntax
+0:0 - 0:2               excess_address
+0:0 - 0:1                 address_separator `,`
+0:1 - 0:2                 address
+0:1 - 0:2                   line_address
+0:1 - 0:2                     first: number `2`
+0:2 - 0:3         numeric_command
+0:2 - 0:3           name: command_name `q`
 
 ==================
-owns repeated negation operators before a blank
-:language(sed)
-==================
-!!! p
-
-------------------
-
-(script
-  (command_list
-    (editing_command
-      (negation
-        (negation_operator)
-        (syntax_issue
-          (nonconforming_syntax
-            (duplicate_negation
-              (negation_operator))))
-        (syntax_issue
-          (nonconforming_syntax
-            (duplicate_negation
-              (negation_operator))))
-        (syntax_issue
-          (unspecified_syntax
-            (blanks_after_negation
-              (blank)))))
-      (function
-        (print_function
-          (function_verb))))
-    (command_separator)))
-
-==================
-An address before a label belongs to an excess-address issue
+Quit accepts only one address "," — ",q"
 :language(sed)
 :language(sed_ere)
 :cst
 ==================
-1:x
-
+,q
 ------------------
-
-0:0 - 1:0   script
-0:0 - 1:0     command_list
-0:0 - 0:3       editing_command
-0:0 - 0:1         addresses: address_clause
+0:0 - 0:2   script
+0:0 - 0:2     command_list
+0:0 - 0:2       command
+0:0 - 0:1         address: address_clause
+0:0 - 0:0           issue: syntax_issue
+0:0 - 0:0             invalid_syntax
+0:0 - 0:0               missing_address
 0:0 - 0:1           issue: syntax_issue
-0:0 - 0:1             nonconforming_syntax
+0:0 - 0:1             invalid_syntax
 0:0 - 0:1               excess_address
-0:0 - 0:1                 address: address
-0:0 - 0:1                   line_number_address `1`
-0:1 - 0:3         function: function
-0:1 - 0:3           label_function
-0:1 - 0:2             verb: function_verb `:`
-0:2 - 0:3             label: label
-0:2 - 0:3               label_literal `x`
-0:3 - 1:0       command_separator
-0:3 - 0:4         `\n`
+0:0 - 0:1                 address_separator `,`
+0:1 - 0:1                 issue: syntax_issue
+0:1 - 0:1                   invalid_syntax
+0:1 - 0:1                     missing_address
+0:1 - 0:2         numeric_command
+0:1 - 0:2           name: command_name `q`
 
 ==================
-classifies an excess address range before a label function
-:language(sed)
-==================
-1,2:x
-
-------------------
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (syntax_issue
-          (nonconforming_syntax
-            (excess_address
-              (address
-                (line_number_address)))))
-        (syntax_issue
-          (nonconforming_syntax
-            (excess_address
-              (address_separator)
-              (address
-                (line_number_address))))))
-      (function
-        (label_function
-          (function_verb)
-          (label
-            (label_literal)))))
-    (command_separator)))
-
-==================
-classifies an excess address before a line-number function
-:language(sed)
-==================
-1,2=
-
-------------------
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (address
-          (line_number_address))
-        (syntax_issue
-          (nonconforming_syntax
-            (excess_address
-              (address_separator)
-              (address
-                (line_number_address))))))
-      (function
-        (line_number_function
-          (function_verb))))
-    (command_separator)))
-
-==================
-A third address retains its separator inside an excess issue
+Third address is excess — "1,2,3p"
 :language(sed)
 :language(sed_ere)
 :cst
 ==================
 1,2,3p
-
 ------------------
-
-0:0 - 1:0   script
-0:0 - 1:0     command_list
-0:0 - 0:6       editing_command
-0:0 - 0:5         addresses: address_clause
-0:0 - 0:1           first: address
-0:0 - 0:1             line_number_address `1`
-0:1 - 0:2           separator: address_separator `,`
-0:2 - 0:3           second: address
-0:2 - 0:3             line_number_address `2`
+0:0 - 0:6   script
+0:0 - 0:6     command_list
+0:0 - 0:6       command
+0:0 - 0:5         address: address_clause
+0:0 - 0:1           address
+0:0 - 0:1             line_address
+0:0 - 0:1               first: number `1`
+0:1 - 0:2           address_separator `,`
+0:2 - 0:3           address
+0:2 - 0:3             line_address
+0:2 - 0:3               first: number `2`
 0:3 - 0:5           issue: syntax_issue
-0:3 - 0:5             nonconforming_syntax
+0:3 - 0:5             invalid_syntax
 0:3 - 0:5               excess_address
-0:3 - 0:4                 separator: address_separator `,`
-0:4 - 0:5                 address: address
-0:4 - 0:5                   line_number_address `3`
-0:5 - 0:6         function: function
-0:5 - 0:6           print_function
-0:5 - 0:6             verb: function_verb `p`
-0:6 - 1:0       command_separator
-0:6 - 0:7         `\n`
+0:3 - 0:4                 address_separator `,`
+0:4 - 0:5                 address
+0:4 - 0:5                   line_address
+0:4 - 0:5                     first: number `3`
+0:5 - 0:6         simple_command
+0:5 - 0:6           name: command_name `p`
 
 ==================
-classifies two excess addresses before a write function
-:language(sed)
-==================
-1,2,3,4w f
-
-------------------
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (address
-          (line_number_address))
-        (address_separator)
-        (address
-          (line_number_address))
-        (syntax_issue
-          (nonconforming_syntax
-            (excess_address
-              (address_separator)
-              (address
-                (line_number_address)))))
-        (syntax_issue
-          (nonconforming_syntax
-            (excess_address
-              (address_separator)
-              (address
-                (line_number_address))))))
-      (function
-        (write_function
-          (function_verb)
-          (wfile
-            (file_literal)))))
-    (command_separator)))
-
-==================
-Blank-separated addresses remain excess before a label at a newline
+Label rejects addresses — "1:label"
 :language(sed)
 :language(sed_ere)
 :cst
 ==================
-1 2:x
-
+1:label
 ------------------
-
-0:0 - 1:0   script
-0:0 - 1:0     command_list
-0:0 - 0:5       editing_command
-0:0 - 0:3         addresses: address_clause
-0:0 - 0:1           issue: syntax_issue
-0:0 - 0:1             nonconforming_syntax
-0:0 - 0:1               excess_address
-0:0 - 0:1                 address: address
-0:0 - 0:1                   line_number_address `1`
-0:1 - 0:3           issue: syntax_issue
-0:1 - 0:3             nonconforming_syntax
-0:1 - 0:3               excess_address
-0:1 - 0:1                 issue: syntax_issue
-0:1 - 0:1                   nonconforming_syntax
-0:1 - 0:1                     missing_address_separator
-0:2 - 0:3                 address: address
-0:2 - 0:3                   line_number_address `2`
-0:3 - 0:5         function: function
-0:3 - 0:5           label_function
-0:3 - 0:4             verb: function_verb `:`
-0:4 - 0:5             label: label
-0:4 - 0:5               label_literal `x`
-0:5 - 1:0       command_separator
-0:5 - 0:6         `\n`
+0:0 - 0:7   script
+0:0 - 0:7     command_list
+0:0 - 0:7       command
+0:0 - 0:1         issue: syntax_issue
+0:0 - 0:1           invalid_syntax
+0:0 - 0:1             excess_address
+0:0 - 0:1               address: address_clause
+0:0 - 0:1                 address
+0:0 - 0:1                   line_address
+0:0 - 0:1                     first: number `1`
+0:1 - 0:7         label_command
+0:1 - 0:2           name: command_name `:`
+0:2 - 0:7           label: label
+0:2 - 0:7             label_text `label`
 
 ==================
-classifies blank-separated excess addresses before a comment function
-:language(sed)
-==================
-1 2#x
-
-------------------
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (syntax_issue
-          (nonconforming_syntax
-            (excess_address
-              (address
-                (line_number_address)))))
-        (syntax_issue
-          (nonconforming_syntax
-            (excess_address
-              (syntax_issue
-                (nonconforming_syntax
-                  (missing_address_separator)))
-              (address
-                (line_number_address))))))
-      (function
-        (comment_function
-          (function_verb)
-          (comment
-            (comment_text)))))
-    (command_separator)))
-
-==================
-classifies a blank-separated excess address before a quit function
-:language(sed)
-==================
-1 2q
-
-------------------
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (address
-          (line_number_address))
-        (syntax_issue
-          (nonconforming_syntax
-            (excess_address
-              (syntax_issue
-                (nonconforming_syntax
-                  (missing_address_separator)))
-              (address
-                (line_number_address))))))
-      (function
-        (quit_function
-          (function_verb))))
-    (command_separator)))
-
-==================
-classifies a blank-separated third address before a print function
-:language(sed)
-==================
-1,2 3p
-
-------------------
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (address
-          (line_number_address))
-        (address_separator)
-        (address
-          (line_number_address))
-        (syntax_issue
-          (nonconforming_syntax
-            (excess_address
-              (syntax_issue
-                (nonconforming_syntax
-                  (missing_address_separator)))
-              (address
-                (line_number_address))))))
-      (function
-        (print_function
-          (function_verb))))
-    (command_separator)))
-
-==================
-An excess address unit retains a nested omission
+Missing address ",2" — ",2p"
 :language(sed)
 :language(sed_ere)
-:cst
-==================
-1,q
-
-------------------
-
-0:0 - 1:0   script
-0:0 - 1:0     command_list
-0:0 - 0:3       editing_command
-0:0 - 0:2         addresses: address_clause
-0:0 - 0:1           first: address
-0:0 - 0:1             line_number_address `1`
-0:1 - 0:2           issue: syntax_issue
-0:1 - 0:2             nonconforming_syntax
-0:1 - 0:2               excess_address
-0:1 - 0:2                 separator: address_separator `,`
-0:2 - 0:2                 issue: syntax_issue
-0:2 - 0:2                   undefined_syntax
-0:2 - 0:2                     omitted_address
-0:2 - 0:3         function: function
-0:2 - 0:3           quit_function
-0:2 - 0:3             verb: function_verb `q`
-0:3 - 1:0       command_separator
-0:3 - 0:4         `\n`
-
-==================
-keeps an omitted leading address before an excess address
-:language(sed)
-==================
-,2q
-
-------------------
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (syntax_issue
-          (undefined_syntax
-            (omitted_address)))
-        (syntax_issue
-          (nonconforming_syntax
-            (excess_address
-              (address_separator)
-              (address
-                (line_number_address))))))
-      (function
-        (quit_function
-          (function_verb))))
-    (command_separator)))
-
-==================
-keeps an omitted leading address before an omitted excess address
-:language(sed)
-==================
-,q
-
-------------------
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (syntax_issue
-          (undefined_syntax
-            (omitted_address)))
-        (syntax_issue
-          (nonconforming_syntax
-            (excess_address
-              (address_separator)
-              (syntax_issue
-                (undefined_syntax
-                  (omitted_address)))))))
-      (function
-        (quit_function
-          (function_verb))))
-    (command_separator)))
-
-==================
-owns a blank before an excess address separator
-:language(sed)
-==================
-1,2 ,3p
-
-------------------
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (address
-          (line_number_address))
-        (address_separator)
-        (address
-          (line_number_address))
-        (syntax_issue
-          (nonconforming_syntax
-            (excess_address
-              (syntax_issue
-                (nonconforming_syntax
-                  (blanks_around_address_separator
-                    (blank))))
-              (address_separator)
-              (address
-                (line_number_address))))))
-      (function
-        (print_function
-          (function_verb))))
-    (command_separator)))
-
-==================
-keeps an excess address before negation and a following command
-:language(sed)
-==================
-1,2!q;p
-
-------------------
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (address
-          (line_number_address))
-        (syntax_issue
-          (nonconforming_syntax
-            (excess_address
-              (address_separator)
-              (address
-                (line_number_address))))))
-      (negation
-        (negation_operator))
-      (function
-        (quit_function
-          (function_verb))))
-    (command_separator)
-    (editing_command
-      (function
-        (print_function
-          (function_verb))))
-    (command_separator)))
-
-==================
-keeps an excess address inside a block command
-:language(sed)
-==================
-{1,2q
-}
-
-------------------
-
-(script
-  (command_list
-    (editing_command
-      (function
-        (block_function
-          (function_verb)
-          (command_list
-            (editing_command
-              (address_clause
-                (address
-                  (line_number_address))
-                (syntax_issue
-                  (nonconforming_syntax
-                    (excess_address
-                      (address_separator)
-                      (address
-                        (line_number_address))))))
-              (function
-                (quit_function
-                  (function_verb))))
-            (command_separator))
-          (closing_brace))))
-    (command_separator)))
-
-==================
-An omitted leading address retains the second address
-:language(sed_ere)
-:language(sed)
 :cst
 ==================
 ,2p
-
 ------------------
-
-0:0 - 1:0   script
-0:0 - 1:0     command_list
-0:0 - 0:3       editing_command
-0:0 - 0:2         addresses: address_clause
+0:0 - 0:3   script
+0:0 - 0:3     command_list
+0:0 - 0:3       command
+0:0 - 0:2         address: address_clause
 0:0 - 0:0           issue: syntax_issue
-0:0 - 0:0             undefined_syntax
-0:0 - 0:0               omitted_address
-0:0 - 0:1           separator: address_separator `,`
-0:1 - 0:2           second: address
-0:1 - 0:2             line_number_address `2`
-0:2 - 0:3         function: function
-0:2 - 0:3           print_function
-0:2 - 0:3             verb: function_verb `p`
-0:3 - 1:0       command_separator
-0:3 - 0:4         `\n`
+0:0 - 0:0             invalid_syntax
+0:0 - 0:0               missing_address
+0:0 - 0:1           address_separator `,`
+0:1 - 0:2           address
+0:1 - 0:2             line_address
+0:1 - 0:2               first: number `2`
+0:2 - 0:3         simple_command
+0:2 - 0:3           name: command_name `p`
 
 ==================
-An omitted second address belongs to its address clause
+Missing address "1," — "1,p"
 :language(sed)
 :language(sed_ere)
 :cst
 ==================
 1,p
-
 ------------------
-
-0:0 - 1:0   script
-0:0 - 1:0     command_list
-0:0 - 0:3       editing_command
-0:0 - 0:2         addresses: address_clause
-0:0 - 0:1           first: address
-0:0 - 0:1             line_number_address `1`
-0:1 - 0:2           separator: address_separator `,`
+0:0 - 0:3   script
+0:0 - 0:3     command_list
+0:0 - 0:3       command
+0:0 - 0:2         address: address_clause
+0:0 - 0:1           address
+0:0 - 0:1             line_address
+0:0 - 0:1               first: number `1`
+0:1 - 0:2           address_separator `,`
 0:2 - 0:2           issue: syntax_issue
-0:2 - 0:2             undefined_syntax
-0:2 - 0:2               omitted_address
-0:2 - 0:3         function: function
-0:2 - 0:3           print_function
-0:2 - 0:3             verb: function_verb `p`
-0:3 - 1:0       command_separator
-0:3 - 0:4         `\n`
+0:2 - 0:2             invalid_syntax
+0:2 - 0:2               missing_address
+0:2 - 0:3         simple_command
+0:2 - 0:3           name: command_name `p`
 
 ==================
-keeps an address separator after a nonconforming blank
-:language(sed)
-==================
-1 ,2p
-
-------------------
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (address
-          (line_number_address))
-        (syntax_issue
-          (nonconforming_syntax
-            (blanks_around_address_separator
-              (blank))))
-        (address_separator)
-        (address
-          (line_number_address)))
-      (function
-        (print_function
-          (function_verb))))
-    (command_separator)))
-
-==================
-keeps an address separator before a nonconforming blank
-:language(sed)
-==================
-1, 2p
-
-------------------
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (address
-          (line_number_address))
-        (address_separator)
-        (syntax_issue
-          (nonconforming_syntax
-            (blanks_around_address_separator
-              (blank))))
-        (address
-          (line_number_address)))
-      (function
-        (print_function
-          (function_verb))))
-    (command_separator)))
-
-==================
-Blank runs on both sides of a separator remain independent
+First relative address "+" — "+p"
 :language(sed)
 :language(sed_ere)
 :cst
 ==================
-1 , 2p
-
++p
 ------------------
-
-0:0 - 1:0   script
-0:0 - 1:0     command_list
-0:0 - 0:6       editing_command
-0:0 - 0:5         addresses: address_clause
-0:0 - 0:1           first: address
-0:0 - 0:1             line_number_address `1`
-0:1 - 0:2           issue: syntax_issue
-0:1 - 0:2             nonconforming_syntax
-0:1 - 0:2               blanks_around_address_separator
-0:1 - 0:2                 blank ` `
-0:2 - 0:3           separator: address_separator `,`
-0:3 - 0:4           issue: syntax_issue
-0:3 - 0:4             nonconforming_syntax
-0:3 - 0:4               blanks_around_address_separator
-0:3 - 0:4                 blank ` `
-0:4 - 0:5           second: address
-0:4 - 0:5             line_number_address `2`
-0:5 - 0:6         function: function
-0:5 - 0:6           print_function
-0:5 - 0:6             verb: function_verb `p`
-0:6 - 1:0       command_separator
-0:6 - 0:7         `\n`
+0:0 - 0:2   script
+0:0 - 0:2     command_list
+0:0 - 0:2       command
+0:0 - 0:1         address: address_clause
+0:0 - 0:1           relative_address
+0:0 - 0:1             address_operator `+`
+0:1 - 0:2         simple_command
+0:1 - 0:2           name: command_name `p`
 
 ==================
-classifies a missing separator between line-number addresses
+First relative address "~" — "~p"
 :language(sed)
+:language(sed_ere)
+:cst
 ==================
-1 2p
-
+~p
 ------------------
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (address
-          (line_number_address))
-        (syntax_issue
-          (nonconforming_syntax
-            (missing_address_separator)))
-        (address
-          (line_number_address)))
-      (function
-        (print_function
-          (function_verb))))
-    (command_separator)))
+0:0 - 0:2   script
+0:0 - 0:2     command_list
+0:0 - 0:2       command
+0:0 - 0:1         address: address_clause
+0:0 - 0:1           relative_address
+0:0 - 0:1             address_operator `~`
+0:1 - 0:2         simple_command
+0:1 - 0:2           name: command_name `p`
 
 ==================
-classifies a missing separator before a context address
+First relative address "+ 00" — "+ 00p"
 :language(sed)
+:language(sed_ere)
+:cst
 ==================
-1/ab/p
-
++ 00p
 ------------------
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (address
-          (line_number_address))
-        (syntax_issue
-          (nonconforming_syntax
-            (missing_address_separator)))
-        (address
-          (context_address
-            (delimiter)
-            (basic_reg_exp
-              (bre_branch
-                (bre_expression
-                  (simple_bre
-                    (nondupl_bre
-                      (one_char_or_coll_elem_bre
-                        (ordinary_character)))))
-                (bre_expression
-                  (simple_bre
-                    (nondupl_bre
-                      (one_char_or_coll_elem_bre
-                        (ordinary_character)))))))
-            (delimiter))))
-      (function
-        (print_function
-          (function_verb))))
-    (command_separator)))
+0:0 - 0:5   script
+0:0 - 0:5     command_list
+0:0 - 0:5       command
+0:0 - 0:4         address: address_clause
+0:0 - 0:4           relative_address
+0:0 - 0:1             address_operator `+`
+0:2 - 0:4             count: number `00`
+0:4 - 0:5         simple_command
+0:4 - 0:5           name: command_name `p`
 
 ==================
-keeps an omitted leading address before an excess last-line address
+First relative address "~0" — "~0p"
 :language(sed)
+:language(sed_ere)
+:cst
 ==================
-,1$p
-
+~0p
 ------------------
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (syntax_issue
-          (undefined_syntax
-            (omitted_address)))
-        (address_separator)
-        (address
-          (line_number_address))
-        (syntax_issue
-          (nonconforming_syntax
-            (excess_address
-              (syntax_issue
-                (nonconforming_syntax
-                  (missing_address_separator)))
-              (address
-                (last_line_address))))))
-      (function
-        (print_function
-          (function_verb))))
-    (command_separator)))
+0:0 - 0:3   script
+0:0 - 0:3     command_list
+0:0 - 0:3       command
+0:0 - 0:2         address: address_clause
+0:0 - 0:2           relative_address
+0:0 - 0:1             address_operator `~`
+0:1 - 0:2             count: number `0`
+0:2 - 0:3         simple_command
+0:2 - 0:3           name: command_name `p`
 
 ==================
-keeps an address separator between an omission and a nonconforming blank
+First relative address "+3" — "+3p"
 :language(sed)
+:language(sed_ere)
+:cst
 ==================
-, 1p
-
++3p
 ------------------
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (syntax_issue
-          (undefined_syntax
-            (omitted_address)))
-        (address_separator)
-        (syntax_issue
-          (nonconforming_syntax
-            (blanks_around_address_separator
-              (blank))))
-        (address
-          (line_number_address)))
-      (function
-        (print_function
-          (function_verb))))
-    (command_separator)))
+0:0 - 0:3   script
+0:0 - 0:3     command_list
+0:0 - 0:3       command
+0:0 - 0:2         address: address_clause
+0:0 - 0:2           relative_address
+0:0 - 0:1             address_operator `+`
+0:1 - 0:2             issue: syntax_issue
+0:1 - 0:2               invalid_syntax
+0:1 - 0:2                 invalid_relative_address
+0:1 - 0:2                   count: number `3`
+0:2 - 0:3         simple_command
+0:2 - 0:3           name: command_name `p`
 
 ==================
-Blanks before the function follow an omitted second address
+First relative address "~12" — "~12p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+~12p
+------------------
+0:0 - 0:4   script
+0:0 - 0:4     command_list
+0:0 - 0:4       command
+0:0 - 0:3         address: address_clause
+0:0 - 0:3           relative_address
+0:0 - 0:1             address_operator `~`
+0:1 - 0:3             issue: syntax_issue
+0:1 - 0:3               invalid_syntax
+0:1 - 0:3                 invalid_relative_address
+0:1 - 0:3                   count: number `12`
+0:3 - 0:4         simple_command
+0:3 - 0:4           name: command_name `p`
+
+==================
+First relative address with branch — "+b"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
++b
+------------------
+0:0 - 0:2   script
+0:0 - 0:2     command_list
+0:0 - 0:2       command
+0:0 - 0:1         address: address_clause
+0:0 - 0:1           relative_address
+0:0 - 0:1             address_operator `+`
+0:1 - 0:2         branch_command
+0:1 - 0:2           name: command_name `b`
+
+==================
+Relative range end "+" — "1,+p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+1,+p
+------------------
+0:0 - 0:4   script
+0:0 - 0:4     command_list
+0:0 - 0:4       command
+0:0 - 0:3         address: address_clause
+0:0 - 0:1           address
+0:0 - 0:1             line_address
+0:0 - 0:1               first: number `1`
+0:1 - 0:2           address_separator `,`
+0:2 - 0:3           relative_address
+0:2 - 0:3             address_operator `+`
+0:3 - 0:4         simple_command
+0:3 - 0:4           name: command_name `p`
+
+==================
+Relative range end "~" — "1,~p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+1,~p
+------------------
+0:0 - 0:4   script
+0:0 - 0:4     command_list
+0:0 - 0:4       command
+0:0 - 0:3         address: address_clause
+0:0 - 0:1           address
+0:0 - 0:1             line_address
+0:0 - 0:1               first: number `1`
+0:1 - 0:2           address_separator `,`
+0:2 - 0:3           relative_address
+0:2 - 0:3             address_operator `~`
+0:3 - 0:4         simple_command
+0:3 - 0:4           name: command_name `p`
+
+==================
+Relative range end "+0" — "1,+0p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+1,+0p
+------------------
+0:0 - 0:5   script
+0:0 - 0:5     command_list
+0:0 - 0:5       command
+0:0 - 0:4         address: address_clause
+0:0 - 0:1           address
+0:0 - 0:1             line_address
+0:0 - 0:1               first: number `1`
+0:1 - 0:2           address_separator `,`
+0:2 - 0:4           relative_address
+0:2 - 0:3             address_operator `+`
+0:3 - 0:4             count: number `0`
+0:4 - 0:5         simple_command
+0:4 - 0:5           name: command_name `p`
+
+==================
+Relative range end "~3" — "1,~3p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+1,~3p
+------------------
+0:0 - 0:5   script
+0:0 - 0:5     command_list
+0:0 - 0:5       command
+0:0 - 0:4         address: address_clause
+0:0 - 0:1           address
+0:0 - 0:1             line_address
+0:0 - 0:1               first: number `1`
+0:1 - 0:2           address_separator `,`
+0:2 - 0:4           relative_address
+0:2 - 0:3             address_operator `~`
+0:3 - 0:4             count: number `3`
+0:4 - 0:5         simple_command
+0:4 - 0:5           name: command_name `p`
+
+==================
+Relative range beginning — "+,2p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
++,2p
+------------------
+0:0 - 0:4   script
+0:0 - 0:4     command_list
+0:0 - 0:4       command
+0:0 - 0:3         address: address_clause
+0:0 - 0:1           relative_address
+0:0 - 0:1             address_operator `+`
+0:1 - 0:2           address_separator `,`
+0:2 - 0:3           address
+0:2 - 0:3             line_address
+0:2 - 0:3               first: number `2`
+0:3 - 0:4         simple_command
+0:3 - 0:4           name: command_name `p`
+
+==================
+Relative address before label — "+:label"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
++:label
+------------------
+0:0 - 0:7   script
+0:0 - 0:7     command_list
+0:0 - 0:7       command
+0:0 - 0:1         issue: syntax_issue
+0:0 - 0:1           invalid_syntax
+0:0 - 0:1             excess_address
+0:0 - 0:1               address: address_clause
+0:0 - 0:1                 relative_address
+0:0 - 0:1                   address_operator `+`
+0:1 - 0:7         label_command
+0:1 - 0:2           name: command_name `:`
+0:2 - 0:7           label: label
+0:2 - 0:7             label_text `label`
+
+==================
+Relative address missing command — "+"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
++
+------------------
+0:0 - 0:1   script
+0:0 - 0:1     command_list
+0:0 - 0:1       command
+0:0 - 0:1         address: address_clause
+0:0 - 0:1           relative_address
+0:0 - 0:1             address_operator `+`
+0:1 - 0:1         issue: syntax_issue
+0:1 - 0:1           incomplete_syntax
+0:1 - 0:1             missing_command
+
+==================
+Optional periodic step undefined — "1~p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+1~p
+------------------
+0:0 - 0:3   script
+0:0 - 0:3     command_list
+0:0 - 0:3       command
+0:0 - 0:2         address: address_clause
+0:0 - 0:2           address
+0:0 - 0:2             line_address
+0:0 - 0:1               first: number `1`
+0:1 - 0:2               address_operator `~`
+0:2 - 0:3         simple_command
+0:2 - 0:3           name: command_name `p`
+
+==================
+Optional periodic step "0" — "1~0p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+1~0p
+------------------
+0:0 - 0:4   script
+0:0 - 0:4     command_list
+0:0 - 0:4       command
+0:0 - 0:3         address: address_clause
+0:0 - 0:3           address
+0:0 - 0:3             line_address
+0:0 - 0:1               first: number `1`
+0:1 - 0:2               address_operator `~`
+0:2 - 0:3               step: number `0`
+0:3 - 0:4         simple_command
+0:3 - 0:4           name: command_name `p`
+
+==================
+Missing address follows layout " p" — "1, p"
 :language(sed)
 :language(sed_ere)
 :cst
 ==================
 1, p
-
 ------------------
-
-0:0 - 1:0   script
-0:0 - 1:0     command_list
-0:0 - 0:4       editing_command
-0:0 - 0:2         addresses: address_clause
-0:0 - 0:1           first: address
-0:0 - 0:1             line_number_address `1`
-0:1 - 0:2           separator: address_separator `,`
-0:2 - 0:2           issue: syntax_issue
-0:2 - 0:2             undefined_syntax
-0:2 - 0:2               omitted_address
-0:3 - 0:4         function: function
-0:3 - 0:4           print_function
-0:3 - 0:4             verb: function_verb `p`
-0:4 - 1:0       command_separator
-0:4 - 0:5         `\n`
-
-==================
-A function blank after an omitted address is outside the address clause
-:language(sed)
-:language(sed_ere)
-:cst
-==================
-1 , p
-
-------------------
-
-0:0 - 1:0   script
-0:0 - 1:0     command_list
-0:0 - 0:5       editing_command
-0:0 - 0:3         addresses: address_clause
-0:0 - 0:1           first: address
-0:0 - 0:1             line_number_address `1`
-0:1 - 0:2           issue: syntax_issue
-0:1 - 0:2             nonconforming_syntax
-0:1 - 0:2               blanks_around_address_separator
-0:1 - 0:2                 blank ` `
-0:2 - 0:3           separator: address_separator `,`
-0:3 - 0:3           issue: syntax_issue
-0:3 - 0:3             undefined_syntax
-0:3 - 0:3               omitted_address
-0:4 - 0:5         function: function
-0:4 - 0:5           print_function
-0:4 - 0:5             verb: function_verb `p`
-0:5 - 1:0       command_separator
-0:5 - 0:6         `\n`
-
-==================
-A final address has a missing function
-:language(sed)
-:language(sed_ere)
-:cst
-==================
-1
-------------------
-
-0:0 - 0:1   script
-0:0 - 0:1     command_list
-0:0 - 0:1       editing_command
-0:0 - 0:1         addresses: address_clause
-0:0 - 0:1           first: address
-0:0 - 0:1             line_number_address `1`
-0:1 - 0:1         issue: syntax_issue
-0:1 - 0:1           incomplete_syntax
-0:1 - 0:1             missing_function
-
-==================
-preserves final negation without synthesizing a function
-:language(sed_ere)
-==================
-!
-------------------
-
-(script
-  (command_list
-    (editing_command
-      (negation
-        (negation_operator))
-      (syntax_issue
-        (incomplete_syntax
-          (missing_function))))))
-
-==================
-classifies a missing function after an address at a newline
-:language(sed)
-==================
-1
-
-------------------
-
-(script
-  (command_list
-    (editing_command
-      (address_clause
-        (address
-          (line_number_address)))
-      (syntax_issue
-        (nonconforming_syntax
-          (missing_function))))
-    (command_separator)))
-
-==================
-An omitted final address attaches after its separator
-:language(sed)
-:language(sed_ere)
-:cst
-==================
-1,
-------------------
-
-0:0 - 0:2   script
-0:0 - 0:2     command_list
-0:0 - 0:2       editing_command
-0:0 - 0:2         addresses: address_clause
-0:0 - 0:1           first: address
-0:0 - 0:1             line_number_address `1`
-0:1 - 0:2           separator: address_separator `,`
-0:2 - 0:2           issue: syntax_issue
-0:2 - 0:2             incomplete_syntax
-0:2 - 0:2               omitted_address
-0:2 - 0:2         issue: syntax_issue
-0:2 - 0:2           incomplete_syntax
-0:2 - 0:2             missing_function
-
-==================
-A newline makes address omission and missing function non-incomplete
-:language(sed)
-:language(sed_ere)
-:cst
-==================
-1,
-p
-
-------------------
-
-0:0 - 2:0   script
-0:0 - 2:0     command_list
-0:0 - 0:2       editing_command
-0:0 - 0:2         addresses: address_clause
-0:0 - 0:1           first: address
-0:0 - 0:1             line_number_address `1`
-0:1 - 0:2           separator: address_separator `,`
-0:2 - 0:2           issue: syntax_issue
-0:2 - 0:2             undefined_syntax
-0:2 - 0:2               omitted_address
-0:2 - 0:2         issue: syntax_issue
-0:2 - 0:2           nonconforming_syntax
-0:2 - 0:2             missing_function
-0:2 - 1:0       command_separator
-0:2 - 0:3         `\n`
-1:0 - 1:1       editing_command
-1:0 - 1:1         function: function
-1:0 - 1:1           print_function
-1:0 - 1:1             verb: function_verb `p`
-1:1 - 2:0       command_separator
-1:1 - 1:2         `\n`
-
-==================
-A separator at EOF distinguishes leading and trailing omissions
-:language(sed)
-:language(sed_ere)
-:cst
-==================
-,
-------------------
-
-0:0 - 0:1   script
-0:0 - 0:1     command_list
-0:0 - 0:1       editing_command
-0:0 - 0:1         addresses: address_clause
-0:0 - 0:0           issue: syntax_issue
-0:0 - 0:0             undefined_syntax
-0:0 - 0:0               omitted_address
-0:0 - 0:1           separator: address_separator `,`
-0:1 - 0:1           issue: syntax_issue
-0:1 - 0:1             incomplete_syntax
-0:1 - 0:1               omitted_address
-0:1 - 0:1         issue: syntax_issue
-0:1 - 0:1           incomplete_syntax
-0:1 - 0:1             missing_function
-
-==================
-A final excess address unit retains its omitted operand
-:language(sed)
-:language(sed_ere)
-:cst
-==================
-1,2,
-------------------
-
 0:0 - 0:4   script
 0:0 - 0:4     command_list
-0:0 - 0:4       editing_command
-0:0 - 0:4         addresses: address_clause
-0:0 - 0:1           first: address
-0:0 - 0:1             line_number_address `1`
-0:1 - 0:2           separator: address_separator `,`
-0:2 - 0:3           second: address
-0:2 - 0:3             line_number_address `2`
-0:3 - 0:4           issue: syntax_issue
-0:3 - 0:4             nonconforming_syntax
-0:3 - 0:4               excess_address
-0:3 - 0:4                 separator: address_separator `,`
+0:0 - 0:4       command
+0:0 - 0:3         address: address_clause
+0:0 - 0:1           address
+0:0 - 0:1             line_address
+0:0 - 0:1               first: number `1`
+0:1 - 0:2           address_separator `,`
+0:3 - 0:3           issue: syntax_issue
+0:3 - 0:3             invalid_syntax
+0:3 - 0:3               missing_address
+0:3 - 0:4         simple_command
+0:3 - 0:4           name: command_name `p`
+
+==================
+Missing address follows layout " \t" — "1, \t"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+1, 	
+------------------
+0:0 - 0:4   script
+0:0 - 0:4     command_list
+0:0 - 0:4       command
+0:0 - 0:4         address: address_clause
+0:0 - 0:1           address
+0:0 - 0:1             line_address
+0:0 - 0:1               first: number `1`
+0:1 - 0:2           address_separator `,`
+0:4 - 0:4           issue: syntax_issue
+0:4 - 0:4             incomplete_syntax
+0:4 - 0:4               missing_address
+0:4 - 0:4         issue: syntax_issue
+0:4 - 0:4           incomplete_syntax
+0:4 - 0:4             missing_command
+
+==================
+Excess omitted address follows layout — "1,2,  p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+1,2,  p
+------------------
+0:0 - 0:7   script
+0:0 - 0:7     command_list
+0:0 - 0:7       command
+0:0 - 0:6         address: address_clause
+0:0 - 0:1           address
+0:0 - 0:1             line_address
+0:0 - 0:1               first: number `1`
+0:1 - 0:2           address_separator `,`
+0:2 - 0:3           address
+0:2 - 0:3             line_address
+0:2 - 0:3               first: number `2`
+0:3 - 0:6           issue: syntax_issue
+0:3 - 0:6             invalid_syntax
+0:3 - 0:6               excess_address
+0:3 - 0:4                 address_separator `,`
+0:6 - 0:6                 issue: syntax_issue
+0:6 - 0:6                   invalid_syntax
+0:6 - 0:6                     missing_address
+0:6 - 0:7         simple_command
+0:6 - 0:7           name: command_name `p`
+
+==================
+Missing command follows layout — "1 \t;"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+1 	;
+------------------
+0:0 - 0:4   script
+0:0 - 0:4     command_list
+0:0 - 0:3       command
+0:0 - 0:1         address: address_clause
+0:0 - 0:1           address
+0:0 - 0:1             line_address
+0:0 - 0:1               first: number `1`
+0:3 - 0:3         issue: syntax_issue
+0:3 - 0:3           invalid_syntax
+0:3 - 0:3             missing_command
+0:3 - 0:4       command_separator `;`
+
+==================
+Missing first address starts at comma "   " — "   ,2p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+   ,2p
+------------------
+0:0 - 0:6   script
+0:3 - 0:6     command_list
+0:3 - 0:6       command
+0:3 - 0:5         address: address_clause
+0:3 - 0:3           issue: syntax_issue
+0:3 - 0:3             invalid_syntax
+0:3 - 0:3               missing_address
+0:3 - 0:4           address_separator `,`
+0:4 - 0:5           address
+0:4 - 0:5             line_address
+0:4 - 0:5               first: number `2`
+0:5 - 0:6         simple_command
+0:5 - 0:6           name: command_name `p`
+
+==================
+Missing first address starts at comma "p;   " — "p;   ,2p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+p;   ,2p
+------------------
+0:0 - 0:8   script
+0:0 - 0:8     command_list
+0:0 - 0:1       command
+0:0 - 0:1         simple_command
+0:0 - 0:1           name: command_name `p`
+0:1 - 0:2       command_separator `;`
+0:5 - 0:8       command
+0:5 - 0:7         address: address_clause
+0:5 - 0:5           issue: syntax_issue
+0:5 - 0:5             invalid_syntax
+0:5 - 0:5               missing_address
+0:5 - 0:6           address_separator `,`
+0:6 - 0:7           address
+0:6 - 0:7             line_address
+0:6 - 0:7               first: number `2`
+0:7 - 0:8         simple_command
+0:7 - 0:8           name: command_name `p`
+
+==================
+Missing first address starts at comma "{   " — "{   ,2p}"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+{   ,2p}
+------------------
+0:0 - 0:8   script
+0:0 - 0:8     command_list
+0:0 - 0:8       command
+0:0 - 0:8         block
+0:0 - 0:1           "{"
+0:4 - 0:7           command_list
+0:4 - 0:7             command
+0:4 - 0:6               address: address_clause
 0:4 - 0:4                 issue: syntax_issue
-0:4 - 0:4                   incomplete_syntax
-0:4 - 0:4                     omitted_address
-0:4 - 0:4         issue: syntax_issue
-0:4 - 0:4           incomplete_syntax
-0:4 - 0:4             missing_function
+0:4 - 0:4                   invalid_syntax
+0:4 - 0:4                     missing_address
+0:4 - 0:5                 address_separator `,`
+0:5 - 0:6                 address
+0:5 - 0:6                   line_address
+0:5 - 0:6                     first: number `2`
+0:6 - 0:7               simple_command
+0:6 - 0:7                 name: command_name `p`
+0:7 - 0:8           "}"
 
 ==================
-Separator blanks precede an omitted final address
+Zero step at EOF "" — "0~0"
 :language(sed)
 :language(sed_ere)
 :cst
 ==================
-1 , 
+0~0
 ------------------
+0:0 - 0:3   script
+0:0 - 0:3     command_list
+0:0 - 0:3       command
+0:0 - 0:3         address: address_clause
+0:0 - 0:3           address
+0:0 - 0:3             line_address
+0:0 - 0:1               issue: syntax_issue
+0:0 - 0:1                 incomplete_syntax
+0:0 - 0:1                   invalid_zero_address
+0:0 - 0:1                     number `0`
+0:1 - 0:2               address_operator `~`
+0:2 - 0:3               step: number `0`
+0:3 - 0:3         issue: syntax_issue
+0:3 - 0:3           incomplete_syntax
+0:3 - 0:3             missing_command
 
+==================
+Zero step at EOF " " — "0~0 "
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+0~0 
+------------------
 0:0 - 0:4   script
 0:0 - 0:4     command_list
-0:0 - 0:4       editing_command
-0:0 - 0:3         addresses: address_clause
-0:0 - 0:1           first: address
-0:0 - 0:1             line_number_address `1`
-0:1 - 0:2           issue: syntax_issue
-0:1 - 0:2             nonconforming_syntax
-0:1 - 0:2               blanks_around_address_separator
-0:1 - 0:2                 blank ` `
-0:2 - 0:3           separator: address_separator `,`
-0:3 - 0:3           issue: syntax_issue
-0:3 - 0:3             incomplete_syntax
-0:3 - 0:3               omitted_address
+0:0 - 0:4       command
+0:0 - 0:3         address: address_clause
+0:0 - 0:3           address
+0:0 - 0:3             line_address
+0:0 - 0:1               issue: syntax_issue
+0:0 - 0:1                 incomplete_syntax
+0:0 - 0:1                   invalid_zero_address
+0:0 - 0:1                     number `0`
+0:1 - 0:2               address_operator `~`
+0:2 - 0:3               step: number `0`
 0:4 - 0:4         issue: syntax_issue
 0:4 - 0:4           incomplete_syntax
-0:4 - 0:4             missing_function
+0:4 - 0:4             missing_command
 
 ==================
-Blank-separated addresses remain excess before a label at EOF
+Control delimiter escape in address — "\\c\\c\\.cp"
 :language(sed)
 :language(sed_ere)
 :cst
 ==================
-1 2:x
+\c\c\.cp
 ------------------
+0:0 - 0:8   script
+0:0 - 0:8     command_list
+0:0 - 0:8       command
+0:0 - 0:7         address: address_clause
+0:0 - 0:7           address
+0:0 - 0:7             regex_address
+0:0 - 0:2               opening: delimiter `\\c`
+0:2 - 0:6               regular_expression
+0:2 - 0:6                 alternation
+0:2 - 0:6                   regex_branch
+0:2 - 0:4                     regex_character
+0:2 - 0:4                       escape `\\c`
+0:4 - 0:6                     regex_character
+0:4 - 0:6                       escape `\\.`
+0:6 - 0:7               closing: delimiter `c`
+0:7 - 0:8         simple_command
+0:7 - 0:8           name: command_name `p`
 
+==================
+Backslash address delimiter — "\\\\b\\p"
+:language(sed)
+:language(sed_ere)
+:cst
+==================
+\\b\p
+------------------
 0:0 - 0:5   script
 0:0 - 0:5     command_list
-0:0 - 0:5       editing_command
-0:0 - 0:3         addresses: address_clause
-0:0 - 0:1           issue: syntax_issue
-0:0 - 0:1             nonconforming_syntax
-0:0 - 0:1               excess_address
-0:0 - 0:1                 address: address
-0:0 - 0:1                   line_number_address `1`
-0:1 - 0:3           issue: syntax_issue
-0:1 - 0:3             nonconforming_syntax
-0:1 - 0:3               excess_address
-0:1 - 0:1                 issue: syntax_issue
-0:1 - 0:1                   nonconforming_syntax
-0:1 - 0:1                     missing_address_separator
-0:2 - 0:3                 address: address
-0:2 - 0:3                   line_number_address `2`
-0:3 - 0:5         function: function
-0:3 - 0:5           label_function
-0:3 - 0:4             verb: function_verb `:`
-0:4 - 0:5             label: label
-0:4 - 0:5               label_literal `x`
+0:0 - 0:5       command
+0:0 - 0:4         address: address_clause
+0:0 - 0:4           address
+0:0 - 0:4             regex_address
+0:0 - 0:2               opening: delimiter `\\\\`
+0:2 - 0:3               regular_expression
+0:2 - 0:3                 alternation
+0:2 - 0:3                   regex_branch
+0:2 - 0:3                     regex_character
+0:2 - 0:3                       literal `b`
+0:3 - 0:4               closing: delimiter `\\`
+0:4 - 0:5         simple_command
+0:4 - 0:5           name: command_name `p`
 
 ==================
-An adjacent context address remains excess before quit (BRE)
-:language(sed)
-:cst
-==================
-1/ab/q
-
-------------------
-
-0:0 - 1:0   script
-0:0 - 1:0     command_list
-0:0 - 0:6       editing_command
-0:0 - 0:5         addresses: address_clause
-0:0 - 0:1           first: address
-0:0 - 0:1             line_number_address `1`
-0:1 - 0:5           issue: syntax_issue
-0:1 - 0:5             nonconforming_syntax
-0:1 - 0:5               excess_address
-0:1 - 0:1                 issue: syntax_issue
-0:1 - 0:1                   nonconforming_syntax
-0:1 - 0:1                     missing_address_separator
-0:1 - 0:5                 address: address
-0:1 - 0:5                   context_address
-0:1 - 0:2                     opening: delimiter `/`
-0:2 - 0:4                     expression: basic_reg_exp
-0:2 - 0:4                       bre_branch
-0:2 - 0:3                         bre_expression
-0:2 - 0:3                           simple_bre
-0:2 - 0:3                             nondupl_bre
-0:2 - 0:3                               one_char_or_coll_elem_bre
-0:2 - 0:3                                 ordinary_character `a`
-0:3 - 0:4                         bre_expression
-0:3 - 0:4                           simple_bre
-0:3 - 0:4                             nondupl_bre
-0:3 - 0:4                               one_char_or_coll_elem_bre
-0:3 - 0:4                                 ordinary_character `b`
-0:4 - 0:5                     closing: delimiter `/`
-0:5 - 0:6         function: function
-0:5 - 0:6           quit_function
-0:5 - 0:6             verb: function_verb `q`
-0:6 - 1:0       command_separator
-0:6 - 0:7         `\n`
-
-==================
-Separator blank runs retain their own source leaves
+Nested zero addresses retain local validity — "0,//{$!\n0~!;0;$y"
 :language(sed)
 :language(sed_ere)
 :cst
 ==================
-1 	, 	2p
-
+0,//{$!
+0~!;0;$y
 ------------------
-
-0:0 - 1:0   script
-0:0 - 1:0     command_list
-0:0 - 0:8       editing_command
-0:0 - 0:7         addresses: address_clause
-0:0 - 0:1           first: address
-0:0 - 0:1             line_number_address `1`
-0:1 - 0:3           issue: syntax_issue
-0:1 - 0:3             nonconforming_syntax
-0:1 - 0:3               blanks_around_address_separator
-0:1 - 0:3                 blank ` \t`
-0:3 - 0:4           separator: address_separator `,`
-0:4 - 0:6           issue: syntax_issue
-0:4 - 0:6             nonconforming_syntax
-0:4 - 0:6               blanks_around_address_separator
-0:4 - 0:6                 blank ` \t`
-0:6 - 0:7           second: address
-0:6 - 0:7             line_number_address `2`
-0:7 - 0:8         function: function
-0:7 - 0:8           print_function
-0:7 - 0:8             verb: function_verb `p`
-0:8 - 1:0       command_separator
-0:8 - 0:9         `\n`
+0:0 - 1:8   script
+0:0 - 1:8     command_list
+0:0 - 1:8       command
+0:0 - 0:4         address: address_clause
+0:0 - 0:1           address
+0:0 - 0:1             line_address
+0:0 - 0:1               first: number `0`
+0:1 - 0:2           address_separator `,`
+0:2 - 0:4           address
+0:2 - 0:4             regex_address
+0:2 - 0:3               opening: delimiter `/`
+0:3 - 0:4               closing: delimiter `/`
+0:4 - 1:8         block
+0:4 - 0:5           "{"
+0:5 - 1:8           command_list
+0:5 - 0:7             command
+0:5 - 0:6               address: address_clause
+0:5 - 0:6                 address
+0:5 - 0:6                   last_line_address `$`
+0:6 - 0:7               negation: negation
+0:6 - 0:7                 "!"
+0:7 - 0:7               issue: syntax_issue
+0:7 - 0:7                 invalid_syntax
+0:7 - 0:7                   missing_command
+0:7 - 1:0             command_separator
+0:7 - 0:8               `\n`
+1:0 - 1:3             command
+1:0 - 1:2               address: address_clause
+1:0 - 1:2                 address
+1:0 - 1:2                   line_address
+1:0 - 1:1                     issue: syntax_issue
+1:0 - 1:1                       invalid_syntax
+1:0 - 1:1                         invalid_zero_address
+1:0 - 1:1                           number `0`
+1:1 - 1:2                     address_operator `~`
+1:2 - 1:3               negation: negation
+1:2 - 1:3                 "!"
+1:3 - 1:3               issue: syntax_issue
+1:3 - 1:3                 invalid_syntax
+1:3 - 1:3                   missing_command
+1:3 - 1:4             command_separator `;`
+1:4 - 1:5             command
+1:4 - 1:5               address: address_clause
+1:4 - 1:5                 address
+1:4 - 1:5                   line_address
+1:4 - 1:5                     issue: syntax_issue
+1:4 - 1:5                       invalid_syntax
+1:4 - 1:5                         invalid_zero_address
+1:4 - 1:5                           number `0`
+1:5 - 1:5               issue: syntax_issue
+1:5 - 1:5                 invalid_syntax
+1:5 - 1:5                   missing_command
+1:5 - 1:6             command_separator `;`
+1:6 - 1:8             command
+1:6 - 1:7               address: address_clause
+1:6 - 1:7                 address
+1:6 - 1:7                   last_line_address `$`
+1:7 - 1:8               translate_command
+1:7 - 1:8                 name: command_name `y`
+1:8 - 1:8                 issue: syntax_issue
+1:8 - 1:8                   incomplete_syntax
+1:8 - 1:8                     missing_opening_delimiter
+1:8 - 1:8           issue: syntax_issue
+1:8 - 1:8             incomplete_syntax
+1:8 - 1:8               missing_closing_delimiter
 
 ==================
-Negation blank runs retain their own source leaf
+Optional operand after zero step range "e ;" — "0~0,/a/e ;"
 :language(sed)
 :language(sed_ere)
 :cst
 ==================
-! 	p
-
+0~0,/a/e ;
 ------------------
-
-0:0 - 1:0   script
-0:0 - 1:0     command_list
-0:0 - 0:4       editing_command
-0:0 - 0:3         negation: negation
-0:0 - 0:1           operator: negation_operator `!`
-0:1 - 0:3           issue: syntax_issue
-0:1 - 0:3             unspecified_syntax
-0:1 - 0:3               blanks_after_negation
-0:1 - 0:3                 blank ` \t`
-0:3 - 0:4         function: function
-0:3 - 0:4           print_function
-0:3 - 0:4             verb: function_verb `p`
-0:4 - 1:0       command_separator
-0:4 - 0:5         `\n`
+0:0  - 0:10   script
+0:0  - 0:10     command_list
+0:0  - 0:10       command
+0:0  - 0:7          address: address_clause
+0:0  - 0:3            address
+0:0  - 0:3              line_address
+0:0  - 0:1                first: number `0`
+0:1  - 0:2                address_operator `~`
+0:2  - 0:3                step: number `0`
+0:3  - 0:4            address_separator `,`
+0:4  - 0:7            address
+0:4  - 0:7              regex_address
+0:4  - 0:5                opening: delimiter `/`
+0:5  - 0:6                regular_expression
+0:5  - 0:6                  alternation
+0:5  - 0:6                    regex_branch
+0:5  - 0:6                      regex_character
+0:5  - 0:6                        literal `a`
+0:6  - 0:7                closing: delimiter `/`
+0:7  - 0:10         execute_command
+0:7  - 0:8            name: command_name `e`
+0:9  - 0:10           command: shell_command
+0:9  - 0:10             shell_text `;`
 
 ==================
-Blanks before the function follow both omitted addresses
+Optional operand after zero step range "b x" — "0~0,/a/b x"
 :language(sed)
 :language(sed_ere)
 :cst
 ==================
-, p
-
+0~0,/a/b x
 ------------------
-
-0:0 - 1:0   script
-0:0 - 1:0     command_list
-0:0 - 0:3       editing_command
-0:0 - 0:1         addresses: address_clause
-0:0 - 0:0           issue: syntax_issue
-0:0 - 0:0             undefined_syntax
-0:0 - 0:0               omitted_address
-0:0 - 0:1           separator: address_separator `,`
-0:1 - 0:1           issue: syntax_issue
-0:1 - 0:1             undefined_syntax
-0:1 - 0:1               omitted_address
-0:2 - 0:3         function: function
-0:2 - 0:3           print_function
-0:2 - 0:3             verb: function_verb `p`
-0:3 - 1:0       command_separator
-0:3 - 0:4         `\n`
+0:0  - 0:10   script
+0:0  - 0:10     command_list
+0:0  - 0:10       command
+0:0  - 0:7          address: address_clause
+0:0  - 0:3            address
+0:0  - 0:3              line_address
+0:0  - 0:1                first: number `0`
+0:1  - 0:2                address_operator `~`
+0:2  - 0:3                step: number `0`
+0:3  - 0:4            address_separator `,`
+0:4  - 0:7            address
+0:4  - 0:7              regex_address
+0:4  - 0:5                opening: delimiter `/`
+0:5  - 0:6                regular_expression
+0:5  - 0:6                  alternation
+0:5  - 0:6                    regex_branch
+0:5  - 0:6                      regex_character
+0:5  - 0:6                        literal `a`
+0:6  - 0:7                closing: delimiter `/`
+0:7  - 0:10         branch_command
+0:7  - 0:8            name: command_name `b`
+0:9  - 0:10           label: label
+0:9  - 0:10             label_text `x`
 
 ==================
-A leading blank is outside a command with omitted addresses
+Optional operand after zero step range "T x" — "0~0,/a/T x"
 :language(sed)
 :language(sed_ere)
 :cst
 ==================
- ,p
-
+0~0,/a/T x
 ------------------
-
-0:0 - 1:0   script
-0:1 - 1:0     command_list
-0:1 - 0:3       editing_command
-0:1 - 0:2         addresses: address_clause
-0:1 - 0:1           issue: syntax_issue
-0:1 - 0:1             undefined_syntax
-0:1 - 0:1               omitted_address
-0:1 - 0:2           separator: address_separator `,`
-0:2 - 0:2           issue: syntax_issue
-0:2 - 0:2             undefined_syntax
-0:2 - 0:2               omitted_address
-0:2 - 0:3         function: function
-0:2 - 0:3           print_function
-0:2 - 0:3             verb: function_verb `p`
-0:3 - 1:0       command_separator
-0:3 - 0:4         `\n`
+0:0  - 0:10   script
+0:0  - 0:10     command_list
+0:0  - 0:10       command
+0:0  - 0:7          address: address_clause
+0:0  - 0:3            address
+0:0  - 0:3              line_address
+0:0  - 0:1                first: number `0`
+0:1  - 0:2                address_operator `~`
+0:2  - 0:3                step: number `0`
+0:3  - 0:4            address_separator `,`
+0:4  - 0:7            address
+0:4  - 0:7              regex_address
+0:4  - 0:5                opening: delimiter `/`
+0:5  - 0:6                regular_expression
+0:5  - 0:6                  alternation
+0:5  - 0:6                    regex_branch
+0:5  - 0:6                      regex_character
+0:5  - 0:6                        literal `a`
+0:6  - 0:7                closing: delimiter `/`
+0:7  - 0:10         branch_command
+0:7  - 0:8            name: command_name `T`
+0:9  - 0:10           label: label
+0:9  - 0:10             label_text `x`
 
 ==================
-A leading tab is outside a command with an omitted first address
+Optional operand after zero step range "v 4" — "0~0,/a/v 4"
 :language(sed)
 :language(sed_ere)
 :cst
 ==================
-	,2p
-
+0~0,/a/v 4
 ------------------
-
-0:0 - 1:0   script
-0:1 - 1:0     command_list
-0:1 - 0:4       editing_command
-0:1 - 0:3         addresses: address_clause
-0:1 - 0:1           issue: syntax_issue
-0:1 - 0:1             undefined_syntax
-0:1 - 0:1               omitted_address
-0:1 - 0:2           separator: address_separator `,`
-0:2 - 0:3           second: address
-0:2 - 0:3             line_number_address `2`
-0:3 - 0:4         function: function
-0:3 - 0:4           print_function
-0:3 - 0:4             verb: function_verb `p`
-0:4 - 1:0       command_separator
-0:4 - 0:5         `\n`
+0:0  - 0:10   script
+0:0  - 0:10     command_list
+0:0  - 0:10       command
+0:0  - 0:7          address: address_clause
+0:0  - 0:3            address
+0:0  - 0:3              line_address
+0:0  - 0:1                first: number `0`
+0:1  - 0:2                address_operator `~`
+0:2  - 0:3                step: number `0`
+0:3  - 0:4            address_separator `,`
+0:4  - 0:7            address
+0:4  - 0:7              regex_address
+0:4  - 0:5                opening: delimiter `/`
+0:5  - 0:6                regular_expression
+0:5  - 0:6                  alternation
+0:5  - 0:6                    regex_branch
+0:5  - 0:6                      regex_character
+0:5  - 0:6                        literal `a`
+0:6  - 0:7                closing: delimiter `/`
+0:7  - 0:10         version_command
+0:7  - 0:8            name: command_name `v`
+0:9  - 0:10           version: version
+0:9  - 0:10             version_text `4`
 
 ==================
-A block command excludes its blank before omitted addresses
+Optional operand after zero step range "l 5" — "0~,/a/l 5"
 :language(sed)
 :language(sed_ere)
 :cst
 ==================
-{
- ,p
-}
-
+0~,/a/l 5
 ------------------
-
-0:0 - 3:0   script
-0:0 - 3:0     command_list
-0:0 - 2:1       editing_command
-0:0 - 2:1         function: function
-0:0 - 2:1           block_function
-0:0 - 0:1             verb: function_verb `{`
-0:1 - 2:0             commands: command_list
-0:1 - 0:1               empty_command
-0:1 - 1:0               command_separator
-0:1 - 0:2                 `\n`
-1:1 - 1:3               editing_command
-1:1 - 1:2                 addresses: address_clause
-1:1 - 1:1                   issue: syntax_issue
-1:1 - 1:1                     undefined_syntax
-1:1 - 1:1                       omitted_address
-1:1 - 1:2                   separator: address_separator `,`
-1:2 - 1:2                   issue: syntax_issue
-1:2 - 1:2                     undefined_syntax
-1:2 - 1:2                       omitted_address
-1:2 - 1:3                 function: function
-1:2 - 1:3                   print_function
-1:2 - 1:3                     verb: function_verb `p`
-1:3 - 2:0               command_separator
-1:3 - 1:4                 `\n`
-2:0 - 2:1             closing: closing_brace `}`
-2:1 - 3:0       command_separator
-2:1 - 2:2         `\n`
-
-==================
-An address separator is a direct leaf
-:language(sed)
-:language(sed_ere)
-:cst
-==================
-1,2p
-
-------------------
-
-0:0 - 1:0   script
-0:0 - 1:0     command_list
-0:0 - 0:4       editing_command
-0:0 - 0:3         addresses: address_clause
-0:0 - 0:1           first: address
-0:0 - 0:1             line_number_address `1`
-0:1 - 0:2           separator: address_separator `,`
-0:2 - 0:3           second: address
-0:2 - 0:3             line_number_address `2`
-0:3 - 0:4         function: function
-0:3 - 0:4           print_function
-0:3 - 0:4             verb: function_verb `p`
-0:4 - 1:0       command_separator
-0:4 - 0:5         `\n`
-
-==================
-An adjacent context address remains excess before quit (ERE)
-:language(sed_ere)
-:cst
-==================
-1/ab/q
-
-------------------
-
-0:0 - 1:0   script
-0:0 - 1:0     command_list
-0:0 - 0:6       editing_command
-0:0 - 0:5         addresses: address_clause
-0:0 - 0:1           first: address
-0:0 - 0:1             line_number_address `1`
-0:1 - 0:5           issue: syntax_issue
-0:1 - 0:5             nonconforming_syntax
-0:1 - 0:5               excess_address
-0:1 - 0:1                 issue: syntax_issue
-0:1 - 0:1                   nonconforming_syntax
-0:1 - 0:1                     missing_address_separator
-0:1 - 0:5                 address: address
-0:1 - 0:5                   context_address
-0:1 - 0:2                     opening: delimiter `/`
-0:2 - 0:4                     expression: extended_reg_exp
-0:2 - 0:4                       ere_branch
-0:2 - 0:3                         ere_expression
-0:2 - 0:3                           one_char_or_coll_elem_ere
-0:2 - 0:3                             ordinary_character `a`
-0:3 - 0:4                         ere_expression
-0:3 - 0:4                           one_char_or_coll_elem_ere
-0:3 - 0:4                             ordinary_character `b`
-0:4 - 0:5                     closing: delimiter `/`
-0:5 - 0:6         function: function
-0:5 - 0:6           quit_function
-0:5 - 0:6             verb: function_verb `q`
-0:6 - 1:0       command_separator
-0:6 - 0:7         `\n`
-
-==================
-A duplicate negation after an address retains its operator
-:language(sed)
-:language(sed_ere)
-:cst
-==================
-1!!p
-
-------------------
-
-0:0 - 1:0   script
-0:0 - 1:0     command_list
-0:0 - 0:4       editing_command
-0:0 - 0:1         addresses: address_clause
-0:0 - 0:1           first: address
-0:0 - 0:1             line_number_address `1`
-0:1 - 0:3         negation: negation
-0:1 - 0:2           operator: negation_operator `!`
-0:2 - 0:3           issue: syntax_issue
-0:2 - 0:3             nonconforming_syntax
-0:2 - 0:3               duplicate_negation
-0:2 - 0:3                 operator: negation_operator `!`
-0:3 - 0:4         function: function
-0:3 - 0:4           print_function
-0:3 - 0:4             verb: function_verb `p`
-0:4 - 1:0       command_separator
-0:4 - 0:5         `\n`
+0:0 - 0:9   script
+0:0 - 0:9     command_list
+0:0 - 0:9       command
+0:0 - 0:6         address: address_clause
+0:0 - 0:2           address
+0:0 - 0:2             line_address
+0:0 - 0:1               first: number `0`
+0:1 - 0:2               address_operator `~`
+0:2 - 0:3           address_separator `,`
+0:3 - 0:6           address
+0:3 - 0:6             regex_address
+0:3 - 0:4               opening: delimiter `/`
+0:4 - 0:5               regular_expression
+0:4 - 0:5                 alternation
+0:4 - 0:5                   regex_branch
+0:4 - 0:5                     regex_character
+0:4 - 0:5                       literal `a`
+0:5 - 0:6               closing: delimiter `/`
+0:6 - 0:9         numeric_command
+0:6 - 0:7           name: command_name `l`
+0:8 - 0:9           argument: number `5`
