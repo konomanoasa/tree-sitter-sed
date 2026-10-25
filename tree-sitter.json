@@ -22,7 +22,7 @@
     }
   ],
   "metadata": {
-    "version": "0.22.1",
+    "version": "0.22.2",
     "license": "MIT",
     "description": "Tree-sitter grammars for GNU sed 4.10.",
     "links": {
