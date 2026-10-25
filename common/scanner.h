@@ -369,8 +369,7 @@ static inline void read_numeric_escape(
     u->quoted = true;
   }
 }
-static inline Unit
-read_unit(TSLexer *lexer, Scanner *s, bool bracket, bool split, bool partner) {
+static inline Unit read_unit(TSLexer *lexer, Scanner *s, bool partner) {
   Unit u = {.value = lexer->lookahead};
   if (s->verbatim) {
     s->verbatim = false;
@@ -382,7 +381,7 @@ read_unit(TSLexer *lexer, Scanner *s, bool bracket, bool split, bool partner) {
   advance_host(lexer, s);
   if (u.value != '\\') return u;
   if (lexer->eof(lexer) || (!raw && host_boundary(lexer, s))) {
-    u.incomplete = !bracket;
+    u.incomplete = !s->bracket;
     u.completion.character = lexer->eof(lexer);
     return u;
   }
@@ -390,7 +389,7 @@ read_unit(TSLexer *lexer, Scanner *s, bool bracket, bool split, bool partner) {
   if (!decoded(c)) return u;
   if (paired && c == '\\') {
     if (partner) {
-      // Keep the pair at EOF: an appended delimiter letter can change its pairing.
+      // Appending a delimiter letter at EOF can change this pairing.
       int32_t next = peek_next(lexer);
       if (
         !next_eof(lexer) && (!host_escapable(s, next) || !escape_letter(next))
@@ -402,7 +401,7 @@ read_unit(TSLexer *lexer, Scanner *s, bool bracket, bool split, bool partner) {
     advance_host(lexer, s);
     c = lexer->lookahead;
     bool letter = escape_letter(c);
-    if (lexer->eof(lexer) || !host_escapable(s, c) || (bracket && !letter)) {
+    if (lexer->eof(lexer) || !host_escapable(s, c) || (s->bracket && !letter)) {
       u.value = '\\';
       u.quoted = true;
       return u;
@@ -416,11 +415,11 @@ read_unit(TSLexer *lexer, Scanner *s, bool bracket, bool split, bool partner) {
   }
   bool delimiter = raw && !text_mode(s) && host_escapable(s, c);
   if (!delimiter && !escape_letter(c)) {
-    if (bracket) {
+    if (s->bracket) {
       s->verbatim = c == '\\';
       return u;
     }
-    if (split) {
+    if (regex_mode(s)) {
       s->verbatim = true;
       return u;
     }
@@ -470,18 +469,18 @@ read_unit(TSLexer *lexer, Scanner *s, bool bracket, bool split, bool partner) {
   }
   return u;
 }
-static inline Unit unit(TSLexer *lexer, Scanner *s, bool bracket) {
-  return read_unit(lexer, s, bracket, false, false);
+static inline Unit unit(TSLexer *lexer, Scanner *s) {
+  return read_unit(lexer, s, false);
 }
 static inline bool in_list(const Scanner *s) {
   return regex_mode(s) && s->bracket == BRACKET_BODY && !s->term;
 }
 static inline void peek_range_end(TSLexer *lexer, Scanner *ahead, Unit u) {
-  if (u.value == '-' && !host_boundary(lexer, ahead)) unit(lexer, ahead, true);
+  if (u.value == '-' && !host_boundary(lexer, ahead)) unit(lexer, ahead);
 }
 static inline void peek_range(TSLexer *lexer, Scanner ahead) {
   if (!host_boundary(lexer, &ahead))
-    peek_range_end(lexer, &ahead, unit(lexer, &ahead, true));
+    peek_range_end(lexer, &ahead, unit(lexer, &ahead));
 }
 static inline bool element(
   TSLexer *lexer,
@@ -500,28 +499,18 @@ invalid_encoding(TSLexer *lexer, Scanner *s, const bool *valid) {
   } while (!decoded(lexer->lookahead));
   return element(lexer, s, valid, INVALID_ENCODING);
 }
-static inline Unit regex_piece(TSLexer *lexer, Scanner *s, bool partner) {
-  return read_unit(
-    lexer,
-    s,
-    s->bracket != BRACKET_OUTSIDE,
-    !s->bracket,
-    partner
-  );
-}
 static inline Unit regex_unit(TSLexer *lexer, Scanner *s) {
-  Unit u = regex_piece(lexer, s, false);
+  Unit u = unit(lexer, s);
   if (u.value == '\\' && !u.quoted && !s->bracket) {
     if (host_boundary(lexer, s)) u.incomplete = true;
     else if (!decoded(lexer->lookahead)) {
       u.value = lexer->lookahead;
       u.quoted = true;
     } else {
-      Unit next = regex_piece(lexer, s, true);
+      Unit next = read_unit(lexer, s, true);
       u.value = next.value;
       u.encoded = u.encoded || next.encoded;
       u.quoted = true;
-      // A regex delimiter completes the backslash pair; EOF leaves it open.
       u.incomplete = next.incomplete && lexer->eof(lexer);
       u.invalid_control = next.invalid_control;
       u.completion = next.completion;
@@ -569,7 +558,7 @@ static inline bool misplaced_class(TSLexer *lexer, Scanner state) {
   bool name = false;
   int32_t last = 0;
   while (!host_boundary(lexer, &state)) {
-    Unit u = unit(lexer, &state, true);
+    Unit u = unit(lexer, &state);
     if (u.incomplete || u.value == '-' || (last == '[' && term_marker(u.value)))
       return false;
     if (u.value == ']') return name && last == ':';
@@ -633,12 +622,12 @@ static inline enum TokenType classify_class(TSLexer *lexer, Scanner state) {
     "xdigit:]"
   };
   enum { NAME_COUNT = sizeof(names) / sizeof(names[0]) };
-  // Each bit is a possible position in a known name; failed units span any length.
+  // Bits track name positions; failed units span any length.
   uint16_t positions[NAME_COUNT];
   for (size_t i = 0; i < NAME_COUNT; i++) positions[i] = 1;
   bool nonempty = false, terminated = false, at_eof = false;
   bool extendable = false;
-  Unit current = unit(lexer, &state, true);
+  Unit current = unit(lexer, &state);
   for (;;) {
     if (cut(lexer, current))
       for (size_t i = 0; i < NAME_COUNT; i++)
@@ -650,7 +639,7 @@ static inline enum TokenType classify_class(TSLexer *lexer, Scanner state) {
           )
             extendable = true;
     bool more = !host_boundary(lexer, &state);
-    Unit next = more ? unit(lexer, &state, true) : current;
+    Unit next = more ? unit(lexer, &state) : current;
     if (current.value == ':') {
       if (!more || next.value == ']') {
         terminated = true;
@@ -688,7 +677,7 @@ static inline enum TokenType classify_class(TSLexer *lexer, Scanner state) {
     : CLASS_INVALID;
 }
 static inline bool closes_term(TSLexer *lexer, Scanner state) {
-  return host_boundary(lexer, &state) || unit(lexer, &state, true).value == ']';
+  return host_boundary(lexer, &state) || unit(lexer, &state).value == ']';
 }
 static inline bool
 scan_term_kind(TSLexer *lexer, Scanner *s, const bool *valid) {
@@ -697,7 +686,7 @@ scan_term_kind(TSLexer *lexer, Scanner *s, const bool *valid) {
   Scanner ahead = *s;
   if (s->term == ':') token = classify_class(lexer, ahead);
   else {
-    Unit first = unit(lexer, &ahead, true);
+    Unit first = unit(lexer, &ahead);
     token = TERM_NONEMPTY;
     if (first.value == s->term) {
       if (lexer->eof(lexer)) token = END_OF_INPUT;
@@ -710,7 +699,7 @@ scan_term_kind(TSLexer *lexer, Scanner *s, const bool *valid) {
 static inline bool scan_term(TSLexer *lexer, Scanner *s, const bool *valid) {
   if (s->term_stage == TERM_STAGE_KIND) return scan_term_kind(lexer, s, valid);
   if (!decoded(lexer->lookahead)) return invalid_encoding(lexer, s, valid);
-  Unit u = unit(lexer, s, true);
+  Unit u = unit(lexer, s);
   if (s->term_stage == TERM_STAGE_OPEN_MARKER) {
     s->term_stage = TERM_STAGE_KIND;
     return emit(lexer, valid, VARIANT(u, TERM_OPEN_MARKER));
@@ -814,7 +803,7 @@ scan_utf8_start(TSLexer *lexer, Scanner *s, const bool *valid, int32_t lead) {
       complete = false;
       break;
     }
-    Unit next = unit(lexer, &ahead, false);
+    Unit next = unit(lexer, &ahead);
     int32_t low = i == 0 && lead == 0xe0 ? 0xa0
       : i == 0 && lead == 0xf0           ? 0x90
                                          : 0x80;
@@ -906,14 +895,14 @@ static inline bool scan_range_operator(
   bool continuation = hyphens >= 2;
   if (!closing) {
     Scanner ahead = *s;
-    Unit next = unit(lexer, &ahead, true);
+    Unit next = unit(lexer, &ahead);
     closing = next.value == ']';
     pending = !closing &&
       (completes_character(next, ']') || completes_character(next, '-'));
     if (hyphens != 1 && next.value == '-') {
       if (host_boundary(lexer, &ahead)) pending = lexer->eof(lexer);
       else {
-        Unit last = unit(lexer, &ahead, true);
+        Unit last = unit(lexer, &ahead);
         if (last.value == '-')
           return marked(lexer, valid, bracket_character(u));
         pending = completes_character(last, '-');
@@ -959,7 +948,7 @@ static inline bool scan_bracket_unit(
   if (c == '[' && !host_boundary(lexer, s)) {
     finish_token(lexer);
     Scanner ahead = *s;
-    Unit marker = unit(lexer, &ahead, true);
+    Unit marker = unit(lexer, &ahead);
     if (term_marker(marker.value)) {
       s->term = (uint8_t)marker.value;
       s->term_stage = TERM_STAGE_OPEN_MARKER;
@@ -1186,7 +1175,7 @@ static inline bool scan_operand(TSLexer *lexer, Scanner *s, const bool *valid) {
   if (!decoded(lexer->lookahead)) return invalid_encoding(lexer, s, valid);
   if (text_mode(s) && s->raw_text) return scan_raw_text(lexer, s, valid);
   int32_t raw = lexer->lookahead;
-  Unit u = unit(lexer, s, false);
+  Unit u = unit(lexer, s);
   if (u.invalid_control || u.incomplete)
     return escape_issue(lexer, s, valid, u);
   if (raw == '\\' && u.value == '\n' && !u.encoded)
@@ -1365,7 +1354,6 @@ static inline enum TokenType flag(int32_t c) {
   }
 }
 static inline bool scan_flag(TSLexer *lexer, Scanner *s, const bool *valid) {
-  // Trailing blanks belong to the next flag.
   lexer->mark_end(lexer);
   skip_blanks(lexer);
   int32_t c = lexer->lookahead;
@@ -1517,7 +1505,7 @@ static inline unsigned serialize(void *payload, char *buffer) {
     s->hyphens << 4);
   for (unsigned i = 0; i < 4; i++)
     buffer[10 + i] = (char)(s->groups >> (i * 8));
-  // The default state equals the empty state before the first external token.
+  // Match Tree-sitter's empty initial state.
   for (unsigned i = 0; i < SERIALIZED_SIZE; i++)
     if (buffer[i]) return SERIALIZED_SIZE;
   return 0;

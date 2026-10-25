@@ -9,15 +9,15 @@ GNU sed 4.10.
 
 For POSIX sed, see [tree-sitter-posix-sed](https://github.com/konomanoasa/tree-sitter-posix-sed).
 
+## Parsing Option
+
+For GNU ERE parsing, use `sed_ere`.
+
 ## Installation
 
 ```sh
 npm install tree-sitter-sed
 ```
-
-## Parsing Option
-
-For GNU ERE parsing, use `sed_ere`.
 
 ## Development
 

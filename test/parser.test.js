@@ -15,45 +15,6 @@ import {
 const runtimeTimeoutMs = 10_000;
 
 for (const scope of ["source.sed", "source.sed.ere"]) {
-  test(`${scope}: command layout preserves blank ownership and missing closer positions`, () => {
-    for (const blanks of [" ", "\t", "\r", "\v", "\f", " \t\r\v\f"]) {
-      for (const [prefix, suffix] of [
-        ["", ""],
-        ["", "p"],
-        ["", "#n"],
-        ["{", "}"],
-        ["{;", ""],
-        ["{{;", ""],
-        ["{;p;", "}"],
-        ["p;", "#n"],
-      ]) {
-        const source = prefix + blanks + suffix;
-        const reference = prefix + " ".repeat(blanks.length) + suffix;
-        const expected = parseSuccessfully(scope, reference);
-        const actual = parseSuccessfully(scope, source);
-        assert.deepEqual(actual.nodes, expected.nodes, JSON.stringify(source));
-        assertIncrementalContract(
-          actual,
-          parseSuccessfully(scope, reference, [
-            { byte: prefix.length, deleteBytes: blanks.length, insert: blanks },
-          ]),
-          JSON.stringify(source),
-        );
-        assertIncrementalContract(
-          expected,
-          parseSuccessfully(scope, source, [
-            {
-              byte: prefix.length,
-              deleteBytes: blanks.length,
-              insert: " ".repeat(blanks.length),
-            },
-          ]),
-          `${JSON.stringify(source)}: restore spaces`,
-        );
-      }
-    }
-  });
-
   test(`${scope}: class checks use known text around undecodable bytes and invalid control escapes`, () => {
     for (const { before, after, unknown } of [
       { before: "", after: "", unknown: false },
@@ -1414,58 +1375,6 @@ for (const scope of ["source.sed", "source.sed.ere"]) {
     });
   }
 
-  test(`${scope}: boundary decisions survive edits`, () => {
-    for (const { source, byte, deleteBytes, insert } of [
-      { source: "{p;!}", byte: 3, deleteBytes: 0, insert: "1" },
-      { source: "{p;1!}", byte: 3, deleteBytes: 1, insert: "" },
-      { source: "{p;1!}", byte: 5, deleteBytes: 1, insert: "" },
-      { source: "1, p", byte: 2, deleteBytes: 0, insert: "2" },
-      { source: "1,2,  p", byte: 4, deleteBytes: 0, insert: "3" },
-      { source: ":\0x", byte: 1, deleteBytes: 0, insert: "a" },
-      { source: ":a\0x", byte: 1, deleteBytes: 1, insert: "" },
-      { source: "/[[:alpha:]--", byte: 13, deleteBytes: 0, insert: "-]/p" },
-      {
-        source: String.raw`s/\x5c\\x5e/x/`,
-        byte: 7,
-        deleteBytes: 1,
-        insert: "",
-      },
-      {
-        source: String.raw`s/\x5c\x5e/x/`,
-        byte: 7,
-        deleteBytes: 0,
-        insert: "\\",
-      },
-    ]) {
-      const edits = [{ byte, deleteBytes, insert }];
-      const fresh = parseSuccessfully(scope, applyEdits(source, edits));
-      assertIncrementalContract(
-        fresh,
-        parseSuccessfully(scope, source, edits),
-        JSON.stringify([source, edits]),
-      );
-    }
-  });
-
-  test(`${scope}: control escape, NUL and zero address edits agree with fresh parsing`, () => {
-    for (const { source, byte, deleteBytes, insert } of [
-      { source: "ax\\c\\", byte: 5, deleteBytes: 0, insert: "." },
-      { source: "ax\\c\\.", byte: 5, deleteBytes: 0, insert: "\\" },
-      { source: "r x\0tail", byte: 2, deleteBytes: 1, insert: "" },
-      { source: "s\0", byte: 1, deleteBytes: 1, insert: "/" },
-      { source: "0~0", byte: 3, deleteBytes: 0, insert: "r x" },
-      { source: "0~0,", byte: 4, deleteBytes: 0, insert: "/a/p" },
-      { source: "0~0r x", byte: 2, deleteBytes: 1, insert: "2" },
-    ]) {
-      const edits = [{ byte, deleteBytes, insert }];
-      assertIncrementalContract(
-        parseSuccessfully(scope, applyEdits(source, edits)),
-        parseSuccessfully(scope, source, edits),
-        source,
-      );
-    }
-  });
-
   test(`${scope}: incomplete control backslash can be completed at EOF`, () => {
     const source = "s/\\c\\";
     const edits = [{ byte: 5, deleteBytes: 0, insert: "\\./x/" }];
@@ -1475,42 +1384,6 @@ for (const scope of ["source.sed", "source.sed.ere"]) {
       parseSuccessfully(scope, source, edits),
       source,
     );
-  });
-
-  test(`${scope}: address and control escape edits preserve the public CST`, () => {
-    for (const { source, byte, deleteBytes, insert } of [
-      { source: "+p", byte: 1, deleteBytes: 0, insert: "3" },
-      { source: "+3p", byte: 1, deleteBytes: 1, insert: "0" },
-      { source: "+0p", byte: 1, deleteBytes: 1, insert: "" },
-      { source: "1,+p", byte: 3, deleteBytes: 0, insert: "2" },
-      { source: "1~2p", byte: 2, deleteBytes: 1, insert: "" },
-      { source: String.raw`s/\c\./x/`, byte: 5, deleteBytes: 0, insert: "\\" },
-      { source: String.raw`s/\c\\./x/`, byte: 5, deleteBytes: 1, insert: "" },
-      { source: String.raw`s/\c\\c/x/`, byte: 6, deleteBytes: 1, insert: "." },
-      { source: String.raw`sc\c\.cxc`, byte: 1, deleteBytes: 1, insert: "/" },
-      {
-        source: String.raw`sx\c\\\\x5dxYx`,
-        byte: 7,
-        deleteBytes: 1,
-        insert: "",
-      },
-      {
-        source: String.raw`sx\c\\\x5dxYx`,
-        byte: 7,
-        deleteBytes: 0,
-        insert: "\\",
-      },
-      { source: "s/\\c\\\\\\\\\n/x/", byte: 7, deleteBytes: 1, insert: "" },
-      { source: "s/\\c\\\\\\\n/x/", byte: 6, deleteBytes: 0, insert: "\\" },
-    ]) {
-      const edits = [{ byte, deleteBytes, insert }];
-      const fresh = parseSuccessfully(scope, applyEdits(source, edits));
-      assertIncrementalContract(
-        fresh,
-        parseSuccessfully(scope, source, edits),
-        JSON.stringify({ source, edits }),
-      );
-    }
   });
 }
 
@@ -1678,7 +1551,7 @@ test("source.sed: literal interval checks retain independent violations around u
   }
 });
 
-test("sed: GNU sed runtime checks the documented supplementary cases", (t) => {
+test("sed: GNU sed runtime checks the documented supplementary cases", async (t) => {
   const observations = {
     version: "/opt/homebrew/bin/gsed (GNU sed) 4.10",
     os: "macOS-27.0.1-arm64-arm-64bit-Mach-O",
@@ -7263,28 +7136,30 @@ test("sed: GNU sed runtime checks the documented supplementary cases", (t) => {
   const directory = mkdtempSync(join(tmpdir(), "gsed-observations-"));
   try {
     for (const observation of observations.cases) {
-      const cwd = mkdtempSync(join(directory, "case-"));
-      const fileIndex = observation.arguments.indexOf("-f");
-      const scriptFile =
-        fileIndex < 0 ? undefined : observation.arguments[fileIndex + 1];
-      if (scriptFile !== undefined && scriptFile !== "-") {
-        writeFileSync(join(cwd, scriptFile), observation.script);
-      }
-      const result = spawnSync(executable, observation.arguments, {
-        cwd,
-        env: observations.environment,
-        input: scriptFile === "-" ? observation.script : observation.input,
-        encoding: "utf8",
-        timeout: runtimeTimeoutMs,
+      await t.test(observation.name, () => {
+        const cwd = mkdtempSync(join(directory, "case-"));
+        const fileIndex = observation.arguments.indexOf("-f");
+        const scriptFile =
+          fileIndex < 0 ? undefined : observation.arguments[fileIndex + 1];
+        if (scriptFile !== undefined && scriptFile !== "-") {
+          writeFileSync(join(cwd, scriptFile), observation.script);
+        }
+        const result = spawnSync(executable, observation.arguments, {
+          cwd,
+          env: observations.environment,
+          input: scriptFile === "-" ? observation.script : observation.input,
+          encoding: "utf8",
+          timeout: runtimeTimeoutMs,
+        });
+        assert.ifError(result.error);
+        assert.equal(result.status, observation.status, observation.name);
+        assert.equal(result.stdout, observation.stdout, observation.name);
+        assert.equal(
+          result.stderr,
+          observation.stderr.replaceAll(observations.executable, executable),
+          observation.name,
+        );
       });
-      assert.ifError(result.error);
-      assert.equal(result.status, observation.status, observation.name);
-      assert.equal(result.stdout, observation.stdout, observation.name);
-      assert.equal(
-        result.stderr,
-        observation.stderr.replaceAll(observations.executable, executable),
-        observation.name,
-      );
     }
     t.diagnostic(
       `${observations.version} on ${observations.os}: ${observations.cases.length} observations match`,

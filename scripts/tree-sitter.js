@@ -48,6 +48,10 @@ const grammars = Object.freeze(
       }),
   ),
 );
+const commandOutputLimitBytes = 256 * 1024 * 1024;
+const fuzzOutputLimitBytes = 16 * 1024 * 1024;
+const fuzzTimeoutMs = 600_000;
+const queryTimeoutMs = 60_000;
 const missingCliMessage = "Tree-sitter CLI is missing; run npm ci.";
 
 function treeSitterExecutable() {
@@ -141,7 +145,7 @@ function createTreeSitter() {
       return spawnSync(treeSitterExecutable(), arguments_, {
         cwd: root,
         encoding: "utf8",
-        maxBuffer: 256 * 1024 * 1024,
+        maxBuffer: commandOutputLimitBytes,
         windowsHide: true,
         killSignal: "SIGKILL",
         ...options,
@@ -283,8 +287,8 @@ function fuzzParsers(runner, arguments_) {
         ["fuzz", "--lib-path", library, "--lang-name", name, ...arguments_],
         {
           encoding: "utf8",
-          maxBuffer: 16 * 1024 * 1024,
-          timeout: 600_000,
+          maxBuffer: fuzzOutputLimitBytes,
+          timeout: fuzzTimeoutMs,
           killSignal: "SIGKILL",
         },
       );
@@ -329,7 +333,7 @@ function checkQueries() {
       {
         cwd: root,
         encoding: "utf8",
-        timeout: 60_000,
+        timeout: queryTimeoutMs,
         killSignal: "SIGKILL",
       },
     );

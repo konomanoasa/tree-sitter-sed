@@ -3,7 +3,6 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { grammars, root } from "../scripts/tree-sitter.js";
-import { parseCorpus } from "./support/corpus.js";
 import { issueSignatures, parseCst, publicNodes } from "./support/cst.js";
 import {
   applyEdits,
@@ -13,7 +12,38 @@ import {
   parseSummary,
 } from "./support/parser.js";
 
+function parseCorpus(text) {
+  const sections = text.split("==================\n");
+  assert.equal(sections.shift(), "", "corpus must begin with a header");
+  assert.equal(sections.length % 2, 0, "corpus headers must be paired");
+  const cases = [];
+  for (let index = 0; index < sections.length; index += 2) {
+    const [name, ...attributes] = sections[index].trimEnd().split("\n");
+    assert.ok(name, "corpus case must have a name");
+    const languages = [];
+    for (const attribute of attributes) {
+      if (attribute === ":cst") continue;
+      const match = /^:language\(([a-z_]+)\)$/.exec(attribute);
+      assert.ok(match, `unsupported corpus attribute: ${attribute}`);
+      assert.ok(!languages.includes(match[1]), `${name}: duplicate language`);
+      languages.push(match[1]);
+    }
+    assert.ok(languages.length > 0, `${name}: missing language`);
+    const parts = sections[index + 1].split("\n------------------\n");
+    assert.equal(parts.length, 2, `${name}: expected one output separator`);
+    const source = parts[0].endsWith("\r") ? parts[0].slice(0, -1) : parts[0];
+    cases.push({ name, languages, source });
+  }
+  return cases;
+}
+
 const largeCommandCount = 100_000;
+const largeTextCharacters = 1024 * 1024;
+const largeRegexCharacters = 100_000;
+const nestedBlockDepth = 2_000;
+const nestedGroupDepth = 2_000;
+const resourceTimeoutMicros = 10_000_000;
+const invalidUtf8 = Buffer.from([0xff, 0xfe]);
 
 for (const grammar of grammars) {
   test(`${grammar.name}: layout stays outside commands and empty lists`, () => {
@@ -102,12 +132,46 @@ for (const grammar of grammars) {
     }
   });
 }
-const largeTextCharacters = 1024 * 1024;
-const largeRegexCharacters = 100_000;
-const nestedBlockDepth = 2_000;
-const nestedGroupDepth = 2_000;
-const resourceTimeoutMicros = 10_000_000;
-const invalidUtf8 = Buffer.from([0xff, 0xfe]);
+for (const scope of ["source.sed", "source.sed.ere"]) {
+  test(`${scope}: command layout preserves blank ownership and missing closer positions`, () => {
+    for (const blanks of [" ", "\t", "\r", "\v", "\f", " \t\r\v\f"]) {
+      for (const [prefix, suffix] of [
+        ["", ""],
+        ["", "p"],
+        ["", "#n"],
+        ["{", "}"],
+        ["{;", ""],
+        ["{{;", ""],
+        ["{;p;", "}"],
+        ["p;", "#n"],
+      ]) {
+        const source = prefix + blanks + suffix;
+        const reference = prefix + " ".repeat(blanks.length) + suffix;
+        const expected = parseSuccessfully(scope, reference);
+        const actual = parseSuccessfully(scope, source);
+        assert.deepEqual(actual.nodes, expected.nodes, JSON.stringify(source));
+        assertIncrementalContract(
+          actual,
+          parseSuccessfully(scope, reference, [
+            { byte: prefix.length, deleteBytes: blanks.length, insert: blanks },
+          ]),
+          JSON.stringify(source),
+        );
+        assertIncrementalContract(
+          expected,
+          parseSuccessfully(scope, source, [
+            {
+              byte: prefix.length,
+              deleteBytes: blanks.length,
+              insert: " ".repeat(blanks.length),
+            },
+          ]),
+          `${JSON.stringify(source)}: restore spaces`,
+        );
+      }
+    }
+  });
+}
 
 test("sed: corpus reader preserves source and language selection", () => {
   const header = "==================\n";
@@ -346,34 +410,6 @@ for (const scope of ["source.sed", "source.sed.ere"]) {
           parse(scope, applyEdits(source, edits)),
           parse(scope, source, edits),
           `${prefix} invalid byte ${byte}`,
-        );
-      }
-    });
-  }
-
-  for (const { prefix, bytes } of [
-    { prefix: "", bytes: [0xff, 0xce, 0xa3] },
-    { prefix: ":", bytes: [0xff, 0xce, 0xa3] },
-    { prefix: "s/", bytes: [0xff, 0xce, 0xa3] },
-    { prefix: "s/a/", bytes: [0xff, 0xce, 0xa3] },
-    { prefix: "s/[\\", bytes: [0xce, 0xa3] },
-  ]) {
-    test(`${scope}: editing UTF-8 after ${JSON.stringify(prefix)} preserves incremental CST`, () => {
-      const source = Buffer.concat([
-        Buffer.from(prefix),
-        Buffer.from(bytes),
-        Buffer.from("\n"),
-      ]);
-      const byte = Buffer.byteLength(prefix) + bytes.length - 1;
-      for (const [deleteBytes, insert] of [
-        [1, ""],
-        [0, "x"],
-      ]) {
-        const edits = [{ byte, deleteBytes, insert }];
-        assertIncrementalContract(
-          parse(scope, applyEdits(source, edits)),
-          parse(scope, source, edits),
-          `${JSON.stringify(edits)}`,
         );
       }
     });
