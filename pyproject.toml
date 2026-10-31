@@ -1,5 +1,5 @@
 [project]
-name = "konomanoasa-tree-sitter-sed"
+name = "tree-sitter-sed"
 version = "0.24.0"
 description = "Tree-sitter grammars for GNU sed 4.10."
 readme = "README.md"
