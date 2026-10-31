@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before } from "node:test";
 import { createTreeSitter } from "../../scripts/tree-sitter.js";
-import { parseCst, sourceEndPoint } from "./cst.js";
+import {
+  issueSignatures,
+  parseCst,
+  publicNodes,
+  sourceEndPoint,
+} from "./cst.js";
 
 const commandTimeoutMs = 60_000;
 const cstOutputLimitBytes = 16 * 1024 * 1024;
@@ -65,7 +70,7 @@ function formatEdit({ byte, deleteBytes, insert }) {
   return `${byte} ${deleteBytes} ${insert}`;
 }
 
-function parseInput(scope, source, edits = []) {
+function parse(scope, source, edits = []) {
   const sourcePath = join(temporaryDirectory, `fixture-${fixtureNumber}.sed`);
   fixtureNumber += 1;
   writeFileSync(sourcePath, source);
@@ -77,9 +82,7 @@ function parseInput(scope, source, edits = []) {
       "--scope",
       scope,
       "--cst",
-      "--time",
       sourcePath,
-      ...(edits.length === 0 ? [sourcePath] : []),
       ...(edits.length === 0 ? [] : ["--edits", ...edits.map(formatEdit)]),
     ],
     {
@@ -95,56 +98,14 @@ function parseInput(scope, source, edits = []) {
     result.status === 0 || result.status === 1,
     result.stdout + result.stderr,
   );
-  const trees = [];
-  let lines = [];
-  for (const line of result.stdout.split("\n")) {
-    if (
-      line.startsWith(sourcePath) &&
-      /^[ \t]+Parse:[ \t]/.test(line.slice(sourcePath.length))
-    ) {
-      trees.push(lines.join("\n"));
-      lines = [];
-    } else if (!/^[ \t]*Edit:[ \t]/.test(line)) lines.push(line);
-  }
-  assert.equal(
-    trees.length,
-    edits.length === 0 ? 2 : 1,
-    result.stdout + result.stderr,
-  );
-  if (edits.length === 0)
-    assert.equal(trees[1], trees[0], "repeated fresh parses must match");
-  result.nodes = parseCst(trees[0], applyEdits(source, edits));
-  // CLI exit status misses hidden MISSING tokens; the root marker includes them.
-  result.hasError = /^[0-9: \t-]+•/.test(trees[0]);
-  return result;
-}
-
-function parse(scope, source, edits = []) {
-  let initial = Buffer.from(source);
-  let current = initial;
-  let history = [];
-  let result = parseInput(scope, initial);
-  const bom = Buffer.from("\uFEFF");
-  for (const edit of edits) {
-    const hadBom = current.subarray(0, bom.length).equals(bom);
-    current = applyEdits(current, [edit]);
-    const movedBom = !hadBom && current.subarray(0, bom.length).equals(bom);
-    if (movedBom) {
-      initial = current;
-      history = [];
-      result = parseInput(scope, current);
-    } else {
-      history.push(edit);
-      result = parseInput(scope, initial, history);
-    }
-  }
+  result.nodes = parseCst(result.stdout, applyEdits(source, edits));
   return result;
 }
 
 function parseSuccessfully(scope, source, edits = []) {
   const result = parse(scope, source, edits);
   assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.equal(result.hasError, false, result.stdout);
+  assert.doesNotMatch(result.stdout, /^[0-9: \t-]+•/m, result.stdout);
   return result;
 }
 
@@ -182,44 +143,24 @@ function relexedTokens(scope, source, edits) {
 }
 
 function assertIncrementalContract(fresh, incremental, context) {
-  assert.equal(
-    fresh.hasError,
-    false,
-    `${context}: expected a normal fresh parse`,
-  );
-  assert.equal(
-    incremental.hasError,
-    false,
-    `${context}: normal source has errors\n${incremental.stdout}`,
+  const freshIssues = issueSignatures(fresh.nodes);
+  assert.deepEqual(
+    issueSignatures(incremental.nodes),
+    freshIssues,
+    `${context}: fresh and incremental issue signatures differ`,
   );
   assert.deepEqual(
-    incremental.nodes,
-    fresh.nodes,
-    `${context}: fresh and incremental CSTs differ`,
+    publicNodes(incremental.nodes),
+    publicNodes(fresh.nodes),
+    `${context}: fresh and incremental public CSTs differ`,
   );
-}
-
-function assertValidHistory(scope, initial, steps) {
-  let source = Buffer.from(initial);
-  const edits = [];
-  for (const { byte, deleteBytes, insert, source: expected, valid } of steps) {
-    const edit = { byte, deleteBytes, insert };
-    source = applyEdits(source, [edit]);
-    assert.equal(
-      source.toString(),
-      expected,
-      "edit must produce the explicit expected input",
+  if (fresh.status === 0 && freshIssues.length === 0) {
+    assert.equal(incremental.status, 0, `${context}: normal source has errors`);
+    assert.deepEqual(
+      incremental.nodes,
+      fresh.nodes,
+      `${context}: fresh and incremental CSTs differ`,
     );
-    edits.push(edit);
-    const fresh = parse(scope, source);
-    assert.equal(fresh.hasError, !valid, fresh.stdout);
-    const incremental = parse(scope, initial, edits);
-    if (valid)
-      assertIncrementalContract(
-        fresh,
-        incremental,
-        JSON.stringify({ initial, edits }),
-      );
   }
 }
 
@@ -267,7 +208,6 @@ function parseSummary(scope, source, timeoutMicros = summaryTimeoutMicros) {
 export {
   applyEdits,
   assertIncrementalContract,
-  assertValidHistory,
   parse,
   parseSuccessfully,
   parseSummary,

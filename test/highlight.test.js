@@ -157,10 +157,23 @@ const cases = [
       [4, 7, "comment"],
     ],
   },
-
+  {
+    name: "misplaced class retains payload and markers",
+    source: "s/[:alpha:]/x/",
+    ranges: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 4, "punctuation.bracket"],
+      [4, 9, "character.special"],
+      [9, 11, "punctuation.bracket"],
+      [11, 12, "punctuation.delimiter"],
+      [12, 13, "string"],
+      [13, 14, "punctuation.delimiter"],
+    ],
+  },
   {
     name: "replacement escapes and flags",
-    source: "s/a/\\U&/gp",
+    source: "s/a/\\U&/gg",
     ranges: [
       [0, 1, "keyword"],
       [1, 2, "punctuation.delimiter"],
@@ -213,10 +226,18 @@ const cases = [
       [9, 13, "label"],
     ],
   },
-
+  {
+    name: "unmatched closing brace keeps its bracket role",
+    source: "p;}",
+    ranges: [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 3, "punctuation.bracket"],
+    ],
+  },
   {
     name: "range retains address and command roles",
-    source: "1,2p",
+    source: "1,2q",
     ranges: [
       [0, 1, "number"],
       [1, 2, "punctuation.delimiter"],
@@ -285,4 +306,43 @@ for (const scope of ["source.sed", "source.sed.ere"]) {
       assertHighlights(scope, source, ranges);
     });
   }
+}
+
+for (const [scope, source, ranges] of [
+  [
+    "source.sed",
+    String.raw`s/a\{1x\}/b/`,
+    [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 3, "string.regexp"],
+      [3, 5, "punctuation.bracket"],
+      [5, 6, "number"],
+      [6, 7, "string.regexp"],
+      [7, 9, "punctuation.bracket"],
+      [9, 10, "punctuation.delimiter"],
+      [10, 11, "string"],
+      [11, 12, "punctuation.delimiter"],
+    ],
+  ],
+  [
+    "source.sed.ere",
+    "s/a{1x}/b/",
+    [
+      [0, 1, "keyword"],
+      [1, 2, "punctuation.delimiter"],
+      [2, 3, "string.regexp"],
+      [3, 4, "punctuation.bracket"],
+      [4, 5, "number"],
+      [5, 6, "string.regexp"],
+      [6, 7, "punctuation.bracket"],
+      [7, 8, "punctuation.delimiter"],
+      [8, 9, "string"],
+      [9, 10, "punctuation.delimiter"],
+    ],
+  ],
+]) {
+  test(`${scope}: highlights invalid interval characters as regex literals`, () => {
+    assertHighlights(scope, source, ranges);
+  });
 }

@@ -292,12 +292,24 @@ x
 
 ==================
 Control backslash before dot at EOF — "ex\\c\\."
-:error
 :language(sed)
 :language(sed_ere)
+:cst
 ==================
 ex\c\.
 ------------------
+0:0 - 0:6   script
+0:0 - 0:6     command_list
+0:0 - 0:6       command
+0:0 - 0:6         execute_command
+0:0 - 0:1           name: command_name `e`
+0:1 - 0:6           command: shell_command
+0:1 - 0:2             shell_text `x`
+0:2 - 0:5             issue: syntax_issue
+0:2 - 0:5               incomplete_syntax
+0:2 - 0:5                 invalid_control_escape
+0:2 - 0:5                   character_escape `\\c\\`
+0:5 - 0:6             shell_text `.`
 
 ==================
 Control backslash before dot at EOF completed with raw termination — "ex\\c\\.\\"
@@ -318,13 +330,26 @@ ex\c\.\
 
 ==================
 Control backslash takes quoted newline — "e x\\c\\\np"
-:error
 :language(sed)
 :language(sed_ere)
+:cst
 ==================
 e x\c\
 p
 ------------------
+0:0 - 1:1   script
+0:0 - 1:1     command_list
+0:0 - 1:1       command
+0:0 - 1:1         execute_command
+0:0 - 0:1           name: command_name `e`
+0:2 - 1:1           command: shell_command
+0:2 - 0:3             shell_text `x`
+0:3 - 1:0             issue: syntax_issue
+0:3 - 1:0               incomplete_syntax
+0:3 - 1:0                 invalid_control_escape
+0:3 - 1:0                   character_escape
+0:3 - 0:7                     `\\c\\\n`
+1:0 - 1:1             shell_text `p`
 
 ==================
 Control backslash takes quoted newline completed with raw termination — "e x\\c\\\np\\"
@@ -349,13 +374,27 @@ p\
 
 ==================
 Control backslash after multiline introducer at EOF — "e\\\nx\\c\\."
-:error
 :language(sed)
 :language(sed_ere)
+:cst
 ==================
 e\
 x\c\.
 ------------------
+0:0 - 1:5   script
+0:0 - 1:5     command_list
+0:0 - 1:5       command
+0:0 - 1:5         execute_command
+0:0 - 0:1           name: command_name `e`
+0:1 - 1:0           text_introducer
+0:1 - 0:3             `\\\n`
+1:0 - 1:5           command: shell_command
+1:0 - 1:1             shell_text `x`
+1:1 - 1:4             issue: syntax_issue
+1:1 - 1:4               incomplete_syntax
+1:1 - 1:4                 invalid_control_escape
+1:1 - 1:4                   character_escape `\\c\\`
+1:4 - 1:5             shell_text `.`
 
 ==================
 Control backslash after multiline introducer at EOF completed with raw termination — "e\\\nx\\c\\.\\"
@@ -379,24 +418,60 @@ x\c\.\
 
 ==================
 Control backslash before terminated operand — "e x\\c\\y\np"
-:error
 :language(sed)
 :language(sed_ere)
+:cst
 ==================
 e x\c\y
 p
 ------------------
+0:0 - 1:1   script
+0:0 - 1:1     command_list
+0:0 - 0:7       command
+0:0 - 0:7         execute_command
+0:0 - 0:1           name: command_name `e`
+0:2 - 0:7           command: shell_command
+0:2 - 0:3             shell_text `x`
+0:3 - 0:6             issue: syntax_issue
+0:3 - 0:6               invalid_syntax
+0:3 - 0:6                 invalid_control_escape
+0:3 - 0:6                   character_escape `\\c\\`
+0:6 - 0:7             shell_text `y`
+0:7 - 1:0       command_separator
+0:7 - 0:8         `\n`
+1:0 - 1:1       command
+1:0 - 1:1         simple_command
+1:0 - 1:1           name: command_name `p`
 
 ==================
 Control backslash after terminated multiline introducer — "e\\\nx\\c\\.\np"
-:error
 :language(sed)
 :language(sed_ere)
+:cst
 ==================
 e\
 x\c\.
 p
 ------------------
+0:0 - 2:1   script
+0:0 - 2:1     command_list
+0:0 - 1:5       command
+0:0 - 1:5         execute_command
+0:0 - 0:1           name: command_name `e`
+0:1 - 1:0           text_introducer
+0:1 - 0:3             `\\\n`
+1:0 - 1:5           command: shell_command
+1:0 - 1:1             shell_text `x`
+1:1 - 1:4             issue: syntax_issue
+1:1 - 1:4               invalid_syntax
+1:1 - 1:4                 invalid_control_escape
+1:1 - 1:4                   character_escape `\\c\\`
+1:4 - 1:5             shell_text `.`
+1:5 - 2:0       command_separator
+1:5 - 1:6         `\n`
+2:0 - 2:1       command
+2:0 - 2:1         simple_command
+2:0 - 2:1           name: command_name `p`
 
 ==================
 Non-ASCII control argument — "e x\\cΣ"
@@ -437,13 +512,32 @@ pp
 
 ==================
 Backslash count before newline 2 — "e x\\\\\npp"
-:error
 :language(sed)
 :language(sed_ere)
+:cst
 ==================
 e x\\
 pp
 ------------------
+0:0 - 1:2   script
+0:0 - 1:2     command_list
+0:0 - 0:5       command
+0:0 - 0:5         execute_command
+0:0 - 0:1           name: command_name `e`
+0:2 - 0:5           command: shell_command
+0:2 - 0:3             shell_text `x`
+0:3 - 0:5             escape `\\\\`
+0:5 - 1:0       command_separator
+0:5 - 0:6         `\n`
+1:0 - 1:1       command
+1:0 - 1:1         simple_command
+1:0 - 1:1           name: command_name `p`
+1:1 - 1:1         issue: syntax_issue
+1:1 - 1:1           invalid_syntax
+1:1 - 1:1             missing_command_separator
+1:1 - 1:2       command
+1:1 - 1:2         simple_command
+1:1 - 1:2           name: command_name `p`
 
 ==================
 Backslash count before newline 3 — "e x\\\\\\\npp"
