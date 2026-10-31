@@ -17,8 +17,6 @@ import { grammars, packageName, root } from "./tree-sitter.js";
 const enumerators = {};
 const tokenCount = "TOKEN_COUNT";
 
-const scannerDiagnosticArguments = [];
-
 const commandTimeoutMs = 60_000;
 const diagnosticTimeoutMs = 180_000;
 const commandOutputLimitBytes = 64 * 1024 * 1024;
@@ -186,10 +184,7 @@ function checkDiagnostics(clang, clangd, directory) {
         "-I",
         variant.includeDirectory,
         ...warningArguments,
-        // Included helpers may lack callers.
-        ...(source === variant.source
-          ? scannerDiagnosticArguments
-          : ["-Wno-unused-function", ...variant.contractArguments]),
+        ...(source === variant.source ? [] : variant.contractArguments),
         "-fsyntax-only",
         source,
       ],
@@ -246,9 +241,11 @@ function main(arguments_) {
   if (
     arguments_.length > 1 ||
     (arguments_.length === 1 &&
-      !["--write", "--sanitize"].includes(arguments_[0]))
+      !["--write", "--test", "--sanitize"].includes(arguments_[0]))
   ) {
-    throw new Error("Usage: node scripts/check-c.js [--write | --sanitize]");
+    throw new Error(
+      "Usage: node scripts/check-c.js [--write | --test | --sanitize]",
+    );
   }
   const sources = [
     ...new Set([
@@ -257,16 +254,7 @@ function main(arguments_) {
       scannerContract,
     ]),
   ];
-  const { clang, clangd, clangFormat } = llvmCommands();
-  if (new Set([clang, clangd, clangFormat].map(versionMajor)).size !== 1)
-    throw new Error(
-      "clang, clangd, and clang-format must use the same LLVM major version.",
-    );
-
-  if (arguments_[0] === "--write") {
-    run(clangFormat, ["-i", ...sources]);
-    return;
-  }
+  const testOnly = ["--test", "--sanitize"].includes(arguments_[0]);
   const sanitizerArguments =
     arguments_[0] === "--sanitize"
       ? [
@@ -278,8 +266,29 @@ function main(arguments_) {
       : [];
   const directory = mkdtempSync(join(tmpdir(), `${packageName}-scanner-`));
   try {
-    checkDiagnostics(clang, clangd, directory);
-    run(clangFormat, ["--dry-run", "--Werror", ...sources]);
+    if (!testOnly) {
+      const { clang, clangd, clangFormat } = llvmCommands();
+      if (new Set([clang, clangd, clangFormat].map(versionMajor)).size !== 1)
+        throw new Error(
+          "clang, clangd, and clang-format must use the same LLVM major version.",
+        );
+      checkDiagnostics(clang, clangd, directory);
+      for (const variant of variants) {
+        if (variant.reuseAllocator)
+          checkAllocatorSymbols(clang, variant, directory);
+      }
+      run(clangFormat, [
+        ...(arguments_[0] === "--write" ? ["-i"] : ["--dry-run", "--Werror"]),
+        ...sources,
+      ]);
+      return;
+    }
+    const clang = findExecutable(
+      process.platform === "darwin"
+        ? "/opt/homebrew/opt/llvm/bin/clang"
+        : (process.env.CLANG ?? "clang"),
+      (process.env.PATH ?? "").split(delimiter),
+    );
     for (const standard of ["c99", "c17"]) {
       for (const variant of variants) {
         const compilerArguments = [
@@ -307,8 +316,6 @@ function main(arguments_) {
             `${variant.name}: scanner tests passed (${standard.toUpperCase()}${reuse ? ", reused allocator" : ""})\n`,
           );
         }
-        if (standard === "c17" && variant.reuseAllocator)
-          checkAllocatorSymbols(clang, variant, directory);
       }
     }
   } finally {

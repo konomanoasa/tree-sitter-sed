@@ -67,7 +67,7 @@ static void check_regex_restoration(
   for (size_t i = 0; i < count; i++) {
     char state[TREE_SITTER_SERIALIZATION_BUFFER_SIZE];
     unsigned length = serialize(&scanner, state);
-    assert(length <= sizeof(state));
+    assert(length == 0 || length == SERIALIZED_SIZE);
     Scanner restored = {0};
     deserialize(&restored, state, length);
     Input replay = input;
@@ -125,25 +125,42 @@ static void test_regex_state_restoration(void) {
     control_bracket,
     sizeof(control_bracket) / sizeof(control_bracket[0])
   );
-  const enum TokenType misplaced[] = {
+  const enum TokenType character_class[] = {
     BRACKET_OPEN,
-    MISPLACED_CLASS_START,
+    CLASS_OPEN,
+    TERM_OPEN_MARKER,
+    CLASS_VALID,
     TERM_TEXT,
     TERM_CLOSE_MARKER,
+    TERM_CLOSE,
     BRACKET_CLOSE,
     PATTERN_END
   };
   check_regex_restoration(
-    "/[:alpha:]/",
-    misplaced,
-    sizeof(misplaced) / sizeof(misplaced[0])
+    "/[[:alpha:]]/",
+    character_class,
+    sizeof(character_class) / sizeof(character_class[0])
   );
-  const enum TokenType utf8[] =
-    {UTF8_START, UTF8_CONTINUATION, QUANTIFIER, PATTERN_END};
+  const enum TokenType interval[] = {
+    REGEX_CHARACTER,
+    INTERVAL_OPEN,
+    COUNT,
+    INTERVAL_COMMA,
+    COUNT,
+    INTERVAL_CLOSE,
+    PATTERN_END
+  };
+  check_regex_restoration(
+    SED_EXTENDED ? "/a{1,2}/" : "/a\\{1,2\\}/",
+    interval,
+    sizeof(interval) / sizeof(interval[0])
+  );
+  const enum TokenType encoded_bytes[] =
+    {REGEX_CHARACTER_ESCAPE, REGEX_CHARACTER_ESCAPE, QUANTIFIER, PATTERN_END};
   check_regex_restoration(
     "/\\xce\\xa3*/",
-    utf8,
-    sizeof(utf8) / sizeof(utf8[0])
+    encoded_bytes,
+    sizeof(encoded_bytes) / sizeof(encoded_bytes[0])
   );
   const enum TokenType group[] =
     {GROUP_OPEN, REGEX_CHARACTER, GROUP_CLOSE, PATTERN_END};
@@ -184,17 +201,6 @@ static void test_regex_state_restoration(void) {
     "c\\c\\.c",
     control_delimiter,
     sizeof(control_delimiter) / sizeof(control_delimiter[0])
-  );
-  const enum TokenType boundary_interval[] = {
-    REGEX_CHARACTER,
-    REGEX_BOUNDARY,
-    SED_EXTENDED ? REGEX_ESCAPE : INVALID_INTERVAL_SYNTAX,
-    PATTERN_END
-  };
-  check_regex_restoration(
-    "/a\\b\\{/",
-    boundary_interval,
-    sizeof(boundary_interval) / sizeof(boundary_interval[0])
   );
   const enum TokenType escaped_digit[] = {REGEX_CHARACTER_ESCAPE, PATTERN_END};
   check_regex_restoration(
@@ -267,14 +273,6 @@ static void test_construct_end_resets_state(void) {
     scan_source("/a/b/", TRANSLATION_START, NORMAL),
     (Scanner){.mode = NORMAL}
   );
-  check_same_state(
-    scan_source("/a/", TRANSLATION_START, NORMAL),
-    (Scanner){.mode = NORMAL}
-  );
-  check_same_state(
-    scan_source(SED_EXTENDED ? "/a{1}" : "/a\\{1\\}", REGEX_START, ADDRESS),
-    scan_source("/a", REGEX_START, ADDRESS)
-  );
 }
 
 static void test_nul_is_a_regex_character(void) {
@@ -296,9 +294,35 @@ static void test_nul_is_a_regex_character(void) {
   assert(input.offset == input.size);
 }
 
+static void test_failed_scan_preserves_state(void) {
+  Scanner scanner = scan_source("/a/", REGEX_START, NORMAL);
+  Input opening = input_for("/", 1);
+  bool valid[TOKEN_COUNT] = {false};
+  valid[PATTERN_START] = true;
+  assert(scan(&scanner, &opening.lexer, valid));
+  Scanner expected = scanner;
+  Input missing = input_for("", 0);
+  memset(valid, 0, sizeof(valid));
+  valid[PATTERN_END] = true;
+  assert(!scan(&scanner, &missing.lexer, valid));
+  check_same_state(scanner, expected);
+
+  Input rejected = input_for("a", 1);
+  memset(valid, 0, sizeof(valid));
+  assert(!scan(&scanner, &rejected.lexer, valid));
+  check_same_state(scanner, expected);
+  for (size_t i = 0; i < TOKEN_COUNT; i++) valid[i] = true;
+  assert(!scan(&scanner, &rejected.lexer, valid));
+  check_same_state(scanner, expected);
+
+  deserialize(&scanner, NULL, 0);
+  check_same_state(scanner, (Scanner){0});
+}
+
 int main(void) {
   test_regex_state_restoration();
   test_construct_end_resets_state();
   test_nul_is_a_regex_character();
+  test_failed_scan_preserves_state();
   return 0;
 }

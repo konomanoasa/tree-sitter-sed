@@ -37,7 +37,7 @@ enum TermStage {
   TERM_STAGE_PAYLOAD,
   TERM_STAGE_CLOSE,
 };
-enum { SERIALIZED_SIZE = 14 };
+enum { SERIALIZED_SIZE = 13 };
 
 // host_* tracks raw input; other regex state tracks decoded input.
 typedef struct {
@@ -47,22 +47,18 @@ typedef struct {
   uint8_t bracket;
   uint8_t term;
   uint8_t term_stage;
-  uint8_t utf8_remaining;
   uint8_t host_bracket;
   uint8_t host_term;
   uint8_t hyphens;
   bool host_escaped;
   bool host_control;
   bool host_term_closing;
-  bool misplaced_class;
   bool verbatim;
   bool interval;
-  bool interval_content;
   bool branch_start;
   bool atom;
   bool boundary_atom;
   bool raw_text;
-  bool text_eof;
 } Scanner;
 
 typedef struct {
@@ -103,22 +99,12 @@ static inline void finish_token(TSLexer *lexer) {
 }
 
 typedef struct {
-  unsigned radix;
-  unsigned remaining;
-  unsigned prefix;
-  bool character;
-  bool control;
-  bool continued;
-} Completion;
-
-typedef struct {
   int32_t value;
   bool encoded;
   bool quoted;
   bool host_escape;
   bool incomplete;
   bool invalid_control;
-  Completion completion;
 } Unit;
 
 static inline void advance(TSLexer *lexer) {
@@ -134,6 +120,7 @@ static inline bool layout_blank(int32_t c, const bool *valid) {
   return blank(c) ||
     (valid[SEPARATOR] &&
       !valid[LABEL] &&
+      !valid[REQUIRED_LABEL] &&
       !valid[VERSION] &&
       one_of(c, "\r\v\f"));
 }
@@ -162,7 +149,7 @@ static inline bool regex_opening(int32_t c) {
   return c == '/' || c == '\\';
 }
 static inline bool unusable_delimiter(int32_t c) {
-  return c == 0 || c == '\n' || c > 127;
+  return c == '\n' || c > 127;
 }
 static inline bool regex_mode(const Scanner *s) {
   return s->mode == ADDRESS || s->mode == PATTERN;
@@ -175,9 +162,6 @@ static inline bool decoded(int32_t c) {
 }
 static inline bool dialect_operator(Unit u) {
   return SED_EXTENDED != u.quoted;
-}
-static inline bool failed(Unit u) {
-  return !decoded(u.value) || (u.invalid_control && !u.incomplete);
 }
 static inline bool host_escapable(const Scanner *s, int32_t c) {
   return c == s->delimiter || (regex_mode(s) && c == '\n');
@@ -272,25 +256,17 @@ static inline void end_operand(Scanner *s, enum Mode mode) {
 static inline void end_term(Scanner *s) {
   s->term = 0;
   s->term_stage = TERM_STAGE_NONE;
-  s->misplaced_class = false;
 }
 static inline void end_interval(Scanner *s) {
   s->interval = false;
-  s->interval_content = false;
 }
 static inline void set_atom(Scanner *s, bool atom) {
   s->atom = atom;
   s->branch_start = false;
 }
-static inline void regex_element(Scanner *s) {
-  if (s->interval) s->interval_content = true;
-  else if (s->bracket) s->bracket = BRACKET_BODY;
-  else set_atom(s, true);
-}
 static inline void read_control_escape(TSLexer *lexer, Scanner *s, Unit *u) {
   if (host_boundary(lexer, s)) {
     u->incomplete = regex_mode(s);
-    u->completion.control = lexer->eof(lexer);
     return;
   }
   if (!decoded(lexer->lookahead)) {
@@ -338,14 +314,12 @@ static inline void read_numeric_escape(
   unsigned limit
 ) {
   unsigned value = 0, count = 0;
-  bool continued = false;
   while (count < limit && !host_boundary(lexer, s)) {
     bool escaped_delimiter = !text_mode(s) &&
       host_plain(s) &&
       lexer->lookahead == '\\' &&
       radix_digit(s->delimiter, radix) >= 0;
     if (escaped_delimiter && peek_next(lexer) != s->delimiter) {
-      continued = next_eof(lexer);
       break;
     }
     int d =
@@ -356,13 +330,6 @@ static inline void read_numeric_escape(
     advance_host(lexer, s);
     count++;
   }
-  if (count < limit && (lexer->eof(lexer) || continued))
-    u->completion = (Completion){
-      .radix = radix,
-      .remaining = limit - count - continued,
-      .prefix = continued ? value * radix + (unsigned)hex(s->delimiter) : value,
-      .continued = continued,
-    };
   if (count) u->value = (int32_t)(value & 255);
   else {
     u->encoded = false;
@@ -382,7 +349,6 @@ static inline Unit read_unit(TSLexer *lexer, Scanner *s, bool partner) {
   if (u.value != '\\') return u;
   if (lexer->eof(lexer) || (!raw && host_boundary(lexer, s))) {
     u.incomplete = !s->bracket;
-    u.completion.character = lexer->eof(lexer);
     return u;
   }
   int32_t c = lexer->lookahead;
@@ -492,13 +458,6 @@ static inline bool element(
   if (in_list(s)) peek_range(lexer, *s);
   return marked(lexer, valid, token);
 }
-static inline bool
-invalid_encoding(TSLexer *lexer, Scanner *s, const bool *valid) {
-  do {
-    advance_host(lexer, s);
-  } while (!decoded(lexer->lookahead));
-  return element(lexer, s, valid, INVALID_ENCODING);
-}
 static inline Unit regex_unit(TSLexer *lexer, Scanner *s) {
   Unit u = unit(lexer, s);
   if (u.value == '\\' && !u.quoted && !s->bracket) {
@@ -513,21 +472,9 @@ static inline Unit regex_unit(TSLexer *lexer, Scanner *s) {
       u.quoted = true;
       u.incomplete = next.incomplete && lexer->eof(lexer);
       u.invalid_control = next.invalid_control;
-      u.completion = next.completion;
     }
   }
   return u;
-}
-static inline bool
-escape_issue(TSLexer *lexer, const Scanner *s, const bool *valid, Unit u) {
-  enum TokenType token = text_mode(s) ? ESCAPE
-    : lexer->eof(lexer)               ? INCOMPLETE_ESCAPE
-                                      : INVALID_ESCAPE;
-  if (u.invalid_control)
-    token = u.incomplete || (text_mode(s) && s->text_eof)
-      ? INCOMPLETE_CONTROL_ESCAPE
-      : INVALID_CONTROL_ESCAPE;
-  return element(lexer, s, valid, token);
 }
 static inline enum TokenType
 variant(Unit u, enum TokenType plain, enum TokenType encoded) {
@@ -544,16 +491,6 @@ static inline enum TokenType bracket_character(Unit u) {
     : (u.quoted || u.host_escape) ? BRACKET_ESCAPE
                                   : BRACKET_CHARACTER;
 }
-static inline bool missing(TSLexer *lexer, Scanner *s, const bool *valid) {
-  enum TokenType token = lexer->eof(lexer) ? END_OF_INPUT : BOUNDARY;
-  if (!valid[token]) return false;
-  if (!regex_mode(s)) return command_end(lexer) && marked(lexer, valid, token);
-  if (s->term) end_term(s);
-  else if (s->interval) end_interval(s);
-  else if (s->bracket) s->bracket = BRACKET_OUTSIDE;
-  else if (s->groups) s->groups--;
-  return emit(lexer, valid, token);
-}
 static inline bool misplaced_class(TSLexer *lexer, Scanner state) {
   bool name = false;
   int32_t last = 0;
@@ -567,155 +504,66 @@ static inline bool misplaced_class(TSLexer *lexer, Scanner state) {
   }
   return false;
 }
-static inline bool completes_character(Unit u, unsigned character) {
-  Completion c = u.completion;
-  if (c.control) return (character ^ 64) - 'a' > 'z' - 'a';
-  if (c.character || (c.continued && ((character - c.prefix) & 255) == 0))
-    return true;
-  unsigned low = c.prefix, width = 1;
-  for (unsigned i = 0; i < c.remaining; i++) {
-    low *= c.radix;
-    width *= c.radix;
-    if (((character - low) & 255) < width) return true;
-  }
-  return false;
-}
-// An escaped delimiter can continue numeric digits after EOF.
-static inline bool cut(TSLexer *lexer, Unit u) {
-  return lexer->eof(lexer) || u.completion.continued;
-}
-// Delimiter c prevents an encoded backslash pair from becoming invalid \c.
-static inline bool may_fail(const Scanner *s, Unit u) {
-  if (u.incomplete)
-    return !(u.encoded && u.quoted && u.value == '\\') || s->delimiter != 'c';
-  return s->host_escaped ||
-    (!s->bracket && !(u.encoded && u.quoted) && completes_character(u, '\\'));
-}
-static inline bool completes_interval(Unit u, bool comma, bool close) {
-  // Completing a digitless numeric escape makes it unquoted.
-  bool quoted = u.quoted && u.encoded;
-  if (
-    close &&
-    (SED_EXTENDED ? !quoted && completes_character(u, '}')
-                  : completes_character(u, quoted ? '}' : '\\'))
-  )
-    return true;
-  if (quoted) return false;
-  if (comma && completes_character(u, ',')) return true;
-  for (unsigned c = '0'; c <= '9'; c++)
-    if (completes_character(u, c)) return true;
-  return false;
-}
-static inline enum TokenType classify_class(TSLexer *lexer, Scanner state) {
+static inline bool valid_class(TSLexer *lexer, Scanner state) {
   static const char *const names[] = {
-    "alnum:]",
-    "alpha:]",
-    "blank:]",
-    "cntrl:]",
-    "digit:]",
-    "graph:]",
-    "lower:]",
-    "print:]",
-    "punct:]",
-    "space:]",
-    "upper:]",
-    "xdigit:]"
+    "alnum",
+    "alpha",
+    "blank",
+    "cntrl",
+    "digit",
+    "graph",
+    "lower",
+    "print",
+    "punct",
+    "space",
+    "upper",
+    "xdigit"
   };
-  enum { NAME_COUNT = sizeof(names) / sizeof(names[0]) };
-  // Bits track name positions; failed units span any length.
-  uint16_t positions[NAME_COUNT];
-  for (size_t i = 0; i < NAME_COUNT; i++) positions[i] = 1;
-  bool nonempty = false, terminated = false, at_eof = false;
-  bool extendable = false;
-  Unit current = unit(lexer, &state);
-  for (;;) {
-    if (cut(lexer, current))
-      for (size_t i = 0; i < NAME_COUNT; i++)
-        for (size_t j = 0; j <= strlen(names[i]) - 2; j++)
-          if (
-            (positions[i] & (1u << j)) &&
-            (may_fail(&state, current) ||
-              completes_character(current, (unsigned char)names[i][j]))
-          )
-            extendable = true;
-    bool more = !host_boundary(lexer, &state);
-    Unit next = more ? unit(lexer, &state) : current;
-    if (current.value == ':') {
-      if (!more || next.value == ']') {
-        terminated = true;
-        at_eof = !more && lexer->eof(lexer);
-        break;
-      }
-      if (completes_character(next, ']'))
-        for (size_t i = 0; i < NAME_COUNT; i++)
-          if (positions[i] & (1u << (strlen(names[i]) - 2))) extendable = true;
+  uint16_t candidates = (1u << (sizeof(names) / sizeof(names[0]))) - 1;
+  size_t position = 0;
+  while (!host_boundary(lexer, &state)) {
+    Unit u = unit(lexer, &state);
+    if (u.incomplete || u.invalid_control || !decoded(u.value)) return false;
+    if (u.value == ':') {
+      if (host_boundary(lexer, &state) || unit(lexer, &state).value != ']')
+        return false;
+      for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++)
+        if ((candidates & (1u << i)) && names[i][position] == 0) return true;
+      return false;
     }
-    nonempty = true;
-    for (size_t i = 0; i < NAME_COUNT; i++) {
-      uint16_t matched = 0;
-      size_t size = strlen(names[i]) - 2;
-      for (size_t j = 0; j < size; j++) {
-        if (!(positions[i] & (1u << j))) continue;
-        if (failed(current)) positions[i] |= (uint16_t)(1u << (j + 1));
-        else if (current.value == names[i][j])
-          matched |= (uint16_t)(1u << (j + 1));
-      }
-      if (!failed(current)) positions[i] = matched;
-    }
-    if (!more) break;
-    current = next;
+    for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++)
+      if ((candidates & (1u << i)) && names[i][position] != u.value)
+        candidates &= (uint16_t)~(1u << i);
+    if (!candidates) return false;
+    position++;
   }
-  if (!nonempty) return at_eof ? END_OF_INPUT : BOUNDARY;
-  bool prefix = false;
-  for (size_t i = 0; i < NAME_COUNT; i++) {
-    size_t size = strlen(names[i]) - 2;
-    if (positions[i] & (1u << size)) return CLASS_VALID;
-    if (positions[i]) prefix = true;
-  }
-  return (extendable || (prefix && !terminated && lexer->eof(lexer)))
-    ? CLASS_INCOMPLETE
-    : CLASS_INVALID;
+  return false;
 }
 static inline bool closes_term(TSLexer *lexer, Scanner state) {
   return host_boundary(lexer, &state) || unit(lexer, &state).value == ']';
 }
-static inline bool
-scan_term_kind(TSLexer *lexer, Scanner *s, const bool *valid) {
-  finish_token(lexer);
-  enum TokenType token;
-  Scanner ahead = *s;
-  if (s->term == ':') token = classify_class(lexer, ahead);
-  else {
-    Unit first = unit(lexer, &ahead);
-    token = TERM_NONEMPTY;
-    if (first.value == s->term) {
-      if (lexer->eof(lexer)) token = END_OF_INPUT;
-      else if (closes_term(lexer, ahead)) token = BOUNDARY;
-    }
-  }
-  s->term_stage = TERM_STAGE_PAYLOAD;
-  return marked(lexer, valid, token);
-}
 static inline bool scan_term(TSLexer *lexer, Scanner *s, const bool *valid) {
-  if (s->term_stage == TERM_STAGE_KIND) return scan_term_kind(lexer, s, valid);
-  if (!decoded(lexer->lookahead)) return invalid_encoding(lexer, s, valid);
+  if (s->term_stage == TERM_STAGE_KIND) {
+    finish_token(lexer);
+    s->term_stage = TERM_STAGE_PAYLOAD;
+    return valid_class(lexer, *s) && marked(lexer, valid, CLASS_VALID);
+  }
+  if (!decoded(lexer->lookahead)) return false;
   Unit u = unit(lexer, s);
   if (s->term_stage == TERM_STAGE_OPEN_MARKER) {
-    s->term_stage = TERM_STAGE_KIND;
+    s->term_stage = s->term == ':' ? TERM_STAGE_KIND : TERM_STAGE_PAYLOAD;
     return emit(lexer, valid, VARIANT(u, TERM_OPEN_MARKER));
   }
   if (s->term_stage == TERM_STAGE_CLOSE) {
     end_term(s);
     return element(lexer, s, valid, VARIANT(u, TERM_CLOSE));
   }
-  if (u.invalid_control || u.incomplete)
-    return escape_issue(lexer, s, valid, u);
+  if (u.invalid_control || u.incomplete || !decoded(u.value)) return false;
   if (u.value == s->term) {
     finish_token(lexer);
     if (!closes_term(lexer, *s))
       return marked(lexer, valid, VARIANT(u, TERM_TEXT));
-    if (s->misplaced_class) end_term(s);
-    else s->term_stage = TERM_STAGE_CLOSE;
+    s->term_stage = TERM_STAGE_CLOSE;
     return marked(lexer, valid, VARIANT(u, TERM_CLOSE_MARKER));
   }
   if (u.encoded || u.host_escape || u.quoted)
@@ -733,59 +581,22 @@ static inline bool scan_term(TSLexer *lexer, Scanner *s, const bool *valid) {
     advance_host(lexer, s);
   return emit(lexer, valid, TERM_TEXT);
 }
-static inline enum TokenType literal_interval(TSLexer *lexer, Scanner state) {
-  bool count = false, comma = false, uncertain = false;
+static inline bool literal_interval(TSLexer *lexer, Scanner state) {
+  bool count = false, comma = false;
   while (!host_boundary(lexer, &state)) {
     Unit u = regex_unit(lexer, &state);
-    if (failed(u)) {
-      uncertain = true;
-      continue;
-    }
-    if (digit(u.value) && !u.quoted) {
-      count = true;
-      continue;
-    }
-    if (u.value == ',' && !u.quoted && !comma) {
-      comma = true;
-      continue;
-    }
-    bool close = count || comma || uncertain;
-    if (u.value == '}' && u.quoted && close) return REGEX_ESCAPE;
-    if (
-      (cut(lexer, u) && may_fail(&state, u)) ||
-      completes_interval(u, !comma, close)
-    )
-      return INCOMPLETE_INTERVAL_SYNTAX;
-    return INVALID_INTERVAL_SYNTAX;
+    if (u.incomplete || u.invalid_control || !decoded(u.value)) return false;
+    if (digit(u.value) && !u.quoted) count = true;
+    else if (u.value == ',' && !u.quoted && !comma) comma = true;
+    else return u.value == '}' && u.quoted && (count || comma);
   }
-  if (uncertain) return REGEX_ESCAPE;
-  return lexer->eof(lexer) ? INCOMPLETE_INTERVAL_SYNTAX
-                           : INVALID_INTERVAL_SYNTAX;
-}
-static inline bool
-scan_interval_start(TSLexer *lexer, Scanner *s, const bool *valid) {
-  finish_token(lexer);
-  enum TokenType token = INTERVAL_NONEMPTY;
-  if (host_boundary(lexer, s))
-    token = lexer->eof(lexer) ? INTERVAL_EMPTY_EOF : INTERVAL_EMPTY;
-  else {
-    Scanner ahead = *s;
-    Unit u = regex_unit(lexer, &ahead);
-    if (u.value == '}' && dialect_operator(u)) token = INTERVAL_EMPTY;
-  }
-  s->interval_content = true;
-  return marked(lexer, valid, token);
+  return false;
 }
 static inline bool
 scan_regex_boundary(TSLexer *lexer, Scanner *s, const bool *valid) {
-  if ((s->groups || s->bracket || s->interval) && missing(lexer, s, valid))
-    return true;
-  enum TokenType token = lexer->eof(lexer) ? UNTERMINATED_REGEX_EOF
-    : lexer->lookahead == '\n'             ? UNTERMINATED_REGEX_LINE
-    : s->mode == PATTERN                   ? PATTERN_END
-                                           : REGEX_END;
-  if (!valid[token]) return missing(lexer, s, valid);
-  if (!line_end(lexer)) advance(lexer);
+  if (line_end(lexer) || s->groups || s->bracket || s->interval) return false;
+  enum TokenType token = s->mode == PATTERN ? PATTERN_END : REGEX_END;
+  advance(lexer);
   if (s->mode == PATTERN) {
     s->mode = REPLACEMENT;
     reset_regex(s);
@@ -793,51 +604,8 @@ scan_regex_boundary(TSLexer *lexer, Scanner *s, const bool *valid) {
   return emit(lexer, valid, token);
 }
 static inline bool
-scan_utf8_start(TSLexer *lexer, Scanner *s, const bool *valid, int32_t lead) {
-  uint8_t count = lead < 0xe0 ? 1 : lead < 0xf0 ? 2 : 3;
-  finish_token(lexer);
-  bool complete = true;
-  Scanner ahead = *s;
-  for (uint8_t i = 0; i < count; i++) {
-    if (host_boundary(lexer, &ahead)) {
-      complete = false;
-      break;
-    }
-    Unit next = unit(lexer, &ahead);
-    int32_t low = i == 0 && lead == 0xe0 ? 0xa0
-      : i == 0 && lead == 0xf0           ? 0x90
-                                         : 0x80;
-    int32_t high = i == 0 && lead == 0xed ? 0x9f
-      : i == 0 && lead == 0xf4            ? 0x8f
-                                          : 0xbf;
-    if (
-      !next.encoded ||
-      next.incomplete ||
-      next.invalid_control ||
-      next.value < low ||
-      next.value > high
-    ) {
-      if (s->bracket && i == 0) peek_range_end(lexer, &ahead, next);
-      complete = false;
-      break;
-    }
-  }
-  s->utf8_remaining = complete ? count : 0;
-  if (s->bracket) s->bracket = BRACKET_BODY;
-  set_atom(s, true);
-  return marked(
-    lexer,
-    valid,
-    complete       ? UTF8_START
-      : s->bracket ? BRACKET_CHARACTER_ESCAPE
-                   : REGEX_CHARACTER_ESCAPE
-  );
-}
-static inline bool
 scan_interval_unit(TSLexer *lexer, Scanner *s, const bool *valid, Unit u) {
   int32_t c = u.value;
-  s->interval_content = true;
-  if (!decoded(c)) return emit(lexer, valid, regex_character(u));
   if (c == '}' && dialect_operator(u)) {
     end_interval(s);
     return emit(lexer, valid, VARIANT(u, INTERVAL_CLOSE));
@@ -848,30 +616,9 @@ scan_interval_unit(TSLexer *lexer, Scanner *s, const bool *valid, Unit u) {
         advance_host(lexer, s);
     return emit(lexer, valid, VARIANT(u, COUNT));
   }
-  if (c == ',' && !u.quoted && valid[INTERVAL_COMMA])
+  if (c == ',' && !u.quoted)
     return emit(lexer, valid, VARIANT(u, INTERVAL_COMMA));
-  if (u.encoded || u.quoted || u.host_escape) {
-    bool pending = (cut(lexer, u) && may_fail(s, u)) ||
-      completes_interval(u, valid[INTERVAL_COMMA], true);
-    return emit(
-      lexer,
-      valid,
-      u.encoded   ? pending ? INCOMPLETE_INTERVAL_CHARACTER_ENCODED
-                            : INVALID_INTERVAL_CHARACTER_ENCODED
-        : pending ? INCOMPLETE_INTERVAL_CHARACTER_ESCAPED
-                  : INVALID_INTERVAL_CHARACTER_ESCAPED
-    );
-  }
-  while (
-    !host_boundary(lexer, s) &&
-    decoded(lexer->lookahead) &&
-    !digit(lexer->lookahead) &&
-    (lexer->lookahead != ',' || !valid[INTERVAL_COMMA]) &&
-    (lexer->lookahead != '}' || !SED_EXTENDED) &&
-    lexer->lookahead != '\\'
-  )
-    advance_host(lexer, s);
-  return emit(lexer, valid, INVALID_INTERVAL_CHARACTER);
+  return false;
 }
 static inline enum TokenType term_opening(Unit u, int32_t marker) {
   switch (marker) {
@@ -891,31 +638,19 @@ static inline bool scan_range_operator(
   uint8_t hyphens
 ) {
   finish_token(lexer);
-  bool closing = host_boundary(lexer, s), pending = false;
-  bool continuation = hyphens >= 2;
+  bool closing = host_boundary(lexer, s);
   if (!closing) {
     Scanner ahead = *s;
     Unit next = unit(lexer, &ahead);
     closing = next.value == ']';
-    pending = !closing &&
-      (completes_character(next, ']') || completes_character(next, '-'));
-    if (hyphens != 1 && next.value == '-') {
-      if (host_boundary(lexer, &ahead)) pending = lexer->eof(lexer);
-      else {
-        Unit last = unit(lexer, &ahead);
-        if (last.value == '-')
-          return marked(lexer, valid, bracket_character(u));
-        pending = completes_character(last, '-');
-      }
+    if (hyphens != 1 && next.value == '-' && !host_boundary(lexer, &ahead)) {
+      Unit last = unit(lexer, &ahead);
+      if (last.value == '-') return marked(lexer, valid, bracket_character(u));
     }
   }
   if (closing) return marked(lexer, valid, bracket_character(u));
-  enum TokenType token = valid[RANGE_DASH]
-    ? pending ? VARIANT(u, PENDING_RANGE_DASH) : VARIANT(u, RANGE_DASH)
-    : continuation ? VARIANT(u, RANGE_CONTINUATION)
-    : pending      ? VARIANT(u, INCOMPLETE_RANGE_OPERATOR)
-                   : VARIANT(u, INVALID_RANGE_OPERATOR);
-  return marked(lexer, valid, token);
+  if (valid[RANGE_DASH]) return marked(lexer, valid, VARIANT(u, RANGE_DASH));
+  return hyphens >= 2 && marked(lexer, valid, VARIANT(u, RANGE_CONTINUATION));
 }
 static inline bool scan_bracket_unit(
   TSLexer *lexer,
@@ -940,10 +675,7 @@ static inline bool scan_bracket_unit(
     finish_token(lexer);
     if (!misplaced_class(lexer, *s))
       return marked(lexer, valid, bracket_character(u));
-    s->term = ':';
-    s->term_stage = TERM_STAGE_PAYLOAD;
-    s->misplaced_class = true;
-    return marked(lexer, valid, VARIANT(u, MISPLACED_CLASS_START));
+    return false;
   }
   if (c == '[' && !host_boundary(lexer, s)) {
     finish_token(lexer);
@@ -960,7 +692,7 @@ static inline bool scan_bracket_unit(
   if (
     c == '-' &&
     previous == BRACKET_BODY &&
-    (valid[RANGE_DASH] || valid[INVALID_RANGE_OPERATOR])
+    (valid[RANGE_DASH] || valid[RANGE_CONTINUATION] || valid[BRACKET_CLOSE])
   )
     return scan_range_operator(lexer, s, valid, u, hyphens);
   return element(lexer, s, valid, bracket_character(u));
@@ -986,13 +718,7 @@ static inline bool scan_regex_atom(
   }
   if (c == ')' && dialect_operator(u)) {
     set_atom(s, s->groups != 0);
-    if (!s->groups)
-      return emit(
-        lexer,
-        valid,
-        u.completion.radix ? INCOMPLETE_GROUP_CLOSE_ENCODED
-                           : VARIANT(u, UNMATCHED_GROUP_CLOSE)
-      );
+    if (!s->groups) return false;
     s->groups--;
     return emit(lexer, valid, VARIANT(u, GROUP_CLOSE));
   }
@@ -1005,35 +731,19 @@ static inline bool scan_regex_atom(
     (c == '*' && !u.quoted) || ((c == '+' || c == '?') && dialect_operator(u))
   ) {
     if (s->atom) return emit(lexer, valid, VARIANT(u, QUANTIFIER));
-    if (SED_EXTENDED)
-      return emit(
-        lexer,
-        valid,
-        u.completion.radix ? INCOMPLETE_REGEX_OPERATOR_ENCODED
-                           : VARIANT(u, INVALID_REGEX_OPERATOR)
-      );
+    if (SED_EXTENDED) return false;
   }
   if (c == '{' && dialect_operator(u)) {
-    if (s->atom || SED_EXTENDED) {
+    if (s->atom) {
       s->interval = true;
-      return emit(
-        lexer,
-        valid,
-        s->atom ? VARIANT(u, INTERVAL_OPEN) : VARIANT(u, ORPHAN_INTERVAL_OPEN)
-      );
+      return emit(lexer, valid, VARIANT(u, INTERVAL_OPEN));
     }
+    if (SED_EXTENDED) return false;
     set_atom(s, true);
     enum TokenType literal = regex_character(u);
     if (!boundary_atom) return emit(lexer, valid, literal);
     finish_token(lexer);
-    enum TokenType token = literal_interval(lexer, *s);
-    if (token == REGEX_ESCAPE) return marked(lexer, valid, literal);
-    return marked(
-      lexer,
-      valid,
-      token == INVALID_INTERVAL_SYNTAX ? VARIANT(u, INVALID_INTERVAL_SYNTAX)
-                                       : VARIANT(u, INCOMPLETE_INTERVAL_SYNTAX)
-    );
+    return literal_interval(lexer, *s) && marked(lexer, valid, literal);
   }
   if (u.quoted && c >= '1' && c <= '9') {
     set_atom(s, true);
@@ -1080,28 +790,13 @@ static inline bool scan_regex(TSLexer *lexer, Scanner *s, const bool *valid) {
   bool boundary_atom = s->boundary_atom;
   s->hyphens = 0;
   s->boundary_atom = false;
-  if (s->interval && !s->interval_content)
-    return scan_interval_start(lexer, s, valid);
   if (host_boundary(lexer, s)) return scan_regex_boundary(lexer, s, valid);
   if (s->term) return scan_term(lexer, s, valid);
-  if (!decoded(lexer->lookahead)) {
-    regex_element(s);
-    return invalid_encoding(lexer, s, valid);
-  }
+  if (!decoded(lexer->lookahead)) return false;
   Unit u = regex_unit(lexer, s);
   if (s->bracket && u.value == '-') s->hyphens = hyphens < 3 ? hyphens + 1 : 1;
-  if (u.invalid_control || u.incomplete) {
-    regex_element(s);
-    return escape_issue(lexer, s, valid, u);
-  }
+  if (u.invalid_control || u.incomplete || !decoded(u.value)) return false;
   if (s->interval) return scan_interval_unit(lexer, s, valid, u);
-  if (s->utf8_remaining && u.encoded && u.value >= 0x80 && u.value <= 0xbf) {
-    s->utf8_remaining--;
-    return element(lexer, s, valid, UTF8_CONTINUATION);
-  }
-  s->utf8_remaining = 0;
-  if (u.encoded && u.value >= 0xc2 && u.value <= 0xf4)
-    return scan_utf8_start(lexer, s, valid, u.value);
   if (s->bracket) return scan_bracket_unit(lexer, s, valid, u, hyphens);
   return scan_regex_atom(lexer, s, valid, u, boundary_atom);
 }
@@ -1109,7 +804,6 @@ static inline bool raw_text(TSLexer *lexer, Scanner *s, bool leadin) {
   bool escaped = false;
   bool prefix = leadin;
   s->verbatim = false;
-  s->text_eof = false;
   if (leadin) advance(lexer);
   while (!lexer->eof(lexer)) {
     int32_t c = lexer->lookahead;
@@ -1122,7 +816,6 @@ static inline bool raw_text(TSLexer *lexer, Scanner *s, bool leadin) {
     advance(lexer);
   }
   if (escaped && leadin) s->verbatim = true;
-  s->text_eof = true;
   return escaped;
 }
 static inline bool
@@ -1159,12 +852,7 @@ static inline bool scan_operand(TSLexer *lexer, Scanner *s, const bool *valid) {
     s->verbatim = false;
     return consume(lexer, valid, ESCAPE);
   }
-  if (line_end(lexer)) {
-    enum TokenType token =
-      lexer->eof(lexer) ? UNTERMINATED_OPERAND_EOF : UNTERMINATED_OPERAND_LINE;
-    end_operand(s, NORMAL);
-    return emit(lexer, valid, token);
-  }
+  if (line_end(lexer)) return false;
   if (!text_mode(s) && lexer->lookahead == s->delimiter) {
     enum TokenType token = s->mode == REPLACEMENT ? REPLACEMENT_END
       : s->mode == SOURCE                         ? TRANSLATION_MIDDLE
@@ -1172,12 +860,12 @@ static inline bool scan_operand(TSLexer *lexer, Scanner *s, const bool *valid) {
     end_operand(s, s->mode == REPLACEMENT ? FLAGS : NORMAL);
     return consume(lexer, valid, token);
   }
-  if (!decoded(lexer->lookahead)) return invalid_encoding(lexer, s, valid);
+  if (!decoded(lexer->lookahead)) return false;
   if (text_mode(s) && s->raw_text) return scan_raw_text(lexer, s, valid);
   int32_t raw = lexer->lookahead;
   Unit u = unit(lexer, s);
-  if (u.invalid_control || u.incomplete)
-    return escape_issue(lexer, s, valid, u);
+  if (u.invalid_control || !decoded(u.value)) return false;
+  if (u.incomplete) return text_mode(s) && emit(lexer, valid, ESCAPE);
   if (raw == '\\' && u.value == '\n' && !u.encoded)
     return emit(lexer, valid, LINE_CONTINUATION);
   if (s->mode == REPLACEMENT) {
@@ -1208,11 +896,12 @@ static inline bool scan_opaque(TSLexer *lexer, Scanner *s, const bool *valid) {
     s->mode = NORMAL;
     return emit(lexer, valid, comment ? COMMENT_END : OPAQUE_END);
   }
-  if (!decoded(lexer->lookahead)) return invalid_encoding(lexer, s, valid);
-  enum TokenType token = s->mode == LABEL_TEXT ? LABEL
-    : s->mode == VERSION_TEXT                  ? VERSION
-    : comment                                  ? COMMENT_TAIL
-                                               : FILENAME;
+  if (!decoded(lexer->lookahead)) return false;
+  enum TokenType token = s->mode == LABEL_TEXT
+    ? (valid[REQUIRED_LABEL] ? REQUIRED_LABEL : LABEL)
+    : s->mode == VERSION_TEXT ? VERSION
+    : comment                 ? COMMENT_TAIL
+                              : FILENAME;
   do advance(lexer);
   while (!opaque_end(lexer, word) && decoded(lexer->lookahead));
   return emit(lexer, valid, token);
@@ -1238,42 +927,24 @@ static inline enum TokenType zero_address(TSLexer *lexer, bool first) {
     if (lexer->lookahead == ',') {
       advance(lexer);
       advance_blanks(lexer);
-      if (regex_opening(lexer->lookahead)) return ZERO_NUMBER;
-    } else {
-      while (!decoded(lexer->lookahead)) {
-        advance(lexer);
-        advance_blanks(lexer);
-      }
-      if (lexer->lookahead == 'r') return ZERO_NUMBER;
-    }
+      if (regex_opening(lexer->lookahead)) return ZERO_LINE_NUMBER;
+    } else if (lexer->lookahead == 'r') return ZERO_LINE_NUMBER;
   }
-  return lexer->eof(lexer) ? PENDING_ZERO : INVALID_ZERO;
-}
-static inline bool address_gap(TSLexer *lexer, const bool *valid) {
-  int32_t c = lexer->lookahead;
-  return valid[ADDRESS_GAP] &&
-    !lexer->eof(lexer) &&
-    (!valid[REGEX_START] || (c != '$' && c != '+' && c != '~'));
+  return ERROR_SENTINEL;
 }
 static inline bool blanks_precede_token(TSLexer *lexer, const bool *valid) {
   int32_t c = lexer->lookahead;
   return ((valid[FILENAME] || valid[SHELL_START]) && !line_end(lexer)) ||
-    ((valid[LABEL] || valid[VERSION]) && !opaque_end(lexer, true)) ||
+    ((valid[LABEL] || valid[REQUIRED_LABEL] || valid[VERSION]) &&
+      !opaque_end(lexer, true)) ||
     ((valid[TEXT_START] || valid[INLINE_TEXT_START]) && !lexer->eof(lexer)) ||
-    (valid[FIRST_ADDRESS_GAP] && c == ',') ||
-    ((valid[NUMBER] || valid[ZERO_NUMBER]) && digit(c)) ||
+    ((valid[NUMBER] || valid[ZERO_NUMBER] || valid[ZERO_LINE_NUMBER]) &&
+      digit(c)) ||
     (valid[REGEX_START] && regex_opening(c)) ||
     (valid[SEPARATOR] && (c == ';' || c == '\n')) ||
     (valid[COMMENT] && c == '#') ||
     (valid[BLOCK_CLOSE] && c == '}') ||
     (valid[ADDRESS_MODIFIER] && (c == 'I' || c == 'M'));
-}
-static inline bool command_ending(TSLexer *lexer, const bool *valid) {
-  return marked(
-    lexer,
-    valid,
-    command_end(lexer) ? COMMAND_END : MISSING_SEPARATOR
-  );
 }
 static inline bool scan_layout(TSLexer *lexer, const bool *valid) {
   lexer->mark_end(lexer);
@@ -1288,7 +959,7 @@ static inline bool scan_layout(TSLexer *lexer, const bool *valid) {
 }
 static inline bool
 scan_text_start(TSLexer *lexer, Scanner *s, const bool *valid, bool shell) {
-  if (lexer->eof(lexer)) return missing(lexer, s, valid);
+  if (lexer->eof(lexer)) return false;
   enum TokenType token = shell ? INLINE_SHELL_START : INLINE_TEXT_START;
   bool leadin = false;
   if (lexer->lookahead == '\\') {
@@ -1319,14 +990,12 @@ static inline bool scan_delimiter_start(
   const bool *valid,
   enum TokenType start
 ) {
-  if (line_end(lexer)) return missing(lexer, s, valid);
+  if (line_end(lexer)) return false;
   if (start == REGEX_START && lexer->lookahead == '\\') {
     advance(lexer);
-    if (!decoded(lexer->lookahead) || unusable_delimiter(lexer->lookahead))
-      return emit(lexer, valid, INVALID_ADDRESS_PREFIX);
+    if (line_end(lexer) || !decoded(lexer->lookahead)) return false;
   }
-  if (unusable_delimiter(lexer->lookahead))
-    return consume(lexer, valid, INVALID_DELIMITER);
+  if (unusable_delimiter(lexer->lookahead)) return false;
   s->delimiter = (uint8_t)lexer->lookahead;
   s->mode = start == REGEX_START ? ADDRESS
     : start == PATTERN_START     ? PATTERN
@@ -1350,30 +1019,21 @@ static inline enum TokenType flag(int32_t c) {
     case 'M':
       return MATCH_FLAG;
     default:
-      return UNKNOWN_FLAG;
+      return ERROR_SENTINEL;
   }
 }
 static inline bool scan_flag(TSLexer *lexer, Scanner *s, const bool *valid) {
   lexer->mark_end(lexer);
   skip_blanks(lexer);
   int32_t c = lexer->lookahead;
-  if (!decoded(c)) return invalid_encoding(lexer, s, valid);
+  if (!decoded(c)) return false;
   if (digit(c)) {
     if (!scan_digits(lexer)) return emit(lexer, valid, OCCURRENCE);
-    return emit(
-      lexer,
-      valid,
-      lexer->eof(lexer) ? PENDING_ZERO : ZERO_OCCURRENCE
-    );
+    return false;
   }
   if (c == '\r') {
     advance(lexer);
-    if (lexer->lookahead != '\n')
-      return emit(
-        lexer,
-        valid,
-        lexer->eof(lexer) ? PENDING_FLAG : UNKNOWN_FLAG
-      );
+    if (lexer->lookahead != '\n') return false;
   } else if (!command_end(lexer)) {
     if (c == 'w') s->mode = NORMAL;
     return consume(lexer, valid, flag(c));
@@ -1399,57 +1059,51 @@ static inline bool scan_normal(TSLexer *lexer, Scanner *s, const bool *valid) {
     return consume(lexer, valid, SEPARATOR);
   if ((valid[COMMENT] || valid[DIRECTIVE]) && lexer->lookahead == '#')
     return scan_comment_start(lexer, s, valid);
-  bool nul = !lexer->eof(lexer) && lexer->lookahead == 0;
-  if (nul && (valid[EMPTY_LABEL] || valid[EMPTY_FILENAME])) {
-    s->mode = valid[EMPTY_LABEL] ? LABEL_TEXT : FILE_NAME;
-    return consume(
-      lexer,
-      valid,
-      valid[EMPTY_LABEL] ? EMPTY_LABEL : EMPTY_FILENAME
-    );
-  }
-  if (valid[FILENAME] || valid[LABEL] || valid[VERSION]) {
-    if (!opaque_end(lexer, valid[LABEL] || valid[VERSION])) {
+  if (
+    valid[FILENAME] || valid[LABEL] || valid[REQUIRED_LABEL] || valid[VERSION]
+  ) {
+    if (lexer->lookahead == 0 && (valid[FILENAME] || valid[REQUIRED_LABEL]))
+      return false;
+    if (!opaque_end(
+          lexer,
+          valid[LABEL] || valid[REQUIRED_LABEL] || valid[VERSION]
+        )) {
       s->mode = valid[FILENAME] ? FILE_NAME
-        : valid[LABEL]          ? LABEL_TEXT
-                                : VERSION_TEXT;
+        : valid[VERSION]        ? VERSION_TEXT
+                                : LABEL_TEXT;
       return scan_opaque(lexer, s, valid);
     }
-    if (missing(lexer, s, valid)) return true;
   }
-  if (!decoded(lexer->lookahead) && valid[INVALID_ENCODING])
-    return invalid_encoding(lexer, s, valid);
+  if (!decoded(lexer->lookahead)) return false;
   enum TokenType start = valid[PATTERN_START] ? PATTERN_START
     : valid[TRANSLATION_START]                ? TRANSLATION_START
                                               : REGEX_START;
   if (valid[start] && (start != REGEX_START || regex_opening(lexer->lookahead)))
     return scan_delimiter_start(lexer, s, valid, start);
-  if (valid[INVALID_DELIMITER] && !line_end(lexer))
-    return consume(lexer, valid, INVALID_DELIMITER);
   if (
     valid[ADDRESS_MODIFIER] &&
     (lexer->lookahead == 'I' || lexer->lookahead == 'M')
   )
     return consume(lexer, valid, ADDRESS_MODIFIER);
-  if ((valid[NUMBER] || valid[ZERO_NUMBER]) && digit(lexer->lookahead)) {
+  if (
+    (valid[NUMBER] || valid[ZERO_NUMBER] || valid[ZERO_LINE_NUMBER]) &&
+    digit(lexer->lookahead)
+  ) {
     bool zero = scan_digits(lexer);
     lexer->mark_end(lexer);
     return marked(
       lexer,
       valid,
-      !zero                   ? NUMBER
-        : valid[PENDING_ZERO] ? zero_address(lexer, valid[FIRST_ADDRESS_GAP])
-                              : ZERO_NUMBER
+      !zero                  ? NUMBER
+        : valid[ZERO_NUMBER] ? ZERO_NUMBER
+                             : zero_address(lexer, valid[ZERO_LINE_NUMBER])
     );
   }
-  if (valid[FIRST_ADDRESS_GAP] && lexer->lookahead == ',')
-    return marked(lexer, valid, FIRST_ADDRESS_GAP);
-  if (address_gap(lexer, valid)) return marked(lexer, valid, ADDRESS_GAP);
-  if (valid[COMMAND_END] && command_ending(lexer, valid)) return true;
+  if (valid[COMMAND_END] && command_end(lexer))
+    return marked(lexer, valid, COMMAND_END);
   if (valid[BLOCK_CLOSE] && lexer->lookahead == '}')
     return consume(lexer, valid, BLOCK_CLOSE);
-  if (nul && valid[NUL_COMMAND]) return consume(lexer, valid, NUL_COMMAND);
-  return missing(lexer, s, valid);
+  return false;
 }
 static inline bool scan(void *payload, TSLexer *lexer, const bool *valid) {
   if (valid[ERROR_SENTINEL]) return false;
@@ -1486,25 +1140,20 @@ static inline unsigned serialize(void *payload, char *buffer) {
   buffer[1] = (char)s->bracket;
   buffer[2] = (char)s->term;
   buffer[3] = (char)s->term_stage;
-  buffer[4] = (char)s->utf8_remaining;
-  buffer[5] = (char)s->host_bracket;
-  buffer[6] = (char)s->host_term;
-  buffer[7] = (char)s->delimiter;
-  buffer[8] = (char)(s->interval |
+  buffer[4] = (char)s->host_bracket;
+  buffer[5] = (char)s->host_term;
+  buffer[6] = (char)s->delimiter;
+  buffer[7] = (char)(s->interval |
     s->branch_start << 1 |
     s->atom << 2 |
-    s->interval_content << 3 |
-    s->verbatim << 4 |
-    s->misplaced_class << 5 |
-    s->boundary_atom << 6 |
-    s->raw_text << 7);
-  buffer[9] = (char)(s->host_escaped |
+    s->verbatim << 3 |
+    s->boundary_atom << 4 |
+    s->raw_text << 5);
+  buffer[8] = (char)(s->host_escaped |
     s->host_term_closing << 1 |
     s->host_control << 2 |
-    s->text_eof << 3 |
-    s->hyphens << 4);
-  for (unsigned i = 0; i < 4; i++)
-    buffer[10 + i] = (char)(s->groups >> (i * 8));
+    s->hyphens << 3);
+  for (unsigned i = 0; i < 4; i++) buffer[9 + i] = (char)(s->groups >> (i * 8));
   // Match Tree-sitter's empty initial state.
   for (unsigned i = 0; i < SERIALIZED_SIZE; i++)
     if (buffer[i]) return SERIALIZED_SIZE;
@@ -1515,30 +1164,26 @@ deserialize(void *payload, const char *buffer, unsigned length) {
   Scanner *s = payload;
   memset(s, 0, sizeof(*s));
   if (length != SERIALIZED_SIZE) return;
-  uint8_t flags = (uint8_t)buffer[8];
-  uint8_t host_flags = (uint8_t)buffer[9];
+  uint8_t flags = (uint8_t)buffer[7];
+  uint8_t host_flags = (uint8_t)buffer[8];
   s->mode = (uint8_t)buffer[0];
   s->bracket = (uint8_t)buffer[1];
   s->term = (uint8_t)buffer[2];
   s->term_stage = (uint8_t)buffer[3];
-  s->utf8_remaining = (uint8_t)buffer[4];
-  s->host_bracket = (uint8_t)buffer[5];
-  s->host_term = (uint8_t)buffer[6];
-  s->delimiter = (uint8_t)buffer[7];
+  s->host_bracket = (uint8_t)buffer[4];
+  s->host_term = (uint8_t)buffer[5];
+  s->delimiter = (uint8_t)buffer[6];
   s->interval = flags & 1;
   s->branch_start = flags & 2;
   s->atom = flags & 4;
-  s->interval_content = flags & 8;
-  s->verbatim = flags & 16;
-  s->misplaced_class = flags & 32;
-  s->boundary_atom = flags & 64;
-  s->raw_text = flags & 128;
+  s->verbatim = flags & 8;
+  s->boundary_atom = flags & 16;
+  s->raw_text = flags & 32;
   s->host_escaped = host_flags & 1;
   s->host_term_closing = host_flags & 2;
   s->host_control = host_flags & 4;
-  s->text_eof = host_flags & 8;
-  s->hyphens = (host_flags >> 4) & 3;
+  s->hyphens = (host_flags >> 3) & 3;
   for (unsigned i = 0; i < 4; i++)
-    s->groups |= (uint32_t)(uint8_t)buffer[10 + i] << (i * 8);
+    s->groups |= (uint32_t)(uint8_t)buffer[9 + i] << (i * 8);
 }
 #endif

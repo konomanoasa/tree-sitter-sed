@@ -13,14 +13,6 @@ If:
 CompileFlags:
   Add:
     - -xc-header
-    - -Wno-unused-function
-
----
-If:
-  PathMatch: test/[^/]*\.c
-CompileFlags:
-  Add:
-    - -Wno-unused-function
 
 ---
 If:
@@ -30,3 +22,11 @@ If:
 CompileFlags:
   Add:
     - -DSED_EXTENDED=0
+
+---
+If:
+  PathMatch: bindings/python/.*\.c
+CompileFlags:
+  CompilationDatabase: None
+  Add:
+    - -I../../src

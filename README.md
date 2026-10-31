@@ -7,17 +7,15 @@
 [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) grammars for
 GNU sed 4.10.
 
-For POSIX sed, see [tree-sitter-posix-sed](https://github.com/konomanoasa/tree-sitter-posix-sed).
-
-## Parsing Option
-
-For GNU ERE parsing, use `sed_ere`.
-
 ## Installation
 
 ```sh
 npm install tree-sitter-sed
 ```
+
+## Parsing Option
+
+For GNU ERE parsing, use `sed_ere`.
 
 ## Development
 
@@ -30,10 +28,6 @@ npm test
 ## Specification
 
 [GNU sed Manual 4.10](https://www.gnu.org/software/sed/manual/sed.html)
-
-## Used By
-
-[sed-ts-mode](https://github.com/konomanoasa/sed-ts-mode)
 
 ## License
 

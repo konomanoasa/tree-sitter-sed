@@ -26,17 +26,11 @@
 (negation
   "!" @operator)
 
-(duplicate_negation
-  "!" @operator)
-
 (block
   [
     "{"
     "}"
   ] @punctuation.bracket)
-
-(unmatched_closing_brace
-  "}" @punctuation.bracket)
 
 [
   (delimiter)
@@ -80,9 +74,6 @@
   (literal) @string.regexp)
 
 (bracket_character
-  (literal) @string.regexp)
-
-(invalid_interval_character
   (literal) @string.regexp)
 
 (text

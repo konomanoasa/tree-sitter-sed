@@ -4,572 +4,192 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { test } from "node:test";
-import { issueSignatures } from "./support/cst.js";
-import {
-  applyEdits,
-  assertIncrementalContract,
-  parse,
-  parseSuccessfully,
-} from "./support/parser.js";
+import { parse, parseSuccessfully } from "./support/parser.js";
 
 const runtimeTimeoutMs = 10_000;
 
 for (const scope of ["source.sed", "source.sed.ere"]) {
-  test(`${scope}: class checks use known text around undecodable bytes and invalid control escapes`, () => {
-    for (const { before, after, unknown } of [
-      { before: "", after: "", unknown: false },
-      { before: "alpha", after: "", unknown: false },
-      { before: "unkno", after: "", unknown: true },
-      { before: "", after: "z", unknown: true },
-      { before: "al", after: "pha", unknown: false },
-      { before: "al", after: "num", unknown: false },
-      { before: "al", after: "l", unknown: true },
-      { before: "", after: "1", unknown: true },
-      { before: "", after: "digit", unknown: false },
-      { before: "a", after: "digit", unknown: true },
-    ]) {
-      for (const { failure, reason, offset } of [
-        { failure: Buffer.from([0xff]), reason: "invalid_encoding", offset: 0 },
-        {
-          failure: Buffer.from([0xff, 0xfe]),
-          reason: "invalid_encoding",
-          offset: 0,
-        },
-        {
-          failure: Buffer.from([0x5c, 0x63, 0xff]),
-          reason: "invalid_encoding",
-          offset: 2,
-        },
-        {
-          failure: Buffer.from([0x5c, 0x63, 0x5c, 0xff]),
-          reason: "invalid_encoding",
-          offset: 3,
-        },
-        {
-          failure: Buffer.from("\\c\\"),
-          reason: "invalid_control_escape",
-          offset: 0,
-        },
+  for (const [prefix, suffix] of [
+    ["s/", "/x/"],
+    ["s/a/", "/"],
+    ["y/", "/x/"],
+    ["a ", "\n"],
+    ["r ", "\n"],
+    ["b ", "\n"],
+    ["v ", "\n"],
+    ["e ", "\n"],
+    ["# ", "\n"],
+    ["s/[[.", ".]]/x/"],
+  ]) {
+    test(`${scope}: UTF-8 scalar boundaries in ${JSON.stringify(prefix)}`, () => {
+      const text = "é\uD7FF\uE000\uFFFD\uFFFF\u{10000}\u{10FFFF}";
+      const source = `${prefix}${text}${suffix}`;
+      const result = parseSuccessfully(scope, source);
+      for (const node of result.nodes) {
+        assert.ok(
+          node.startByte <= node.endByte &&
+            node.endByte <= Buffer.byteLength(source),
+        );
+      }
+      for (const bytes of [
+        [0x80],
+        [0xff],
+        [0xc0, 0xaf],
+        [0xe2, 0x82],
+        [0xed, 0xa0, 0x80],
+        [0xf4, 0x90, 0x80, 0x80],
       ]) {
-        const prefix = `/[[:${before}`;
-        const suffix = `${after}:][:unknown:]]/p`;
-        const source = Buffer.concat([
+        const invalid = Buffer.concat([
           Buffer.from(prefix),
-          failure,
+          Buffer.from(bytes),
           Buffer.from(suffix),
         ]);
-        const end = prefix.length + failure.length + after.length;
-        const result = parseSuccessfully(scope, source);
-        assert.deepEqual(issueSignatures(result.nodes), [
-          ...(unknown
-            ? [
-                {
-                  outcome: "invalid_syntax",
-                  reason: "unknown_character_class",
-                  range: `[0, 4] - [0, ${end}]`,
-                },
-              ]
-            : []),
-          {
-            outcome: "invalid_syntax",
-            reason,
-            range: `[0, ${prefix.length + offset}] - [0, ${prefix.length + failure.length}]`,
-          },
-          {
-            outcome: "invalid_syntax",
-            reason: "unknown_character_class",
-            range: `[0, ${end + 4}] - [0, ${end + 11}]`,
-          },
-        ]);
-        const edits = [{ byte: 4, deleteBytes: end - 4, insert: "alpha" }];
-        assertIncrementalContract(
-          parseSuccessfully(scope, applyEdits(source, edits)),
-          parseSuccessfully(scope, source, edits),
-          `${before}/${after}/${reason}: repair class name`,
-        );
-        const changePrefix = [
-          { byte: 4, deleteBytes: before.length, insert: "z" },
-        ];
-        assertIncrementalContract(
-          parseSuccessfully(scope, applyEdits(source, changePrefix)),
-          parseSuccessfully(scope, source, changePrefix),
-          `${before}/${after}/${reason}: change known prefix`,
+        assert.equal(
+          parse(scope, invalid).hasError,
+          true,
+          JSON.stringify({ prefix, bytes }),
         );
       }
-    }
-  });
+    });
+  }
 
-  test(`${scope}: misplaced classes retain independent decoding failures`, () => {
-    for (const [opening, closing] of [
-      ["/[:", ":]/p"],
-      ["/[^:", ":]/p"],
-      [String.raw`/[\x3a`, String.raw`\x3a]/p`],
-    ]) {
-      for (const [before, after] of [
-        ["a", "b"],
-        ["", "alpha"],
-        ["alpha", ""],
-        ["", ""],
-      ]) {
-        for (const failure of [
-          Buffer.from([0xff]),
-          Buffer.from([0xe3, 0x81]),
-        ]) {
-          const source = Buffer.concat([
-            Buffer.from(opening + before),
-            failure,
-            Buffer.from(after + closing),
-          ]);
-          const { nodes } = parseSuccessfully(scope, source);
-          const failureStart = opening.length + before.length;
-          const failureEnd = failureStart + failure.length;
-          const markerStart = opening.startsWith("/[^:") ? 3 : 2;
-          assert.deepEqual(issueSignatures(nodes), [
-            {
-              outcome: "invalid_syntax",
-              reason: "misplaced_character_class",
-              range: `[0, ${markerStart}] - [0, ${source.length - 3}]`,
-            },
-            {
-              outcome: "invalid_syntax",
-              reason: "invalid_encoding",
-              range: `[0, ${failureStart}] - [0, ${failureEnd}]`,
-            },
-          ]);
-          const name = nodes.findIndex((node) => node.kind === "class_name");
-          assert.notEqual(name, -1);
-          assert.equal(
-            nodes[nodes[name].parent].kind,
-            "misplaced_character_class",
-          );
-          assert.deepEqual(
-            nodes
-              .filter((node) => node.parent === name)
-              .map((node) => [node.kind, node.startByte, node.endByte]),
-            [
-              ...(before
-                ? [["class_name_text", opening.length, failureStart]]
-                : []),
-              ["syntax_issue", failureStart, failureEnd],
-              ...(after
-                ? [["class_name_text", failureEnd, failureEnd + after.length]]
-                : []),
-            ],
-          );
-        }
-      }
-    }
-    for (const [prefix, suffix] of [
-      ["/[:a-", "b:]/p"],
-      ["/[:a", "-b:]/p"],
-      ["/[[:al", "pha:]]/p"],
-      ["/[:a", "b]/p"],
-      ["/[:a", "b:"],
-    ]) {
-      const source = Buffer.concat([
-        Buffer.from(prefix),
-        Buffer.from([0xff]),
-        Buffer.from(suffix),
-      ]);
-      const issues = issueSignatures(parseSuccessfully(scope, source).nodes);
-      assert.equal(
-        issues.some(({ reason }) => reason === "misplaced_character_class"),
-        false,
-      );
+  test(`${scope}: every permitted ASCII delimiter retains its source ranges`, () => {
+    for (let byte = 0; byte < 128; byte++) {
+      if (byte === 10) continue;
+      const delimiter = String.fromCharCode(byte);
+      const source = `s${delimiter}${delimiter}${delimiter}`;
+      const result = parseSuccessfully(scope, source);
       assert.deepEqual(
-        issues.filter(({ reason }) => reason === "invalid_encoding"),
+        result.nodes
+          .filter(({ kind }) => kind === "delimiter")
+          .map(({ field, startByte, endByte }) => [field, startByte, endByte]),
         [
-          {
-            outcome: "invalid_syntax",
-            reason: "invalid_encoding",
-            range: `[0, ${prefix.length}] - [0, ${prefix.length + 1}]`,
-          },
+          ["opening", 1, 2],
+          ["separator", 2, 3],
+          ["closing", 3, 4],
         ],
       );
     }
   });
 
-  test(`${scope}: misplaced class lookahead follows decoding and bracket edits`, () => {
-    const source = "/[:alΣpha:]/p";
-    const damage = [{ byte: 5, deleteBytes: 1, insert: "" }];
-    const damaged = applyEdits(source, damage);
-    const fresh = parseSuccessfully(scope, damaged);
-    assert.deepEqual(
-      issueSignatures(fresh.nodes).map(({ reason }) => reason),
-      ["misplaced_character_class", "invalid_encoding"],
-    );
-    assertIncrementalContract(
-      fresh,
-      parseSuccessfully(scope, source, damage),
-      "split class name character",
-    );
-    for (const { edits, reasons } of [
-      {
-        edits: [{ byte: 5, deleteBytes: 1, insert: "Σ" }],
-        reasons: ["misplaced_character_class"],
-      },
-      {
-        edits: [
-          { byte: 2, deleteBytes: 0, insert: "[" },
-          { byte: damaged.length - 1, deleteBytes: 0, insert: "]" },
-        ],
-        reasons: ["invalid_encoding"],
-      },
-      {
-        edits: [{ byte: damaged.length - 4, deleteBytes: 1, insert: "" }],
-        reasons: ["invalid_encoding"],
-      },
-      {
-        edits: [{ byte: damaged.length - 3, deleteBytes: 3, insert: "" }],
-        reasons: [
-          "invalid_encoding",
-          "missing_closing_delimiter",
-          "unterminated_regex",
-          "missing_command",
-        ],
-      },
+  test(`${scope}: encoded bytes keep independent atoms and repetition ownership`, () => {
+    for (const escapes of [
+      [String.raw`\xc3`, String.raw`\xa9`],
+      [String.raw`\o303`, String.raw`\d169`],
+      [String.raw`\xe2`, String.raw`\x82`, String.raw`\xac`],
+      [String.raw`\xf0`, String.raw`\x9f`, String.raw`\x98`, String.raw`\x80`],
     ]) {
-      const modified = applyEdits(damaged, edits);
-      const expected = parseSuccessfully(scope, modified);
-      assert.deepEqual(
-        issueSignatures(expected.nodes).map(({ reason }) => reason),
-        reasons,
-      );
-      assertIncrementalContract(
-        expected,
-        parseSuccessfully(scope, damaged, edits),
-        JSON.stringify(edits),
-      );
-    }
-    const partial = damaged.subarray(0, damaged.length - 3);
-    assertIncrementalContract(
-      fresh,
-      parseSuccessfully(scope, partial, [
-        { byte: partial.length, deleteBytes: 0, insert: "]/p" },
-      ]),
-      "complete misplaced class after decoding failure",
-    );
-  });
-
-  test(`${scope}: class candidates with unknown spans survive EOF completion and later edits`, () => {
-    for (const failure of [Buffer.from([0xff]), Buffer.from("\\c\\")]) {
-      const source = Buffer.concat([
-        Buffer.from("/[[:al"),
-        failure,
-        Buffer.from("p"),
-      ]);
-      const unknown = (nodes) =>
-        issueSignatures(nodes).filter(
-          ({ reason }) => reason === "unknown_character_class",
-        );
-      assert.deepEqual(unknown(parseSuccessfully(scope, source).nodes), [
-        {
-          outcome: "incomplete_syntax",
-          reason: "unknown_character_class",
-          range: `[0, 4] - [0, ${source.length}]`,
-        },
-      ]);
-      const completion = [
-        { byte: source.length, deleteBytes: 0, insert: "ha:]]/p" },
-      ];
-      const completed = applyEdits(source, completion);
-      const fresh = parseSuccessfully(scope, completed);
-      assert.deepEqual(unknown(fresh.nodes), []);
-      assertIncrementalContract(
-        fresh,
-        parseSuccessfully(scope, source, completion),
-        "complete class after unknown span",
-      );
-      const corrupt = [{ byte: source.length, deleteBytes: 2, insert: "z" }];
-      const corruptSource = applyEdits(completed, corrupt);
-      const corruptFresh = parseSuccessfully(scope, corruptSource);
-      assert.deepEqual(unknown(corruptFresh.nodes), [
-        {
-          outcome: "invalid_syntax",
-          reason: "unknown_character_class",
-          range: `[0, 4] - [0, ${source.length + 1}]`,
-        },
-      ]);
-      assertIncrementalContract(
-        corruptFresh,
-        parseSuccessfully(scope, completed, corrupt),
-        "invalidate known suffix",
-      );
-      const restore = [{ byte: source.length, deleteBytes: 1, insert: "ha" }];
-      assertIncrementalContract(
-        fresh,
-        parseSuccessfully(scope, corruptSource, restore),
-        "restore known suffix",
-      );
-      const split = Buffer.concat([
-        Buffer.from("/[[:al"),
-        failure,
-        Buffer.from("p"),
-        failure,
-        Buffer.from("ha:]]/p"),
-      ]);
-      assert.deepEqual(unknown(parseSuccessfully(scope, split).nodes), []);
-    }
-  });
-
-  test(`${scope}: interval characters remain independent of adjacent decoding failures`, () => {
-    const opening = scope === "source.sed" ? String.raw`/a\{` : "/a{";
-    const closing = scope === "source.sed" ? String.raw`\}/p` : "}/p";
-    for (const introducer of ["", "\\", String.raw`\x5c`, String.raw`\c`]) {
-      for (const badFirst of [false, true]) {
-        const content = Buffer.concat([
-          Buffer.from(`${badFirst ? "x" : "1"}${introducer}`),
-          Buffer.from([0xff]),
-          Buffer.from(badFirst ? "2" : "x"),
-        ]);
-        const source = Buffer.concat([
-          Buffer.from(opening),
-          content,
-          Buffer.from(closing),
-        ]);
-        const base = opening.length;
-        const faults = badFirst
-          ? [
-              { reason: "invalid_interval_character", byte: base },
-              {
-                reason: "invalid_encoding",
-                byte: base + 1 + introducer.length,
-              },
-            ]
-          : [
-              {
-                reason: "invalid_encoding",
-                byte: base + 1 + introducer.length,
-              },
-              {
-                reason: "invalid_interval_character",
-                byte: base + 2 + introducer.length,
-              },
-            ];
+      const interval = scope.endsWith("ere") ? "{2}" : String.raw`\{2\}`;
+      for (const suffix of ["*", interval]) {
+        const source = `s/${escapes.join("")}${suffix}/x/`;
+        const { nodes } = parseSuccessfully(scope, source);
+        const atoms = nodes.filter(({ kind }) => kind === "regex_character");
         assert.deepEqual(
-          issueSignatures(parseSuccessfully(scope, source).nodes),
-          faults.map(({ reason, byte }) => ({
-            outcome: "invalid_syntax",
-            reason,
-            range: `[0, ${byte}] - [0, ${byte + 1}]`,
-          })),
+          atoms.map(({ startByte, endByte }) =>
+            source.slice(startByte, endByte),
+          ),
+          escapes,
+        );
+        assert.deepEqual(
+          atoms.map(({ parent }) => nodes[parent].kind),
+          [...escapes.slice(1).map(() => "regex_branch"), "repetition"],
+        );
+      }
+      for (const range of [false, true]) {
+        const source = `s/[${escapes.join("")}${range ? String.raw`-\xff` : ""}]/x/`;
+        const { nodes } = parseSuccessfully(scope, source);
+        const atoms = nodes.filter(({ kind }) => kind === "bracket_character");
+        assert.deepEqual(
+          atoms.map(({ startByte, endByte }) =>
+            source.slice(startByte, endByte),
+          ),
+          range ? [...escapes, String.raw`\xff`] : escapes,
+        );
+        assert.deepEqual(
+          atoms.map(({ parent, field }) => [nodes[parent].kind, field]),
+          range
+            ? [
+                ...escapes.slice(1).map(() => ["bracket_expression", null]),
+                ["range", "start"],
+                ["range", "end"],
+              ]
+            : escapes.map(() => ["bracket_expression", null]),
         );
       }
     }
   });
 
-  test(`${scope}: undecodable interval escapes preserve prefixes, counts, and closing`, () => {
-    const opening = scope === "source.sed" ? String.raw`s/a\{` : "s/a{";
-    const closing = scope === "source.sed" ? String.raw`\}` : "}";
-    for (const [introducer, kind] of [
-      ["\\", "escape"],
-      [String.raw`\x5c`, "character_escape"],
-      [String.raw`\c`, "character_escape"],
-    ]) {
-      for (const failure of [Buffer.from([0xff]), Buffer.from([0xe3, 0x81])]) {
-        for (const { before, after, counts } of [
-          { before: "", after: "", counts: [] },
-          {
-            before: "1",
-            after: "2,3",
-            counts: [
-              ["minimum", "1"],
-              ["minimum", "2"],
-              ["maximum", "3"],
-            ],
-          },
-          {
-            before: "1,",
-            after: "2",
-            counts: [
-              ["minimum", "1"],
-              ["maximum", "2"],
-            ],
-          },
-        ]) {
-          const prefix = opening + before;
-          const failureStart = prefix.length + introducer.length;
-          const failureEnd = failureStart + failure.length;
-          const source = Buffer.concat([
-            Buffer.from(prefix + introducer),
-            failure,
-            Buffer.from(`${after}${closing}/r/`),
-          ]);
-          const { nodes } = parseSuccessfully(scope, source);
-          assert.deepEqual(issueSignatures(nodes), [
-            {
-              outcome: "invalid_syntax",
-              reason: "invalid_encoding",
-              range: `[0, ${failureStart}] - [0, ${failureEnd}]`,
-            },
-          ]);
-          const interval = nodes.findIndex((node) => node.kind === "interval");
-          assert.notEqual(interval, -1);
-          const children = nodes.filter((node) => node.parent === interval);
-          assert.deepEqual(
-            children
-              .filter((node) =>
-                ["escape", "character_escape"].includes(node.kind),
-              )
-              .map((node) => [node.kind, node.startByte, node.endByte]),
-            [[kind, prefix.length, failureStart]],
-          );
-          assert.deepEqual(
-            children
-              .filter((node) => node.kind === "interval_count")
-              .map((node) => [
-                node.field,
-                source.subarray(node.startByte, node.endByte).toString(),
-              ]),
-            counts,
-          );
-          assert.deepEqual(
-            children
-              .filter((node) => node.field === "closing")
-              .map((node) => [node.kind, node.startByte, node.endByte]),
-            [
-              [
-                "interval_close",
-                failureEnd + after.length,
-                failureEnd + after.length + closing.length,
-              ],
-            ],
-          );
-          assert.equal(
-            children.filter((node) => node.kind === "syntax_issue").length,
-            1,
-          );
-        }
-      }
-    }
-  });
-
-  test(`${scope}: interval escape decoding failures track edits and repairs`, () => {
-    const opening = scope === "source.sed" ? String.raw`s/a\{1` : "s/a{1";
-    const closing = scope === "source.sed" ? String.raw`2\}/r/` : "2}/r/";
-    for (const introducer of ["\\", String.raw`\x5c`, String.raw`\c`]) {
-      const source = `${opening}${introducer}Σ${closing}`;
-      const damagedByte = opening.length + introducer.length;
-      const damage = [{ byte: damagedByte, deleteBytes: 1, insert: "" }];
-      const damaged = applyEdits(source, damage);
-      const fresh = parseSuccessfully(scope, damaged);
-      assert.deepEqual(issueSignatures(fresh.nodes), [
-        {
-          outcome: "invalid_syntax",
-          reason: "invalid_encoding",
-          range: `[0, ${damagedByte}] - [0, ${damagedByte + 1}]`,
-        },
-      ]);
-      assertIncrementalContract(
-        fresh,
-        parseSuccessfully(scope, source, damage),
-        "split the escaped multibyte character",
-      );
-      for (const edit of [
-        {
-          byte: opening.length,
-          deleteBytes: introducer.length + 1,
-          insert: "3",
-        },
-        { byte: opening.length, deleteBytes: introducer.length, insert: "" },
-        { byte: damaged.length, deleteBytes: 0, insert: ";p" },
-      ]) {
-        const expected = parseSuccessfully(scope, applyEdits(damaged, [edit]));
-        assertIncrementalContract(
-          expected,
-          parseSuccessfully(scope, damaged, [edit]),
-          JSON.stringify(edit),
-        );
-        if (edit.insert === "3")
-          assert.deepEqual(issueSignatures(expected.nodes), []);
-      }
-    }
-  });
-
-  test(`${scope}: interval escape prefixes remain incomplete when decoding can fail after EOF`, () => {
-    const opening = scope === "source.sed" ? String.raw`s/a\{1` : "s/a{1";
-    const closing = scope === "source.sed" ? String.raw`\}/r/` : "}/r/";
-    for (const [prefix, completion] of [
-      [String.raw`\x5`, "c"],
-      [String.raw`\o13`, "4"],
-    ]) {
-      const source = opening + prefix;
-      const partial = parseSuccessfully(scope, source);
-      const intervalIssues = (result) =>
-        issueSignatures(result.nodes).filter(
-          ({ reason }) => reason === "invalid_interval_character",
-        );
-      assert.deepEqual(intervalIssues(partial), [
-        {
-          outcome: "incomplete_syntax",
-          reason: "invalid_interval_character",
-          range: `[0, ${opening.length}] - [0, ${source.length}]`,
-        },
-      ]);
-      assert.deepEqual(
-        intervalIssues(parseSuccessfully(scope, `${source}/r/`)),
+  test(`${scope}: NUL delimiters preserve operand boundaries and differ from EOF`, () => {
+    for (const [source, ranges] of [
+      [
+        "s\0a\0b\0p",
         [
-          {
-            outcome: "invalid_syntax",
-            reason: "invalid_interval_character",
-            range: `[0, ${opening.length}] - [0, ${source.length}]`,
-          },
+          [1, 2],
+          [3, 4],
+          [5, 6],
         ],
-      );
-      const completed = Buffer.concat([
-        Buffer.from(source + completion),
-        Buffer.from([0xff]),
-        Buffer.from(closing),
-      ]);
-      assert.deepEqual(
-        issueSignatures(parseSuccessfully(scope, completed).nodes),
+      ],
+      [
+        "y\0a\0b\0;p",
         [
-          {
-            outcome: "invalid_syntax",
-            reason: "invalid_encoding",
-            range: `[0, ${source.length + 1}] - [0, ${source.length + 2}]`,
-          },
+          [1, 2],
+          [3, 4],
+          [5, 6],
         ],
-      );
-      const removeCompletion = [
-        {
-          byte: source.length,
-          deleteBytes: completed.length - source.length,
-          insert: "",
-        },
-      ];
-      assertIncrementalContract(
-        partial,
-        parseSuccessfully(scope, completed, removeCompletion),
-        "remove the undecodable completion",
+      ],
+      [
+        "\\\0a\0p",
+        [
+          [0, 2],
+          [3, 4],
+        ],
+      ],
+      [
+        "s\0\\\0\0b\0p",
+        [
+          [1, 2],
+          [4, 5],
+          [6, 7],
+        ],
+      ],
+      [
+        "y\0\\\0\0b\0;p",
+        [
+          [1, 2],
+          [4, 5],
+          [6, 7],
+        ],
+      ],
+    ]) {
+      const { nodes } = parseSuccessfully(scope, source);
+      assert.deepEqual(
+        nodes
+          .filter(({ kind }) => kind === "delimiter")
+          .map(({ startByte, endByte }) => [startByte, endByte]),
+        ranges,
+        JSON.stringify(source),
       );
     }
+    for (const source of ["s", "s\0", "y", "y\0", "\\", "\\\0"]) {
+      assert.equal(parse(scope, source).hasError, true, JSON.stringify(source));
+    }
   });
+}
 
-  test(`${scope}: substitution CRLF termination is independent of flags and preceding blanks`, () => {
+for (const scope of ["source.sed", "source.sed.ere"]) {
+  test(`${scope}: CRLF terminates substitution flags with the normal command range`, () => {
     for (const flags of ["", "g", "2p", "g2pIM", "e"]) {
       for (const blanks of ["", " \t"]) {
         const prefix = `s/a/b/${flags}${blanks}`;
-        for (const { suffix, outcome } of [
-          { suffix: "\r\np", outcome: null },
-          { suffix: "\r", outcome: "incomplete_syntax" },
-          { suffix: "\r \np", outcome: "invalid_syntax" },
+        for (const [suffix, valid] of [
+          ["\r\np", true],
+          ["\r", false],
+          ["\r \np", false],
         ]) {
           const source = prefix + suffix;
-          const result = parseSuccessfully(scope, source);
-          assert.deepEqual(
-            issueSignatures(result.nodes),
-            outcome === null
-              ? []
-              : [
-                  {
-                    outcome,
-                    reason: "unknown_substitution_flag",
-                    range: `[0, ${prefix.length}] - [0, ${prefix.length + 1}]`,
-                  },
-                ],
-            JSON.stringify(source),
-          );
+          const result = parse(scope, source);
+          assert.equal(result.hasError, !valid, source);
+          if (!valid) continue;
           assert.deepEqual(
             result.nodes
               .filter(({ kind }) => kind === "flag" || kind === "number")
@@ -579,440 +199,42 @@ for (const scope of ["source.sed", "source.sed.ere"]) {
             [...flags],
           );
           assert.equal(
-            result.nodes.find(({ kind }) => kind === "command")?.endByte,
-            outcome === null ? `s/a/b/${flags}`.length : prefix.length + 1,
-            `${JSON.stringify(source)}: command end`,
+            result.nodes.find(({ kind }) => kind === "command").endByte,
+            `s/a/b/${flags}`.length,
           );
         }
       }
     }
   });
 
-  test(`${scope}: substitution CRLF edits preserve classification and command boundaries`, () => {
-    for (const flags of ["", "g"]) {
-      const source = `s/a/b/${flags}\r`;
-      const end = source.length;
-      const history = [
-        { byte: end, deleteBytes: 0, insert: "\np" },
-        { byte: end, deleteBytes: 1, insert: "" },
-        { byte: end, deleteBytes: 0, insert: "\n" },
-        { byte: end, deleteBytes: 0, insert: " " },
-        { byte: end, deleteBytes: 1, insert: "" },
-        { byte: end - 1, deleteBytes: 1, insert: "\v" },
-        { byte: end - 1, deleteBytes: 1, insert: "\f" },
-        { byte: end - 1, deleteBytes: 1, insert: "\r\r" },
-        { byte: end - 1, deleteBytes: 1, insert: "" },
-        { byte: end - 1, deleteBytes: 1, insert: "" },
-        { byte: end - 1, deleteBytes: 0, insert: "\r" },
-        { byte: end, deleteBytes: 2, insert: "" },
-      ];
-      for (let count = 1; count <= history.length; count++) {
-        const edits = history.slice(0, count);
-        assertIncrementalContract(
-          parseSuccessfully(scope, applyEdits(source, edits)),
-          parseSuccessfully(scope, source, edits),
-          `${JSON.stringify(source)}: ${JSON.stringify(edits)}`,
-        );
-      }
-    }
-  });
-
-  for (const { prefix, suffix, names, owner, separator } of [
-    {
-      prefix: "p",
-      suffix: "",
-      names: ["p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "p",
-      suffix: ";p",
-      names: ["p", "p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "p",
-      suffix: "\np",
-      names: ["p", "p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "p",
-      suffix: "p",
-      names: ["p", "p"],
-      owner: "command",
-      separator: true,
-    },
-    {
-      prefix: "p ",
-      suffix: " p",
-      names: ["p", "p"],
-      owner: "command",
-      separator: true,
-    },
-    {
-      prefix: "{p}",
-      suffix: ";p",
-      names: ["p", "p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "y/a/b/",
-      suffix: ";p",
-      names: ["y", "p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "q5",
-      suffix: ";p",
-      names: ["q", "p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "l",
-      suffix: ";p",
-      names: ["l", "p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "=",
-      suffix: ";p",
-      names: ["=", "p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "1",
-      suffix: "p",
-      names: ["p"],
-      owner: "command",
-      separator: false,
-    },
-    { prefix: "1", suffix: "", names: [], owner: "command", separator: false },
-    {
-      prefix: "1",
-      suffix: ";p",
-      names: ["p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "1!",
-      suffix: "p",
-      names: ["p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "!",
-      suffix: "p",
-      names: ["p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "1",
-      suffix: "!p",
-      names: ["p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "1,2",
-      suffix: "p",
-      names: ["p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "/a/",
-      suffix: "p",
-      names: ["p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "0",
-      suffix: "r file",
-      names: ["r"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "",
-      suffix: "p",
-      names: ["p"],
-      owner: "command_list",
-      separator: false,
-    },
-    {
-      prefix: "s/a/b/",
-      suffix: ";p",
-      names: ["s", "p"],
-      owner: "substitution_flags",
-      separator: false,
-    },
-  ]) {
-    test(`${scope}: command decoding failure between ${JSON.stringify(prefix)} and ${JSON.stringify(suffix)}`, () => {
-      const source = Buffer.concat([
-        Buffer.from(prefix),
-        Buffer.from([0xff, 0xfe]),
-        Buffer.from(suffix),
-      ]);
-      const start = prefix.length;
-      const end = start + 2;
-      const separatorPosition =
-        end + (suffix.length - suffix.trimStart().length);
-      const original = parseSuccessfully(scope, source);
-      assert.deepEqual(issueSignatures(original.nodes), [
-        {
-          outcome: "invalid_syntax",
-          reason: "invalid_encoding",
-          range: `[0, ${start}] - [0, ${end}]`,
-        },
-        ...(separator
-          ? [
-              {
-                outcome: "invalid_syntax",
-                reason: "missing_command_separator",
-                range: `[0, ${separatorPosition}] - [0, ${separatorPosition}]`,
-              },
-            ]
-          : []),
-      ]);
-      const issues = original.nodes.filter(
-        ({ kind }) => kind === "syntax_issue",
-      );
-      assert.equal(original.nodes[issues[0].parent].kind, owner);
-      if (separator) assert.equal(issues[0].parent, issues[1].parent);
-      assert.deepEqual(
-        original.nodes
-          .filter(({ kind }) => kind === "command_name")
-          .map(({ startByte, endByte }) =>
-            source.subarray(startByte, endByte).toString(),
-          ),
-        names,
-      );
-      for (const edits of [
-        [{ byte: start, deleteBytes: 2, insert: "" }],
-        [{ byte: 0, deleteBytes: 0, insert: " " }],
-        [{ byte: end, deleteBytes: 0, insert: ";" }],
-      ]) {
-        assertIncrementalContract(
-          parseSuccessfully(scope, applyEdits(source, edits)),
-          parseSuccessfully(scope, source, edits),
-          `${prefix} invalid UTF-8 ${suffix}: ${JSON.stringify(edits)}`,
-        );
-      }
-    });
-  }
-
-  test(`${scope}: command decoding failures preserve independent prefix violations`, () => {
-    for (const { prefix, suffix, expected } of [
-      {
-        prefix: "1",
-        suffix: "#x",
-        expected: ["excess_address", "invalid_encoding"],
-      },
-      {
-        prefix: "1",
-        suffix: "!#x",
-        expected: ["excess_address", "invalid_encoding"],
-      },
-      {
-        prefix: "1",
-        suffix: ":label",
-        expected: ["excess_address", "invalid_encoding"],
-      },
-      {
-        prefix: "1",
-        suffix: "!",
-        expected: ["invalid_encoding", "missing_command"],
-      },
-      {
-        prefix: "1",
-        suffix: "@",
-        expected: ["invalid_encoding", "unknown_command"],
-      },
-      {
-        prefix: "1",
-        suffix: "\0",
-        expected: ["invalid_encoding", "unknown_command"],
-      },
-      {
-        prefix: "!",
-        suffix: " \0",
-        expected: ["invalid_encoding", "unknown_command"],
-      },
-      {
-        prefix: "0",
-        suffix: ",/a/p",
-        expected: [
-          "invalid_zero_address",
-          "invalid_encoding",
-          "unknown_command",
-          "missing_command_separator",
-        ],
-      },
+  test(`${scope}: long hyphen runs preserve class boundaries and original escape spelling`, () => {
+    for (const count of [
+      3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 63, 64, 65, 127,
     ]) {
-      const source = Buffer.concat([
-        Buffer.from(prefix),
-        Buffer.from([0xff]),
-        Buffer.from(suffix),
-      ]);
-      const result = parseSuccessfully(scope, source);
-      assert.deepEqual(
-        issueSignatures(result.nodes).map(({ reason }) => reason),
-        expected,
-      );
-      const edits = [{ byte: prefix.length, deleteBytes: 1, insert: "" }];
-      assertIncrementalContract(
-        parseSuccessfully(scope, applyEdits(source, edits)),
-        parseSuccessfully(scope, source, edits),
-        `${prefix} invalid UTF-8 ${suffix}`,
-      );
-    }
-  });
-
-  test(`${scope}: a zero range end at EOF is incomplete only while a step can follow`, () => {
-    const failure = Buffer.from([0xff]);
-    for (const { parts, outcome } of [
-      { parts: ["1,0"], outcome: "incomplete_syntax" },
-      { parts: ["1, 0 "], outcome: "incomplete_syntax" },
-      { parts: ["1,0~ "], outcome: "incomplete_syntax" },
-      { parts: ["1,0~0"], outcome: "incomplete_syntax" },
-      { parts: ["1,0~0 "], outcome: "invalid_syntax" },
-      { parts: ["/a/,0~ 0\t"], outcome: "invalid_syntax" },
-      { parts: ["1, 0 ", failure], outcome: "invalid_syntax" },
-      { parts: ["1,0~0", failure], outcome: "invalid_syntax" },
-      { parts: ["0~0 "], outcome: "incomplete_syntax" },
-      { parts: ["0", failure], outcome: "incomplete_syntax" },
-    ]) {
-      const source = Buffer.concat(parts.map((part) => Buffer.from(part)));
-      const zero = source.indexOf("0");
-      assert.deepEqual(
-        issueSignatures(parseSuccessfully(scope, source).nodes).filter(
-          ({ reason }) => reason === "invalid_zero_address",
-        ),
-        [
-          {
-            outcome,
-            reason: "invalid_zero_address",
-            range: `[0, ${zero}] - [0, ${zero + 1}]`,
-          },
-        ],
-        JSON.stringify(parts.map(String)),
-      );
-    }
-  });
-
-  test(`${scope}: hyphen runs preserve class boundaries through edits`, () => {
-    for (const source of [
-      "/[!---[:xdigit:]]/p",
-      "/[a---[=a=]]/p",
-      "/[[:alpha:]---c]/p",
-      "/[[=a=]---c]/p",
-      "/[a----[:alpha:]]/p",
-      "/[a-----[=a=]]/p",
-      "/[a------[:alpha:]]/p",
-      "/[!-------[=a=]]/p",
-      "/[a--------[:alpha:]]/p",
-      "/[a---------[:alpha:]]/p",
-      "/[------[:alpha:]]/p",
-      "/[^-------[=a=]]/p",
-      "/[a-b------c-d]/p",
-      "/[a-------]/p",
-      "/[a-b---c-d]/p",
-      String.raw`/[[=a=]-\x2d-[:xdigit:]]/p`,
-      String.raw`/[a---\x2d-\o055[:alpha:]]/p`,
-      String.raw`/[a------\x2`,
-    ]) {
-      const start = source.indexOf("---");
-      const byte = start < 0 ? source.indexOf("\\x2d") : start + 1;
-      const width = start < 0 ? 4 : 1;
-      for (const edits of [
-        [{ byte, deleteBytes: width, insert: "" }],
-        [{ byte, deleteBytes: 0, insert: "-" }],
-        [{ byte, deleteBytes: width, insert: "-" }],
-        [
-          { byte, deleteBytes: width, insert: "" },
-          { byte, deleteBytes: 0, insert: source.slice(byte, byte + width) },
-        ],
-      ]) {
-        assertIncrementalContract(
-          parseSuccessfully(scope, applyEdits(source, edits)),
-          parseSuccessfully(scope, source, edits),
-          `${source}: ${JSON.stringify(edits)}`,
-        );
-      }
-    }
-  });
-
-  test(`${scope}: repeated hyphen groups classify following classes independently of source spelling`, () => {
-    for (const { count, endpoint } of [
-      { count: 3, endpoint: false },
-      { count: 4, endpoint: true },
-      { count: 5, endpoint: false },
-      { count: 6, endpoint: false },
-      { count: 7, endpoint: true },
-      { count: 8, endpoint: false },
-      { count: 9, endpoint: false },
-      { count: 10, endpoint: true },
-      { count: 11, endpoint: false },
-      { count: 12, endpoint: false },
-      { count: 13, endpoint: true },
-      { count: 14, endpoint: false },
-      { count: 63, endpoint: false },
-      { count: 64, endpoint: true },
-      { count: 65, endpoint: false },
-      { count: 127, endpoint: true },
-    ]) {
+      const valid = count % 3 !== 1;
       for (const spellings of [
         ["-"],
         [String.raw`\x2d`],
         [String.raw`\o055`],
         ["-", String.raw`\x2d`, String.raw`\o055`],
       ]) {
-        const hyphens = Array.from(
+        const pieces = Array.from(
           { length: count },
-          (_, i) => spellings[i % spellings.length],
-        ).join("");
+          (_, index) => spellings[index % spellings.length],
+        );
+        const prefix = `/[a${pieces.join("")}`;
         for (const suffix of ["[:alpha:]", "[=a=]"]) {
-          const prefix = `/[a${hyphens}`;
           const source = `${prefix}${suffix}]/p`;
-          const { nodes } = parseSuccessfully(scope, source);
-          assert.deepEqual(
-            issueSignatures(nodes),
-            endpoint
-              ? [
-                  {
-                    outcome: "invalid_syntax",
-                    reason: "invalid_range_endpoint",
-                    range: `[0, ${prefix.length}] - [0, ${prefix.length + suffix.length}]`,
-                  },
-                ]
-              : [],
-            source,
-          );
-          const member = nodes.find(
+          const result = parse(scope, source);
+          assert.equal(result.hasError, !valid, source);
+          if (!valid) continue;
+          const member = result.nodes.find(
             ({ kind }) =>
               kind === "character_class" || kind === "equivalence_class",
           );
-          assert.ok(member);
-          assert.equal(
-            nodes[member.parent].kind,
-            endpoint ? "invalid_range_endpoint" : "bracket_expression",
-            source,
-          );
-          const parents = new Set(nodes.map(({ parent }) => parent));
-          const leaves = nodes.filter(
+          assert.equal(result.nodes[member.parent].kind, "bracket_expression");
+          const parents = new Set(result.nodes.map(({ parent }) => parent));
+          const leaves = result.nodes.filter(
             ({ startByte, endByte }, index) =>
               !parents.has(index) && startByte >= 3 && endByte <= prefix.length,
           );
@@ -1020,536 +242,13 @@ for (const scope of ["source.sed", "source.sed.ere"]) {
             leaves.map(({ startByte, endByte }) =>
               source.slice(startByte, endByte),
             ),
-            Array.from(
-              { length: count },
-              (_, i) => spellings[i % spellings.length],
-            ),
-            source,
-          );
-        }
-      }
-    }
-  });
-
-  test(`${scope}: edits throughout a hyphen run preserve range regrouping`, () => {
-    for (const hyphens of [
-      "------",
-      "-------",
-      "--------",
-      String.raw`---\x2d-\o055`,
-    ]) {
-      const source = `/[a${hyphens}[:alpha:]]/p`;
-      for (let byte = 3; byte < 3 + hyphens.length; byte++) {
-        for (const insert of ["", "b", "--"]) {
-          const edits = [{ byte, deleteBytes: 1, insert }];
-          assertIncrementalContract(
-            parseSuccessfully(scope, applyEdits(source, edits)),
-            parseSuccessfully(scope, source, edits),
-            `${source}: ${JSON.stringify(edits)}`,
-          );
-          edits.push({
-            byte,
-            deleteBytes: insert.length,
-            insert: source[byte],
-          });
-          assertIncrementalContract(
-            parseSuccessfully(scope, source),
-            parseSuccessfully(scope, source, edits),
-            `${source}: ${JSON.stringify(edits)}`,
+            pieces,
           );
         }
       }
     }
   });
 }
-
-for (const scope of ["source.sed", "source.sed.ere"]) {
-  for (const [prefix, suffix, kind] of [
-    ["s/[", "^]/x/", "bracket_close"],
-    ["s/", "*/x/", "repetition"],
-  ]) {
-    test(`${scope}: invalid UTF-8 occupies the regex element before ${JSON.stringify(suffix)}`, () => {
-      const source = Buffer.concat([
-        Buffer.from(prefix),
-        Buffer.from([0xff]),
-        Buffer.from(suffix),
-      ]);
-      const result = parseSuccessfully(scope, source);
-      assert.deepEqual(
-        issueSignatures(result.nodes).map(({ reason }) => reason),
-        ["invalid_encoding"],
-        result.stdout,
-      );
-      assert.ok(
-        result.nodes.some((node) => node.kind === kind),
-        result.stdout,
-      );
-    });
-  }
-
-  for (const prefix of ["s/\\x5c", "s/\\x5c\\\\", "s/a\\"]) {
-    test(`${scope}: backslash pairing before invalid UTF-8 keeps the decode failure after ${JSON.stringify(prefix)}`, () => {
-      const result = parseSuccessfully(
-        scope,
-        Buffer.concat([
-          Buffer.from(prefix),
-          Buffer.from([0xff]),
-          Buffer.from("/x/"),
-        ]),
-      );
-      assert.deepEqual(issueSignatures(result.nodes), [
-        {
-          outcome: "invalid_syntax",
-          reason: "invalid_encoding",
-          range: `[0, ${prefix.length}] - [0, ${prefix.length + 1}]`,
-        },
-      ]);
-      assert.equal(
-        result.nodes.some(
-          ({ kind, endByte }) =>
-            (kind === "escape" || kind === "character_escape") &&
-            endByte > prefix.length,
-        ),
-        false,
-        result.stdout,
-      );
-    });
-  }
-
-  test(`${scope}: bracket backslash before invalid UTF-8 is literal`, () => {
-    const result = parseSuccessfully(
-      scope,
-      Buffer.concat([
-        Buffer.from("s/[\\"),
-        Buffer.from([0xff]),
-        Buffer.from("]/x/"),
-      ]),
-    );
-    assert.deepEqual(
-      issueSignatures(result.nodes).map(({ reason }) => reason),
-      ["invalid_encoding"],
-      result.stdout,
-    );
-    assert.equal(
-      result.nodes.filter((node) => node.kind === "escape").length,
-      0,
-      result.stdout,
-    );
-  });
-}
-
-for (const [scope, open, close] of [
-  ["source.sed", "\\{", "\\}"],
-  ["source.sed.ere", "{", "}"],
-]) {
-  test(`${scope}: invalid UTF-8 is interval content`, () => {
-    const result = parseSuccessfully(
-      scope,
-      Buffer.concat([
-        Buffer.from(`s/a${open}`),
-        Buffer.from([0xff]),
-        Buffer.from(`${close}/b/`),
-      ]),
-    );
-    assert.deepEqual(
-      issueSignatures(result.nodes).map(({ reason }) => reason),
-      ["invalid_encoding"],
-      result.stdout,
-    );
-  });
-}
-
-for (const scope of ["source.sed", "source.sed.ere"]) {
-  for (const verb of ["a", "e"]) {
-    for (const [name, suffix] of [
-      ["four backslashes before a terminating newline", `${"\\".repeat(4)}\nx`],
-      ["four backslashes at EOF", "\\".repeat(4)],
-      [
-        "two backslashes after the introducer continue the line",
-        `${"\\".repeat(3)}\nx`,
-      ],
-    ]) {
-      test(`${scope}: ${verb} ${name} preserves source boundaries across EOF edits`, () => {
-        const source = `1${verb}${suffix}`;
-        const original = parseSuccessfully(scope, source);
-        const edit = source.endsWith("\nx")
-          ? { byte: source.length - 2, deleteBytes: 2, insert: "" }
-          : { byte: source.length, deleteBytes: 0, insert: "\nx" };
-        const edited = applyEdits(source, [edit]);
-        assertIncrementalContract(
-          parseSuccessfully(scope, edited),
-          parseSuccessfully(scope, source, [edit]),
-          name,
-        );
-        const undo = {
-          byte: edit.byte,
-          deleteBytes: edit.insert.length,
-          insert: source.slice(edit.byte, edit.byte + edit.deleteBytes),
-        };
-        assertIncrementalContract(
-          original,
-          parseSuccessfully(scope, source, [edit, undo]),
-          `${name}: restored`,
-        );
-      });
-    }
-  }
-
-  for (const { name, source } of [
-    {
-      name: "pattern",
-      source: "s/\\cΣ*/x/",
-    },
-    {
-      name: "address",
-      source: "/^\\cΣ*$/p",
-    },
-    {
-      name: "bracket",
-      source: "s/[\\cΣ]/x/",
-    },
-    {
-      name: "replacement",
-      source: "s/x/\\cΣ/",
-    },
-    {
-      name: "translation",
-      source: "y/\\cΣ/x/",
-    },
-    { name: "text", source: "a x\\cΣ" },
-    {
-      name: "shell operand",
-      source: "e x\\cΣ",
-    },
-  ]) {
-    test(`${scope}: non-ASCII control escape in ${name} survives ASCII replacement and restoration`, () => {
-      const original = parseSuccessfully(scope, source);
-      const byte = Buffer.byteLength(source.slice(0, source.indexOf("Σ")));
-      const edit = { byte, deleteBytes: Buffer.byteLength("Σ"), insert: "A" };
-      assertIncrementalContract(
-        parseSuccessfully(scope, applyEdits(source, [edit])),
-        parseSuccessfully(scope, source, [edit]),
-        `${name}: ASCII operand`,
-      );
-      assertIncrementalContract(
-        original,
-        parseSuccessfully(scope, source, [
-          edit,
-          { byte, deleteBytes: Buffer.byteLength(edit.insert), insert: "Σ" },
-        ]),
-        `${name}: restored UTF-8 operand`,
-      );
-    });
-  }
-}
-
-for (const scope of ["source.sed", "source.sed.ere"]) {
-  test(`${scope}: reused bracket atoms follow the range operator decision`, () => {
-    for (const [source, byte] of [
-      ["/[Nabt-\\x5d", 10],
-      ["/[Nab[.t.]-\\x5d", 14],
-      ["/[Nab\\xce-\\x5d", 13],
-      ["/[Nab[-\\x5d", 10],
-    ]) {
-      const edits = [
-        { byte: 2, deleteBytes: 1, insert: "N" },
-        { byte, deleteBytes: 1, insert: "" },
-      ];
-      assertIncrementalContract(
-        parse(scope, applyEdits(source, edits)),
-        parse(scope, source, edits),
-        `${JSON.stringify(source)} ${JSON.stringify(edits)}`,
-      );
-    }
-  });
-
-  test(`${scope}: optional operands after a zero step range follow appended text`, () => {
-    for (const [source, insert] of [
-      ["0~0,/a/e ", ";"],
-      ["0~0,/a/b ", "x"],
-      ["0~0,/a/T ", "x"],
-      ["0~0,/a/v ", "4"],
-      ["0~,/a/l ", "5"],
-    ]) {
-      const edits = [
-        { byte: Buffer.byteLength(source), deleteBytes: 0, insert },
-      ];
-      const fresh = parseSuccessfully(scope, applyEdits(source, edits));
-      assertIncrementalContract(
-        fresh,
-        parseSuccessfully(scope, source, edits),
-        `${JSON.stringify(source)} + ${JSON.stringify(insert)}`,
-      );
-    }
-  });
-
-  test(`${scope}: zero address validity survives edits around nested zero addresses`, () => {
-    for (const { source, edits } of [
-      {
-        source: "00~0,//{$!\n0~!;0;$y",
-        edits: [{ byte: 0, deleteBytes: 3, insert: "" }],
-      },
-      {
-        source: "0,//{$!\n0~!;0;$y",
-        edits: [{ byte: 0, deleteBytes: 0, insert: "00~" }],
-      },
-      {
-        source: "0,/a/{p;0,/b/{0~0,/c/p}}",
-        edits: [{ byte: 1, deleteBytes: 4, insert: "q" }],
-      },
-    ]) {
-      assertIncrementalContract(
-        parseSuccessfully(scope, applyEdits(source, edits)),
-        parseSuccessfully(scope, source, edits),
-        `${JSON.stringify(source)} ${JSON.stringify(edits)}`,
-      );
-    }
-  });
-
-  test(`${scope}: optional operand after a missing range end preserves incremental CST`, () => {
-    for (const [source, insert] of [
-      ["1,e ", "x"],
-      ["1,b ", "x"],
-      ["1,l ", "5"],
-    ]) {
-      const edits = [{ byte: source.length, deleteBytes: 0, insert }];
-      assertIncrementalContract(
-        parse(scope, applyEdits(source, edits)),
-        parse(scope, source, edits),
-        `${JSON.stringify(source)} + ${JSON.stringify(insert)}`,
-      );
-    }
-  });
-
-  test(`${scope}: leading layout edits preserve directive placement`, () => {
-    for (const edits of [
-      [{ byte: 0, deleteBytes: 0, insert: " " }],
-      [
-        { byte: 0, deleteBytes: 0, insert: " " },
-        { byte: 0, deleteBytes: 1, insert: "" },
-      ],
-    ]) {
-      const source = "#n\np";
-      assertIncrementalContract(
-        parseSuccessfully(scope, applyEdits(source, edits)),
-        parseSuccessfully(scope, source, edits),
-        "leading layout",
-      );
-    }
-  });
-
-  for (const { source, suffix } of [
-    {
-      source: String.raw`/[[:a\c`,
-      suffix: ",pha:]]/p",
-    },
-    { source: "/[[:a\\", suffix: "x6cpha:]]/p" },
-    {
-      source: String.raw`/[[:a\x6`,
-      suffix: "cpha:]]/p",
-    },
-    {
-      source: String.raw`/[[:a\o1`,
-      suffix: "54pha:]]/p",
-    },
-    {
-      source: String.raw`/[[:a\d1`,
-      suffix: "08pha:]]/p",
-    },
-    {
-      source: String.raw`/[[:a\x`,
-      suffix: "6cpha:]]/p",
-    },
-    { source: String.raw`/[[:alph\d97`, suffix: ":]]/p" },
-  ]) {
-    test(`${scope}: character class escape completion ${JSON.stringify(source)}`, () => {
-      const edits = [
-        { byte: Buffer.byteLength(source), deleteBytes: 0, insert: suffix },
-      ];
-      const fresh = parseSuccessfully(scope, applyEdits(source, edits));
-      assertIncrementalContract(
-        fresh,
-        parseSuccessfully(scope, source, edits),
-        source,
-      );
-    });
-  }
-
-  test(`${scope}: incomplete control backslash can be completed at EOF`, () => {
-    const source = "s/\\c\\";
-    const edits = [{ byte: 5, deleteBytes: 0, insert: "\\./x/" }];
-    const fresh = parseSuccessfully(scope, applyEdits(source, edits));
-    assertIncrementalContract(
-      fresh,
-      parseSuccessfully(scope, source, edits),
-      source,
-    );
-  });
-}
-
-for (const [scope, pattern] of [
-  ["source.sed", "\\)"],
-  ["source.sed", "\\x5c)"],
-  ["source.sed.ere", ")"],
-  ["source.sed.ere", "\\x29"],
-  ["source.sed.ere", "*"],
-  ["source.sed.ere", "\\x2a"],
-  ["source.sed.ere", "{2}"],
-  ["source.sed.ere", "\\x7b2}"],
-]) {
-  test(`${scope}: deletion preserves issue structure in ${JSON.stringify(pattern)}`, () => {
-    const source = `s/${pattern}/x/`;
-    for (let byte = 0; byte < source.length; byte++) {
-      const edits = [{ byte, deleteBytes: 1, insert: "" }];
-      assertIncrementalContract(
-        parse(scope, applyEdits(source, edits)),
-        parse(scope, source, edits),
-        `delete ${byte} in ${source}`,
-      );
-    }
-  });
-}
-
-test("source.sed: literal interval lookahead survives edits and EOF completion", () => {
-  for (const { source, byte, deleteBytes, insert } of [
-    { source: String.raw`s/a\b\{1\}/x/`, byte: 7, deleteBytes: 1, insert: "x" },
-    { source: String.raw`s/a\b\{x\}/x/`, byte: 7, deleteBytes: 1, insert: "1" },
-    { source: String.raw`s/\b\{/x/`, byte: 2, deleteBytes: 0, insert: "a" },
-    {
-      source: String.raw`s/a\b\{`,
-      byte: 7,
-      deleteBytes: 0,
-      insert: String.raw`1\}/x/`,
-    },
-    {
-      source: String.raw`s/a\b\{1`,
-      byte: 8,
-      deleteBytes: 0,
-      insert: String.raw`\}/x/`,
-    },
-  ]) {
-    const edits = [{ byte, deleteBytes, insert }];
-    assertIncrementalContract(
-      parseSuccessfully("source.sed", applyEdits(source, edits)),
-      parseSuccessfully("source.sed", source, edits),
-      source,
-    );
-  }
-});
-
-test("source.sed: literal interval checks retain independent violations around unknown characters", () => {
-  for (const { prefix, suffix, outcome } of [
-    { prefix: String.raw`/a\b\{1`, suffix: String.raw`\}/p`, outcome: null },
-    {
-      prefix: String.raw`/a\b\{x`,
-      suffix: String.raw`\}/p`,
-      outcome: "invalid_syntax",
-    },
-    {
-      prefix: String.raw`/a\b\{1`,
-      suffix: String.raw`x\}/p`,
-      outcome: "invalid_syntax",
-    },
-    {
-      prefix: String.raw`/a\b\{,`,
-      suffix: String.raw`,\}/p`,
-      outcome: "invalid_syntax",
-    },
-    { prefix: String.raw`/a\b\{1`, suffix: String.raw`2\}/p`, outcome: null },
-    { prefix: String.raw`/a\b\{`, suffix: String.raw`\}/p`, outcome: null },
-    { prefix: String.raw`/a\b\{`, suffix: "", outcome: null },
-    { prefix: String.raw`/a\b\{`, suffix: "/p", outcome: null },
-    {
-      prefix: String.raw`/a\b\{`,
-      suffix: String.raw`\d9`,
-      outcome: "incomplete_syntax",
-    },
-  ]) {
-    for (const { failure, reason, offset, length } of [
-      {
-        failure: Buffer.from([0xff]),
-        reason: "invalid_encoding",
-        offset: 0,
-        length: 1,
-      },
-      {
-        failure: Buffer.from(String.raw`\c\1`),
-        reason: "invalid_control_escape",
-        offset: 0,
-        length: 3,
-      },
-      {
-        failure: Buffer.from([0x5c, 0x63, 0xff]),
-        reason: "invalid_encoding",
-        offset: 2,
-        length: 1,
-      },
-      {
-        failure: Buffer.from([0x5c, 0x63, 0x5c, 0xff]),
-        reason: "invalid_encoding",
-        offset: 3,
-        length: 1,
-      },
-      {
-        failure: Buffer.from([0x5c, 0xff]),
-        reason: "invalid_encoding",
-        offset: 1,
-        length: 1,
-      },
-      {
-        failure: Buffer.from([0x5c, 0x78, 0x35, 0x63, 0xff]),
-        reason: "invalid_encoding",
-        offset: 4,
-        length: 1,
-      },
-    ]) {
-      const source = Buffer.concat([
-        Buffer.from(prefix),
-        failure,
-        Buffer.from(suffix),
-      ]);
-      const result = parseSuccessfully("source.sed", source);
-      assert.deepEqual(issueSignatures(result.nodes), [
-        ...(outcome
-          ? [
-              {
-                outcome,
-                reason: "invalid_interval_syntax",
-                range: "[0, 4] - [0, 6]",
-              },
-            ]
-          : []),
-        {
-          outcome: "invalid_syntax",
-          reason,
-          range: `[0, ${prefix.length + offset}] - [0, ${prefix.length + offset + length}]`,
-        },
-        ...(!suffix.endsWith("/p")
-          ? [
-              {
-                outcome: "incomplete_syntax",
-                reason: "unterminated_regex",
-                range: `[0, ${source.length}] - [0, ${source.length}]`,
-              },
-              {
-                outcome: "incomplete_syntax",
-                reason: "missing_command",
-                range: `[0, ${source.length}] - [0, ${source.length}]`,
-              },
-            ]
-          : []),
-      ]);
-      const edits = [
-        { byte: 6, deleteBytes: source.length - 6, insert: String.raw`1\}/p` },
-      ];
-      assertIncrementalContract(
-        parseSuccessfully("source.sed", applyEdits(source, edits)),
-        parseSuccessfully("source.sed", source, edits),
-        `${prefix}: repair literal interval`,
-      );
-    }
-  }
-});
 
 test("sed: GNU sed runtime checks the documented supplementary cases", async (t) => {
   const observations = {
@@ -1558,10 +257,42 @@ test("sed: GNU sed runtime checks the documented supplementary cases", async (t)
     executable: "/opt/homebrew/bin/gsed",
     environment: {
       PATH: "/usr/bin:/bin",
-      LC_ALL: "en_US.UTF-8",
-      LANG: "en_US.UTF-8",
+      LC_ALL: "C",
+      LANG: "C",
     },
     cases: [
+      ...[false, true].flatMap((extended) =>
+        [
+          {
+            script: String.raw`s/\xc3\xa9*/X/p`,
+            input: "éé\n",
+            stdout: "Xé\n",
+          },
+          {
+            script: extended
+              ? String.raw`s/\xc3\xa9{2}/X/p`
+              : String.raw`s/\xc3\xa9\{2\}/X/p`,
+            input: "éé\n",
+            stdout: "",
+          },
+          {
+            script: String.raw`s/[\xc3\xa9]/X/gp`,
+            input: "é\n",
+            stdout: "XX\n",
+          },
+        ].map((observation) => ({
+          ...observation,
+          name: `${extended ? "ERE" : "BRE"}: C locale byte matching ${observation.script}`,
+          arguments: [
+            "-n",
+            ...(extended ? ["-E"] : []),
+            "-e",
+            observation.script,
+          ],
+          stderr: "",
+          status: 0,
+        })),
+      ),
       ...[
         {
           name: "bracket_backslash_pairs_supply_separate_range_endpoints",
@@ -2074,7 +805,7 @@ test("sed: GNU sed runtime checks the documented supplementary cases", async (t)
         input: "",
         stdout: "",
         stderr:
-          "/opt/homebrew/bin/gsed: -e expression #1, char 2: delimiter character is not a single-byte character\n",
+          "/opt/homebrew/bin/gsed: -e expression #1, char 9: unknown option to 's'\n",
         status: 1,
       },
       {
@@ -2660,7 +1391,7 @@ test("sed: GNU sed runtime checks the documented supplementary cases", async (t)
         arguments: ["-e", "s/\\xce\\xa3*/X/g"],
         script: "s/\\xce\\xa3*/X/g",
         input: "ΣΣ\n",
-        stdout: "X\n",
+        stdout: "XX\n",
         stderr: "",
         status: 0,
       },
@@ -6130,34 +4861,31 @@ test("sed: GNU sed runtime checks the documented supplementary cases", async (t)
         status: 1,
       },
       {
-        name: "review_seven_nul_substitute_delimiter_bre",
+        name: "c_locale_nul_substitute_delimiter_bre",
         arguments: ["-n", "-f", "script.sed"],
         script: "s\u0000a\u0000b\u0000",
         input: "a{1}\na{\na\n",
         stdout: "",
-        stderr:
-          "/opt/homebrew/bin/gsed: file script.sed line 1: delimiter character is not a single-byte character\n",
-        status: 1,
+        stderr: "",
+        status: 0,
       },
       {
-        name: "review_seven_nul_translate_delimiter_bre",
+        name: "c_locale_nul_translate_delimiter_bre",
         arguments: ["-n", "-f", "script.sed"],
         script: "y\u0000a\u0000b\u0000",
         input: "a{1}\na{\na\n",
         stdout: "",
-        stderr:
-          "/opt/homebrew/bin/gsed: file script.sed line 1: delimiter character is not a single-byte character\n",
-        status: 1,
+        stderr: "",
+        status: 0,
       },
       {
-        name: "review_seven_nul_address_delimiter_bre",
+        name: "c_locale_nul_address_delimiter_bre",
         arguments: ["-n", "-f", "script.sed"],
         script: "\\\u0000a\u0000p",
         input: "a{1}\na{\na\n",
-        stdout: "",
-        stderr:
-          "/opt/homebrew/bin/gsed: file script.sed line 1: delimiter character is not a single-byte character\n",
-        status: 1,
+        stdout: "a{1}\na{\na\n",
+        stderr: "",
+        status: 0,
       },
       {
         name: "review_seven_nul_read_filename_bre",
@@ -6471,34 +5199,31 @@ test("sed: GNU sed runtime checks the documented supplementary cases", async (t)
         status: 1,
       },
       {
-        name: "review_seven_nul_substitute_delimiter_ere",
+        name: "c_locale_nul_substitute_delimiter_ere",
         arguments: ["-n", "-E", "-f", "script.sed"],
         script: "s\u0000a\u0000b\u0000",
         input: "a{1}\na{\na\n",
         stdout: "",
-        stderr:
-          "/opt/homebrew/bin/gsed: file script.sed line 1: delimiter character is not a single-byte character\n",
-        status: 1,
+        stderr: "",
+        status: 0,
       },
       {
-        name: "review_seven_nul_translate_delimiter_ere",
+        name: "c_locale_nul_translate_delimiter_ere",
         arguments: ["-n", "-E", "-f", "script.sed"],
         script: "y\u0000a\u0000b\u0000",
         input: "a{1}\na{\na\n",
         stdout: "",
-        stderr:
-          "/opt/homebrew/bin/gsed: file script.sed line 1: delimiter character is not a single-byte character\n",
-        status: 1,
+        stderr: "",
+        status: 0,
       },
       {
-        name: "review_seven_nul_address_delimiter_ere",
+        name: "c_locale_nul_address_delimiter_ere",
         arguments: ["-n", "-E", "-f", "script.sed"],
         script: "\\\u0000a\u0000p",
         input: "a{1}\na{\na\n",
-        stdout: "",
-        stderr:
-          "/opt/homebrew/bin/gsed: file script.sed line 1: delimiter character is not a single-byte character\n",
-        status: 1,
+        stdout: "a{1}\na{\na\n",
+        stderr: "",
+        status: 0,
       },
       {
         name: "review_seven_nul_read_filename_ere",

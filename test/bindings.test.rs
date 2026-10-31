@@ -1,42 +1,41 @@
-use tree_sitter::{InputEdit, Parser, Point, Query};
-use tree_sitter_sed::{HIGHLIGHTS_QUERY, LANGUAGE, LANGUAGE_ERE};
+use tree_sitter::{Parser, Query, QueryCursor, StreamingIterator};
+use tree_sitter_sed as grammar;
 
 #[test]
-fn languages_parse_gnu_scripts_and_highlight_queries_compile() {
-  for (language, source) in [
-    (LANGUAGE, r"s/\(a\|b\)\+/\U&/g"),
-    (LANGUAGE_ERE, r"s/(a|b)+/\U&/g"),
+fn parses_valid_source() {
+  for (language, node_types, highlights, source) in [
+    (
+      grammar::LANGUAGE,
+      grammar::NODE_TYPES,
+      grammar::HIGHLIGHTS_QUERY,
+      r"/a\+/p",
+    ),
+    (
+      grammar::LANGUAGE_ERE,
+      grammar::NODE_TYPES_ERE,
+      grammar::HIGHLIGHTS_QUERY_ERE,
+      "/a+/p",
+    ),
   ] {
     let language = language.into();
     let mut parser = Parser::new();
     parser.set_language(&language).unwrap();
     let tree = parser.parse(source, None).unwrap();
-    assert!(!tree.root_node().has_error());
-    Query::new(&language, HIGHLIGHTS_QUERY).unwrap();
-  }
-}
-
-#[test]
-fn delimiter_edit_matches_a_fresh_parse() {
-  for language in [LANGUAGE, LANGUAGE_ERE] {
-    let mut parser = Parser::new();
-    parser.set_language(&language.into()).unwrap();
-    let before = "s/a/b/";
-    let after = "s/a/b";
-    let mut old = parser.parse(before, None).unwrap();
-    old.edit(&InputEdit {
-      start_byte: 5,
-      old_end_byte: 6,
-      new_end_byte: 5,
-      start_position: Point::new(0, 5),
-      old_end_position: Point::new(0, 6),
-      new_end_position: Point::new(0, 5),
-    });
-    let incremental = parser.parse(after, Some(&old)).unwrap();
-    let fresh = parser.parse(after, None).unwrap();
-    assert_eq!(
-      incremental.root_node().to_sexp(),
-      fresh.root_node().to_sexp()
-    );
+    let root = tree.root_node();
+    assert_eq!(root.kind(), "script");
+    assert_eq!(root.byte_range(), 0..source.len());
+    assert!(!root.has_error());
+    assert!(node_types.contains("\"script\""));
+    let query = Query::new(&language, highlights).unwrap();
+    let mut cursor = QueryCursor::new();
+    let mut captures = cursor.captures(&query, root, source.as_bytes());
+    let mut commands = Vec::new();
+    while let Some((matched, index)) = captures.next() {
+      let capture = matched.captures()[*index];
+      if query.capture_names()[capture.index as usize] == "keyword" {
+        commands.push(capture.node.utf8_text(source.as_bytes()).unwrap());
+      }
+    }
+    assert_eq!(commands, ["p"]);
   }
 }

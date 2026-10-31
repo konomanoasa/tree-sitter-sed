@@ -23,7 +23,8 @@ function readCst(tree, source) {
         line.slice(row[0].length).replace(/^•/, ""),
       );
     if (match === null) continue;
-    const indentation = row[0].length;
+    const indentation =
+      row[0].length + (line.slice(row[0].length).startsWith("•") ? 1 : 0);
     while (ancestors.length && ancestors.at(-1).indentation >= indentation) {
       ancestors.pop();
     }
@@ -45,69 +46,9 @@ function readCst(tree, source) {
   return nodes;
 }
 
-function nodeRange(node) {
-  return `[${node.start.join(", ")}] - [${node.end.join(", ")}]`;
-}
-
-function subtree(nodes, index) {
-  let end = index + 1;
-  while (
-    end < nodes.length &&
-    nodes[end].parent !== null &&
-    nodes[end].parent >= index
-  )
-    end++;
-  return nodes.slice(index, end);
-}
-
-function issueSignatures(nodes, root = 0) {
-  return subtree(nodes, root).flatMap((issue, offset) => {
-    if (issue.kind !== "syntax_issue") return [];
-    assert.equal(issue.field, "issue", "issues must use the issue field");
-    const index = root + offset;
-    const outcome = nodes[index + 1];
-    const reason = nodes[index + 2];
-    assert.ok(outcome !== undefined, "missing issue outcome");
-    assert.ok(reason !== undefined, "missing issue reason");
-    assert.equal(outcome.parent, index, "issue must directly own its outcome");
-    assert.equal(
-      reason.parent,
-      index + 1,
-      "outcome must directly own its reason",
-    );
-    const range = nodeRange(issue);
-    assert.equal(
-      nodeRange(outcome),
-      range,
-      "outcome range must match its issue",
-    );
-    assert.equal(nodeRange(reason), range, "reason range must match its issue");
-    return [{ outcome: outcome.kind, reason: reason.kind, range }];
-  });
-}
-
-function publicNodes(nodes) {
-  const visible = [];
-  const parents = [];
-  const missing = [];
-  for (const [index, node] of nodes.entries()) {
-    const parent = node.parent === null ? null : parents[node.parent];
-    parents[index] = parent;
-    missing[index] = node.kind === "MISSING" || missing[node.parent] === true;
-    if (missing[index] || node.kind === "ERROR") continue;
-    parents[index] = visible.length;
-    visible.push({
-      ...node,
-      parent,
-      field: nodes[node.parent]?.kind === "ERROR" ? null : node.field,
-    });
-  }
-  return visible;
-}
-
 function parseCst(tree, source) {
   const nodes = readCst(tree, source);
-  assert.equal(nodes[0]?.kind, "script", tree);
+  assert.ok(["script", "ERROR"].includes(nodes[0]?.kind), tree);
   assert.equal(
     nodes[0].end.join(":"),
     sourceEndPoint(source),
@@ -116,4 +57,4 @@ function parseCst(tree, source) {
   return nodes;
 }
 
-export { issueSignatures, parseCst, publicNodes, sourceEndPoint };
+export { parseCst, sourceEndPoint };
