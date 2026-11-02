@@ -1,7 +1,7 @@
 [package]
 name = "tree-sitter-sed"
 version = "0.24.0"
-description = "Tree-sitter grammars for GNU sed 4.10."
+description = "Tree-sitter grammars for GNU sed."
 readme = "README.md"
 license = "MIT"
 repository = "https://github.com/konomanoasa/tree-sitter-sed"

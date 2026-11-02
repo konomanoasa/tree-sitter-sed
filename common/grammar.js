@@ -31,7 +31,6 @@ export const symbols = [
   "term_text",
 ];
 
-// Escaped delimiters cannot form these backslash-only symbols.
 const quotedSymbols = [
   "regex_boundary",
   "regex_class_escape",
@@ -47,6 +46,8 @@ export const tokens = [
   "blank",
   "separator",
   "command_end",
+  "unexpected_command_text",
+  "decode_boundary",
   "missing_separator",
   "end_of_input",
   "boundary",
@@ -133,7 +134,6 @@ export const tokens = [
 const GLOBAL_FLAG = 1;
 const PRINT_FLAG = 2;
 const OCCURRENCE_FLAG = 4;
-const EVALUATE_FLAG = 8;
 
 const countedFlags = [
   { token: "global_flag", type: "flag", bit: GLOBAL_FLAG },
@@ -304,6 +304,7 @@ const issueDefinitions = [
     "invalid_regex_operator",
   ],
   ["invalid_encoding", "invalid", ($) => $._invalid_encoding],
+  ["unexpected_command_text", "invalid", ($) => $._unexpected_command_text],
   [
     "misplaced_character_class",
     "invalid",
@@ -385,12 +386,7 @@ const block = ($, closing) =>
   seq(field("opening", "{"), optional($.command_list), closing);
 const addressOrNegation = ($, address) =>
   choice(
-    seq(
-      address,
-      optional(
-        seq(optional($._command_decode_issues), field("negation", $.negation)),
-      ),
-    ),
+    seq(address, optional(field("negation", $.negation))),
     field("negation", $.negation),
   );
 const excess = ($) => repeat(issue($, "excess_range"));
@@ -400,6 +396,8 @@ const step = ($, number) =>
   );
 const relative = ($, count) =>
   prec.right(seq(alias(choice("+", "~"), $.address_operator), optional(count)));
+const addressForms = ($) =>
+  choice($.line_address, $.last_line_address, $.regex_address);
 const closingDelimiter = ($, token, reason) =>
   choice(leaf($, token, "delimiter"), invalidOrIncomplete($, reason));
 const close = ($, name, type) =>
@@ -509,7 +507,7 @@ const substitutionTail = ($, flags) => [
 function flagRules() {
   const rules = {};
   for (const empty of [0, 1]) {
-    for (let seen = 0; seen < 16; seen++) {
+    for (let seen = 0; seen < 8; seen++) {
       rules[`_flags_${empty}_${seen}`] = ($) => {
         const then = (next) => optional($[`_flags_${empty}_${next}`]);
         return prec.right(
@@ -523,20 +521,6 @@ function flagRules() {
               ),
             ),
             seq(
-              leaf($, "evaluate_flag", "flag"),
-              then(
-                seen & EVALUATE_FLAG
-                  ? seen
-                  : (seen | EVALUATE_FLAG) & ~PRINT_FLAG,
-              ),
-            ),
-            seq(
-              empty
-                ? issue($, "modifier_on_empty_regexp")
-                : leaf($, "match_flag", "flag"),
-              then(seen),
-            ),
-            seq(
               seen & OCCURRENCE_FLAG
                 ? issue($, "duplicate_zero_occurrence")
                 : invalidOrIncomplete($, "zero_occurrence"),
@@ -544,6 +528,10 @@ function flagRules() {
             ),
             seq(
               choice(
+                leaf($, "evaluate_flag", "flag"),
+                empty
+                  ? issue($, "modifier_on_empty_regexp")
+                  : leaf($, "match_flag", "flag"),
                 invalidOrIncomplete($, "unknown_substitution_flag"),
                 issue($, "invalid_encoding"),
               ),
@@ -581,7 +569,6 @@ export default function defineGrammar(name) {
           ),
         ),
       _directed_commands: ($) => seq($.directive, optional($._root_commands)),
-      // A top-level repeat would give each script start its own item states.
       _root_commands: ($) =>
         seq(
           repeat1(
@@ -591,21 +578,18 @@ export default function defineGrammar(name) {
       command_list: ($) => repeat1(choice(...commandItems($))),
       command_separator: ($) => $._separator,
       command: ($) => {
-        const prefix = (rule) => seq(rule, optional($._command_decode_issues));
-        const negation = optional(prefix(field("negation", $.negation)));
+        const negation = optional(field("negation", $.negation));
         return choice(
           seq(
-            optional(prefix(field("address", $.address_clause))),
+            optional(field("address", $.address_clause)),
             negation,
             $._function,
           ),
           seq(
             optional(
-              prefix(
-                field(
-                  "address",
-                  alias($._single_address_clause, $.address_clause),
-                ),
+              field(
+                "address",
+                alias($._single_address_clause, $.address_clause),
               ),
             ),
             negation,
@@ -613,21 +597,16 @@ export default function defineGrammar(name) {
             $._command_ending,
           ),
           seq(
-            optional(prefix(issue($, "forbidden_address"))),
+            optional(issue($, "forbidden_address")),
             negation,
             $.label_command,
           ),
           prec.dynamic(
             1,
-            seq(
-              prefix(addressOrNegation($, issue($, "forbidden_address"))),
-              $.comment,
-            ),
+            seq(addressOrNegation($, issue($, "forbidden_address")), $.comment),
           ),
           seq(
-            prefix(
-              field("address", alias($._read_zero_clause, $.address_clause)),
-            ),
+            field("address", alias($._read_zero_clause, $.address_clause)),
             alias($._read_command, $.file_command),
             $._command_ending,
           ),
@@ -635,17 +614,29 @@ export default function defineGrammar(name) {
             addressOrNegation($, field("address", $.address_clause)),
             choice(
               seq(invalidOrIncomplete($, "missing_command"), $._command_ending),
-              seq($._command_decode_issues, $._command_end),
+              $._command_recovery,
             ),
           ),
         );
       },
       _command_ending: ($) =>
-        seq(
-          optional($._command_decode_issues),
-          choice($._command_end, issue($, "missing_command_separator")),
+        choice(
+          $._command_recovery,
+          $._command_end,
+          issue($, "missing_command_separator"),
         ),
-      _command_decode_issues: ($) => repeat1(issue($, "invalid_encoding")),
+      _command_recovery: ($) =>
+        prec.right(
+          seq(
+            issue($, "invalid_encoding"),
+            repeat(
+              choice(
+                issue($, "invalid_encoding"),
+                issue($, "unexpected_command_text"),
+              ),
+            ),
+          ),
+        ),
       address_clause: ($) =>
         choice(
           seq($._first_address, optional(seq($._address_tail, excess($)))),
@@ -690,13 +681,16 @@ export default function defineGrammar(name) {
         seq(
           alias(",", $.address_separator),
           choice(
-            $.address,
+            alias($._range_end_address, $.address),
             $.relative_address,
             invalidOrIncomplete($, "missing_address"),
+            $._decode_boundary,
           ),
         ),
-      address: ($) =>
-        choice($.line_address, $.last_line_address, $.regex_address),
+      address: addressForms,
+      // A distinct symbol lets changed ranges report a `0` that an edit moves
+      // between a first address and a range end.
+      _range_end_address: addressForms,
       _regex_only_address: ($) => $.regex_address,
       _zero_address: ($) => alias($._zero_line_address, $.line_address),
       _zero_line_address: ($) =>

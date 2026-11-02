@@ -145,7 +145,7 @@
         ]
       },
       "issue": {
-        "multiple": true,
+        "multiple": false,
         "required": false,
         "types": [
           {
@@ -1480,6 +1480,10 @@
           "named": true
         },
         {
+          "type": "unexpected_command_text",
+          "named": true
+        },
+        {
           "type": "unknown_character_class",
           "named": true
         },
@@ -2583,6 +2587,11 @@
         }
       ]
     }
+  },
+  {
+    "type": "unexpected_command_text",
+    "named": true,
+    "fields": {}
   },
   {
     "type": "unknown_character_class",

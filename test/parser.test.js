@@ -618,147 +618,59 @@ for (const scope of ["source.sed", "source.sed.ere"]) {
     }
   });
 
-  for (const { prefix, suffix, names, owner, separator } of [
-    {
-      prefix: "p",
-      suffix: "",
-      names: ["p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "p",
-      suffix: ";p",
-      names: ["p", "p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "p",
-      suffix: "\np",
-      names: ["p", "p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "p",
-      suffix: "p",
-      names: ["p", "p"],
-      owner: "command",
-      separator: true,
-    },
-    {
-      prefix: "p ",
-      suffix: " p",
-      names: ["p", "p"],
-      owner: "command",
-      separator: true,
-    },
-    {
-      prefix: "{p}",
-      suffix: ";p",
-      names: ["p", "p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "y/a/b/",
-      suffix: ";p",
-      names: ["y", "p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "q5",
-      suffix: ";p",
-      names: ["q", "p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "l",
-      suffix: ";p",
-      names: ["l", "p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "=",
-      suffix: ";p",
-      names: ["=", "p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "1",
-      suffix: "p",
-      names: ["p"],
-      owner: "command",
-      separator: false,
-    },
-    { prefix: "1", suffix: "", names: [], owner: "command", separator: false },
-    {
-      prefix: "1",
-      suffix: ";p",
-      names: ["p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "1!",
-      suffix: "p",
-      names: ["p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "!",
-      suffix: "p",
-      names: ["p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "1",
-      suffix: "!p",
-      names: ["p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "1,2",
-      suffix: "p",
-      names: ["p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "/a/",
-      suffix: "p",
-      names: ["p"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "0",
-      suffix: "r file",
-      names: ["r"],
-      owner: "command",
-      separator: false,
-    },
-    {
-      prefix: "",
-      suffix: "p",
-      names: ["p"],
-      owner: "command_list",
-      separator: false,
-    },
+  for (const { prefix, suffix, names, text, owner = "command" } of [
+    { prefix: "p", suffix: "", names: ["p"], text: "" },
+    { prefix: "p", suffix: ";p", names: ["p", "p"], text: "" },
+    { prefix: "p", suffix: "\np", names: ["p", "p"], text: "" },
+    { prefix: "p", suffix: "p", names: ["p"], text: "p" },
+    { prefix: "p ", suffix: " p", names: ["p"], text: " p" },
+    { prefix: "{p}", suffix: ";p", names: ["p", "p"], text: "" },
+    { prefix: "y/a/b/", suffix: ";p", names: ["y", "p"], text: "" },
+    { prefix: "q5", suffix: ";p", names: ["q", "p"], text: "" },
+    { prefix: "l", suffix: ";p", names: ["l", "p"], text: "" },
+    { prefix: "=", suffix: ";p", names: ["=", "p"], text: "" },
+    { prefix: "1", suffix: "p", names: [], text: "p" },
+    { prefix: "1", suffix: "", names: [], text: "" },
+    { prefix: "1", suffix: ";p", names: ["p"], text: "" },
+    { prefix: "1!", suffix: "p", names: [], text: "p" },
+    { prefix: "!", suffix: "p", names: [], text: "p" },
+    { prefix: "1", suffix: "!p", names: [], text: "!p" },
+    { prefix: "1,2", suffix: "p", names: [], text: "p" },
+    { prefix: "/a/", suffix: "p", names: [], text: "p" },
+    { prefix: "0", suffix: "r file", names: [], text: "r file" },
+    { prefix: "", suffix: "p", names: ["p"], text: "", owner: "command_list" },
+    { prefix: "1", suffix: ",2p", names: [], text: ",2p" },
+    { prefix: "1,", suffix: "2p", names: [], text: "2p" },
+    { prefix: "0", suffix: ",/a/p", names: [], text: ",/a/p" },
+    { prefix: "0,", suffix: "/a/p", names: [], text: "/a/p" },
+    { prefix: "q", suffix: "5", names: ["q"], text: "5" },
+    { prefix: "Q", suffix: "5", names: ["Q"], text: "5" },
+    { prefix: "l", suffix: "5", names: ["l"], text: "5" },
+    { prefix: "Q", suffix: "5#c", names: ["Q"], text: "5#c" },
+    { prefix: "{q", suffix: "5}", names: ["q"], text: "5" },
+    { prefix: "1", suffix: "~2p", names: [], text: "~2p" },
+    { prefix: "1~", suffix: "2p", names: [], text: "2p" },
+    { prefix: "0", suffix: "~2p", names: [], text: "~2p" },
+    { prefix: "0~", suffix: "2p", names: [], text: "2p" },
+    { prefix: "1,+", suffix: "2p", names: [], text: "2p" },
+    { prefix: "+", suffix: "0p", names: [], text: "0p" },
+    { prefix: "+", suffix: "p", names: [], text: "p" },
+    { prefix: "1", suffix: "#x", names: [], text: "#x" },
+    { prefix: "1", suffix: "!#x", names: [], text: "!#x" },
+    { prefix: "1", suffix: ":label", names: [], text: ":label" },
+    { prefix: "1", suffix: "!", names: [], text: "!" },
+    { prefix: "1", suffix: "@", names: [], text: "@" },
+    { prefix: "1", suffix: "\0", names: [], text: "\0" },
+    { prefix: "!", suffix: " \0", names: [], text: " \0" },
+    { prefix: "1", suffix: "{p}p", names: [], text: "{p}p" },
+    { prefix: "{1", suffix: "{p};p", names: ["p"], text: "{p" },
+    { prefix: "p", suffix: "\r\np", names: ["p", "p"], text: "\r" },
     {
       prefix: "s/a/b/",
       suffix: ";p",
       names: ["s", "p"],
+      text: "",
       owner: "substitution_flags",
-      separator: false,
     },
   ]) {
     test(`${scope}: command decoding failure between ${JSON.stringify(prefix)} and ${JSON.stringify(suffix)}`, () => {
@@ -769,8 +681,6 @@ for (const scope of ["source.sed", "source.sed.ere"]) {
       ]);
       const start = prefix.length;
       const end = start + 2;
-      const separatorPosition =
-        end + (suffix.length - suffix.trimStart().length);
       const original = parseSuccessfully(scope, source);
       assert.deepEqual(issueSignatures(original.nodes), [
         {
@@ -778,21 +688,21 @@ for (const scope of ["source.sed", "source.sed.ere"]) {
           reason: "invalid_encoding",
           range: `[0, ${start}] - [0, ${end}]`,
         },
-        ...(separator
-          ? [
+        ...(text.length === 0
+          ? []
+          : [
               {
                 outcome: "invalid_syntax",
-                reason: "missing_command_separator",
-                range: `[0, ${separatorPosition}] - [0, ${separatorPosition}]`,
+                reason: "unexpected_command_text",
+                range: `[0, ${end}] - [0, ${end + text.length}]`,
               },
-            ]
-          : []),
+            ]),
       ]);
       const issues = original.nodes.filter(
         ({ kind }) => kind === "syntax_issue",
       );
       assert.equal(original.nodes[issues[0].parent].kind, owner);
-      if (separator) assert.equal(issues[0].parent, issues[1].parent);
+      assert.ok(issues.every(({ parent }) => parent === issues[0].parent));
       assert.deepEqual(
         original.nodes
           .filter(({ kind }) => kind === "command_name")
@@ -815,52 +725,137 @@ for (const scope of ["source.sed", "source.sed.ere"]) {
     });
   }
 
-  test(`${scope}: command decoding failures preserve independent prefix violations`, () => {
-    for (const { prefix, suffix, expected } of [
-      {
-        prefix: "1",
-        suffix: "#x",
-        expected: ["excess_address", "invalid_encoding"],
-      },
-      {
-        prefix: "1",
-        suffix: "!#x",
-        expected: ["excess_address", "invalid_encoding"],
-      },
-      {
-        prefix: "1",
-        suffix: ":label",
-        expected: ["excess_address", "invalid_encoding"],
-      },
-      {
-        prefix: "1",
-        suffix: "!",
-        expected: ["invalid_encoding", "missing_command"],
-      },
-      {
-        prefix: "1",
-        suffix: "@",
-        expected: ["invalid_encoding", "unknown_command"],
-      },
-      {
-        prefix: "1",
-        suffix: "\0",
-        expected: ["invalid_encoding", "unknown_command"],
-      },
-      {
-        prefix: "!",
-        suffix: " \0",
-        expected: ["invalid_encoding", "unknown_command"],
-      },
-      {
-        prefix: "0",
-        suffix: ",/a/p",
-        expected: [
-          "invalid_zero_address",
-          "invalid_encoding",
-          "unknown_command",
-          "missing_command_separator",
+  test(`${scope}: command decoding failures retain only preceding independent violations`, () => {
+    for (const { prefix, expected } of [
+      { prefix: "1!", expected: [] },
+      { prefix: "1!!", expected: [["duplicate_negation", "negation"]] },
+      { prefix: "1,2,3", expected: [["excess_address", "address_clause"]] },
+      { prefix: "1,2q", expected: [["excess_address", "address_clause"]] },
+    ]) {
+      const source = Buffer.concat([
+        Buffer.from(prefix),
+        Buffer.from([0xff]),
+        Buffer.from("!!p"),
+      ]);
+      const { nodes } = parseSuccessfully(scope, source);
+      const issues = nodes.filter(({ kind }) => kind === "syntax_issue");
+      assert.deepEqual(
+        issueSignatures(nodes).map(({ reason }, index) => [
+          reason,
+          nodes[issues[index].parent].kind,
+        ]),
+        [
+          ...expected,
+          ["invalid_encoding", "command"],
+          ["unexpected_command_text", "command"],
         ],
+      );
+      assert.equal(nodes.filter(({ kind }) => kind === "command").length, 1);
+      const edits = [{ byte: prefix.length, deleteBytes: 1, insert: "" }];
+      assertIncrementalContract(
+        parseSuccessfully(scope, applyEdits(source, edits)),
+        parseSuccessfully(scope, source, edits),
+        `${prefix}: remove decoding failure`,
+      );
+    }
+  });
+
+  test(`${scope}: repeated decoding failures preserve recovery text and block boundaries`, () => {
+    const failure = Buffer.from([0xff, 0xfe]);
+    for (const { parts, text, names, blocks = 0 } of [
+      { parts: ["1", "~+#c"], text: ["~+#c"], names: [] },
+      { parts: ["1", "~+", "1"], text: ["~+", "1"], names: [] },
+      { parts: ["!", "!", ""], text: ["!", ""], names: [] },
+      { parts: ["{1", "~+}"], text: ["~+"], names: [], blocks: 1 },
+      { parts: ["q", "5", ",2p"], text: ["5", ",2p"], names: ["q"] },
+      { parts: ["1", ",2p;1", ",2p"], text: [",2p", ",2p"], names: [] },
+      {
+        parts: ["{1p;1", ",2", "3!}"],
+        text: [",2", "3!"],
+        names: ["p"],
+        blocks: 1,
+      },
+      { parts: ["1", ",2", "3!#c"], text: [",2", "3!#c"], names: [] },
+      {
+        parts: ["{q", "5", "{/#;p}\np"],
+        text: ["5", "{/#"],
+        names: ["q", "p", "p"],
+        blocks: 1,
+      },
+    ]) {
+      const source = Buffer.concat(
+        parts.flatMap((part, index) =>
+          index === 0 ? [Buffer.from(part)] : [failure, Buffer.from(part)],
+        ),
+      );
+      const { nodes } = parseSuccessfully(scope, source);
+      const issues = nodes.filter(({ kind }) => kind === "syntax_issue");
+      assert.deepEqual(
+        issueSignatures(nodes).map(({ reason }, index) => [
+          reason,
+          nodes[issues[index].parent].kind,
+        ]),
+        text.flatMap((part) => [
+          ["invalid_encoding", "command"],
+          ...(part.length === 0
+            ? []
+            : [["unexpected_command_text", "command"]]),
+        ]),
+      );
+      assert.deepEqual(
+        nodes
+          .filter(({ kind }) => kind === "unexpected_command_text")
+          .map(({ startByte, endByte }) =>
+            source.subarray(startByte, endByte).toString(),
+          ),
+        text.filter((part) => part.length !== 0),
+      );
+      assert.deepEqual(
+        nodes
+          .filter(({ kind }) => kind === "command_name")
+          .map(({ startByte, endByte }) =>
+            source.subarray(startByte, endByte).toString(),
+          ),
+        names,
+      );
+      assert.equal(nodes.filter(({ kind }) => kind === "block").length, blocks);
+      for (const insert of ["\n", ";", "p;"]) {
+        const edits = [{ byte: 0, deleteBytes: 0, insert }];
+        assertIncrementalContract(
+          parseSuccessfully(scope, applyEdits(source, edits)),
+          parseSuccessfully(scope, source, edits),
+          `${parts.join("<invalid UTF-8>")}: ${JSON.stringify(edits)}`,
+        );
+      }
+    }
+  });
+
+  test(`${scope}: edits change command recovery boundaries and block context`, () => {
+    for (const { prefix, suffix, edits } of [
+      {
+        prefix: "1",
+        suffix: "!p}p",
+        edits: [{ byte: 0, deleteBytes: 0, insert: "{" }],
+      },
+      {
+        prefix: "{1",
+        suffix: "!p}p",
+        edits: [{ byte: 0, deleteBytes: 1, insert: "" }],
+      },
+      {
+        prefix: "1",
+        suffix: "!p;p",
+        edits: [{ byte: 4, deleteBytes: 1, insert: "" }],
+      },
+      {
+        prefix: "1",
+        suffix: "!p p",
+        edits: [{ byte: 4, deleteBytes: 1, insert: "\n" }],
+      },
+      {
+        prefix: "{q",
+        suffix: "5p}",
+        edits: [{ byte: 4, deleteBytes: 1, insert: "}" }],
       },
     ]) {
       const source = Buffer.concat([
@@ -868,33 +863,50 @@ for (const scope of ["source.sed", "source.sed.ere"]) {
         Buffer.from([0xff]),
         Buffer.from(suffix),
       ]);
-      const result = parseSuccessfully(scope, source);
-      assert.deepEqual(
-        issueSignatures(result.nodes).map(({ reason }) => reason),
-        expected,
-      );
-      const edits = [{ byte: prefix.length, deleteBytes: 1, insert: "" }];
       assertIncrementalContract(
         parseSuccessfully(scope, applyEdits(source, edits)),
         parseSuccessfully(scope, source, edits),
-        `${prefix} invalid UTF-8 ${suffix}`,
+        `${prefix}<invalid UTF-8>${suffix}: ${JSON.stringify(edits)}`,
       );
     }
   });
 
-  test(`${scope}: a zero range end at EOF is incomplete only while a step can follow`, () => {
+  test(`${scope}: long decoding recovery reaches the separator and resumes parsing`, () => {
+    const source = Buffer.concat([
+      Buffer.from("1"),
+      ...Array.from({ length: 2000 }, () => Buffer.from([0xff, 0x2c, 0x32])),
+      Buffer.from("p;p"),
+    ]);
+    const { nodes } = parseSuccessfully(scope, source);
+    assert.equal(
+      nodes.filter(({ kind }) => kind === "invalid_encoding").length,
+      2000,
+    );
+    assert.equal(
+      nodes.filter(({ kind }) => kind === "unexpected_command_text").length,
+      2000,
+    );
+    assert.equal(nodes.filter(({ kind }) => kind === "command").length, 2);
+    const names = nodes.filter(({ kind }) => kind === "command_name");
+    assert.deepEqual(
+      names.map(({ startByte, endByte }) => [startByte, endByte]),
+      [[6003, 6004]],
+    );
+  });
+
+  test(`${scope}: zero range ends remain valid at EOF and beside decoding failures`, () => {
     const failure = Buffer.from([0xff]);
     for (const { parts, outcome } of [
-      { parts: ["1,0"], outcome: "incomplete_syntax" },
-      { parts: ["1, 0 "], outcome: "incomplete_syntax" },
-      { parts: ["1,0~ "], outcome: "incomplete_syntax" },
-      { parts: ["1,0~0"], outcome: "incomplete_syntax" },
-      { parts: ["1,0~0 "], outcome: "invalid_syntax" },
-      { parts: ["/a/,0~ 0\t"], outcome: "invalid_syntax" },
-      { parts: ["1, 0 ", failure], outcome: "invalid_syntax" },
-      { parts: ["1,0~0", failure], outcome: "invalid_syntax" },
+      { parts: ["1,0"], outcome: null },
+      { parts: ["1, 0 "], outcome: null },
+      { parts: ["1,0~ "], outcome: null },
+      { parts: ["1,0~0"], outcome: null },
+      { parts: ["1,0~0 "], outcome: null },
+      { parts: ["/a/,0~ 0\t"], outcome: null },
+      { parts: ["1, 0 ", failure], outcome: null },
+      { parts: ["1,0~0", failure], outcome: null },
       { parts: ["0~0 "], outcome: "incomplete_syntax" },
-      { parts: ["0", failure], outcome: "incomplete_syntax" },
+      { parts: ["0", failure], outcome: null },
     ]) {
       const source = Buffer.concat(parts.map((part) => Buffer.from(part)));
       const zero = source.indexOf("0");
@@ -902,14 +914,90 @@ for (const scope of ["source.sed", "source.sed.ere"]) {
         issueSignatures(parseSuccessfully(scope, source).nodes).filter(
           ({ reason }) => reason === "invalid_zero_address",
         ),
-        [
-          {
-            outcome,
-            reason: "invalid_zero_address",
-            range: `[0, ${zero}] - [0, ${zero + 1}]`,
-          },
-        ],
+        outcome === null
+          ? []
+          : [
+              {
+                outcome,
+                reason: "invalid_zero_address",
+                range: `[0, ${zero}] - [0, ${zero + 1}]`,
+              },
+            ],
         JSON.stringify(parts.map(String)),
+      );
+    }
+  });
+
+  test(`${scope}: edits preserve zero address position and print flag uniqueness`, () => {
+    for (const { source, edit, before, after } of [
+      {
+        source: "1,2,0p",
+        edit: { byte: 1, deleteBytes: 2, insert: "" },
+        before: ["excess_address"],
+        after: [],
+      },
+      {
+        source: "1,0p",
+        edit: { byte: 1, deleteBytes: 0, insert: ",2" },
+        before: [],
+        after: ["excess_address"],
+      },
+      {
+        source: "0,/a/,0p",
+        edit: { byte: 5, deleteBytes: 2, insert: "" },
+        before: ["excess_address"],
+        after: [],
+      },
+      {
+        source: "0p",
+        edit: { byte: 0, deleteBytes: 0, insert: "1," },
+        before: ["invalid_zero_address"],
+        after: [],
+      },
+      {
+        source: "1,0~0p",
+        edit: { byte: 0, deleteBytes: 2, insert: "" },
+        before: [],
+        after: ["invalid_zero_address"],
+      },
+      {
+        source: "s/a/b/pep",
+        edit: { byte: 7, deleteBytes: 0, insert: "e" },
+        before: ["duplicate_substitution_flag"],
+        after: ["duplicate_substitution_flag"],
+      },
+      {
+        source: "s/a/b/pep",
+        edit: { byte: 6, deleteBytes: 1, insert: "" },
+        before: ["duplicate_substitution_flag"],
+        after: [],
+      },
+      {
+        source: "s/a/b/eep",
+        edit: { byte: 7, deleteBytes: 0, insert: "p" },
+        before: [],
+        after: ["duplicate_substitution_flag"],
+      },
+    ]) {
+      assert.deepEqual(
+        issueSignatures(parseSuccessfully(scope, source).nodes).map(
+          ({ reason }) => reason,
+        ),
+        before,
+        source,
+      );
+      const edits = [edit];
+      const edited = applyEdits(source, edits);
+      const fresh = parseSuccessfully(scope, edited);
+      assert.deepEqual(
+        issueSignatures(fresh.nodes).map(({ reason }) => reason),
+        after,
+        edited.toString(),
+      );
+      assertIncrementalContract(
+        fresh,
+        parseSuccessfully(scope, source, edits),
+        `${source}: ${JSON.stringify(edit)}`,
       );
     }
   });

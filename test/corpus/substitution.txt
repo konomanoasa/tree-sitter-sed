@@ -329,7 +329,7 @@ s/a/b/k
 0:6 - 0:7                 unknown_substitution_flag `k`
 
 ==================
-Flags "pep" — "s/a/b/pep"
+Print flag remains duplicated across evaluation — "s/a/b/pep"
 :language(sed)
 :language(sed_ere)
 :cst
@@ -354,10 +354,13 @@ s/a/b/pep
 0:6 - 0:9           substitution_flags
 0:6 - 0:7             flag `p`
 0:7 - 0:8             flag `e`
-0:8 - 0:9             flag `p`
+0:8 - 0:9             issue: syntax_issue
+0:8 - 0:9               invalid_syntax
+0:8 - 0:9                 duplicate_substitution_flag
+0:8 - 0:9                   flag `p`
 
 ==================
-Flags "pepep" — "s/a/b/pepep"
+Each additional print flag is duplicated across evaluation — "s/a/b/pepep"
 :language(sed)
 :language(sed_ere)
 :cst
@@ -382,7 +385,10 @@ s/a/b/pepep
 0:6  - 0:11           substitution_flags
 0:6  - 0:7              flag `p`
 0:7  - 0:8              flag `e`
-0:8  - 0:9              flag `p`
+0:8  - 0:9              issue: syntax_issue
+0:8  - 0:9                invalid_syntax
+0:8  - 0:9                  duplicate_substitution_flag
+0:8  - 0:9                    flag `p`
 0:9  - 0:10             flag `e`
 0:10 - 0:11             issue: syntax_issue
 0:10 - 0:11               invalid_syntax

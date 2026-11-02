@@ -169,29 +169,12 @@
               "type": "CHOICE",
               "members": [
                 {
-                  "type": "SEQ",
-                  "members": [
-                    {
-                      "type": "FIELD",
-                      "name": "address",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "address_clause"
-                      }
-                    },
-                    {
-                      "type": "CHOICE",
-                      "members": [
-                        {
-                          "type": "SYMBOL",
-                          "name": "_command_decode_issues"
-                        },
-                        {
-                          "type": "BLANK"
-                        }
-                      ]
-                    }
-                  ]
+                  "type": "FIELD",
+                  "name": "address",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "address_clause"
+                  }
                 },
                 {
                   "type": "BLANK"
@@ -202,29 +185,12 @@
               "type": "CHOICE",
               "members": [
                 {
-                  "type": "SEQ",
-                  "members": [
-                    {
-                      "type": "FIELD",
-                      "name": "negation",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "negation"
-                      }
-                    },
-                    {
-                      "type": "CHOICE",
-                      "members": [
-                        {
-                          "type": "SYMBOL",
-                          "name": "_command_decode_issues"
-                        },
-                        {
-                          "type": "BLANK"
-                        }
-                      ]
-                    }
-                  ]
+                  "type": "FIELD",
+                  "name": "negation",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "negation"
+                  }
                 },
                 {
                   "type": "BLANK"
@@ -244,34 +210,17 @@
               "type": "CHOICE",
               "members": [
                 {
-                  "type": "SEQ",
-                  "members": [
-                    {
-                      "type": "FIELD",
-                      "name": "address",
-                      "content": {
-                        "type": "ALIAS",
-                        "content": {
-                          "type": "SYMBOL",
-                          "name": "_single_address_clause"
-                        },
-                        "named": true,
-                        "value": "address_clause"
-                      }
+                  "type": "FIELD",
+                  "name": "address",
+                  "content": {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_single_address_clause"
                     },
-                    {
-                      "type": "CHOICE",
-                      "members": [
-                        {
-                          "type": "SYMBOL",
-                          "name": "_command_decode_issues"
-                        },
-                        {
-                          "type": "BLANK"
-                        }
-                      ]
-                    }
-                  ]
+                    "named": true,
+                    "value": "address_clause"
+                  }
                 },
                 {
                   "type": "BLANK"
@@ -282,29 +231,12 @@
               "type": "CHOICE",
               "members": [
                 {
-                  "type": "SEQ",
-                  "members": [
-                    {
-                      "type": "FIELD",
-                      "name": "negation",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "negation"
-                      }
-                    },
-                    {
-                      "type": "CHOICE",
-                      "members": [
-                        {
-                          "type": "SYMBOL",
-                          "name": "_command_decode_issues"
-                        },
-                        {
-                          "type": "BLANK"
-                        }
-                      ]
-                    }
-                  ]
+                  "type": "FIELD",
+                  "name": "negation",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "negation"
+                  }
                 },
                 {
                   "type": "BLANK"
@@ -333,34 +265,17 @@
               "type": "CHOICE",
               "members": [
                 {
-                  "type": "SEQ",
-                  "members": [
-                    {
-                      "type": "FIELD",
-                      "name": "issue",
-                      "content": {
-                        "type": "ALIAS",
-                        "content": {
-                          "type": "SYMBOL",
-                          "name": "_invalid_forbidden_address_issue"
-                        },
-                        "named": true,
-                        "value": "syntax_issue"
-                      }
+                  "type": "FIELD",
+                  "name": "issue",
+                  "content": {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_invalid_forbidden_address_issue"
                     },
-                    {
-                      "type": "CHOICE",
-                      "members": [
-                        {
-                          "type": "SYMBOL",
-                          "name": "_command_decode_issues"
-                        },
-                        {
-                          "type": "BLANK"
-                        }
-                      ]
-                    }
-                  ]
+                    "named": true,
+                    "value": "syntax_issue"
+                  }
                 },
                 {
                   "type": "BLANK"
@@ -371,29 +286,12 @@
               "type": "CHOICE",
               "members": [
                 {
-                  "type": "SEQ",
-                  "members": [
-                    {
-                      "type": "FIELD",
-                      "name": "negation",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "negation"
-                      }
-                    },
-                    {
-                      "type": "CHOICE",
-                      "members": [
-                        {
-                          "type": "SYMBOL",
-                          "name": "_command_decode_issues"
-                        },
-                        {
-                          "type": "BLANK"
-                        }
-                      ]
-                    }
-                  ]
+                  "type": "FIELD",
+                  "name": "negation",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "negation"
+                  }
                 },
                 {
                   "type": "BLANK"
@@ -413,83 +311,49 @@
             "type": "SEQ",
             "members": [
               {
-                "type": "SEQ",
+                "type": "CHOICE",
                 "members": [
                   {
-                    "type": "CHOICE",
+                    "type": "SEQ",
                     "members": [
                       {
-                        "type": "SEQ",
+                        "type": "FIELD",
+                        "name": "issue",
+                        "content": {
+                          "type": "ALIAS",
+                          "content": {
+                            "type": "SYMBOL",
+                            "name": "_invalid_forbidden_address_issue"
+                          },
+                          "named": true,
+                          "value": "syntax_issue"
+                        }
+                      },
+                      {
+                        "type": "CHOICE",
                         "members": [
                           {
                             "type": "FIELD",
-                            "name": "issue",
+                            "name": "negation",
                             "content": {
-                              "type": "ALIAS",
-                              "content": {
-                                "type": "SYMBOL",
-                                "name": "_invalid_forbidden_address_issue"
-                              },
-                              "named": true,
-                              "value": "syntax_issue"
+                              "type": "SYMBOL",
+                              "name": "negation"
                             }
                           },
                           {
-                            "type": "CHOICE",
-                            "members": [
-                              {
-                                "type": "SEQ",
-                                "members": [
-                                  {
-                                    "type": "CHOICE",
-                                    "members": [
-                                      {
-                                        "type": "SYMBOL",
-                                        "name": "_command_decode_issues"
-                                      },
-                                      {
-                                        "type": "BLANK"
-                                      }
-                                    ]
-                                  },
-                                  {
-                                    "type": "FIELD",
-                                    "name": "negation",
-                                    "content": {
-                                      "type": "SYMBOL",
-                                      "name": "negation"
-                                    }
-                                  }
-                                ]
-                              },
-                              {
-                                "type": "BLANK"
-                              }
-                            ]
+                            "type": "BLANK"
                           }
                         ]
-                      },
-                      {
-                        "type": "FIELD",
-                        "name": "negation",
-                        "content": {
-                          "type": "SYMBOL",
-                          "name": "negation"
-                        }
                       }
                     ]
                   },
                   {
-                    "type": "CHOICE",
-                    "members": [
-                      {
-                        "type": "SYMBOL",
-                        "name": "_command_decode_issues"
-                      },
-                      {
-                        "type": "BLANK"
-                      }
-                    ]
+                    "type": "FIELD",
+                    "name": "negation",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "negation"
+                    }
                   }
                 ]
               },
@@ -504,34 +368,17 @@
           "type": "SEQ",
           "members": [
             {
-              "type": "SEQ",
-              "members": [
-                {
-                  "type": "FIELD",
-                  "name": "address",
-                  "content": {
-                    "type": "ALIAS",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "_read_zero_clause"
-                    },
-                    "named": true,
-                    "value": "address_clause"
-                  }
+              "type": "FIELD",
+              "name": "address",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_read_zero_clause"
                 },
-                {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "SYMBOL",
-                      "name": "_command_decode_issues"
-                    },
-                    {
-                      "type": "BLANK"
-                    }
-                  ]
-                }
-              ]
+                "named": true,
+                "value": "address_clause"
+              }
             },
             {
               "type": "ALIAS",
@@ -569,29 +416,12 @@
                       "type": "CHOICE",
                       "members": [
                         {
-                          "type": "SEQ",
-                          "members": [
-                            {
-                              "type": "CHOICE",
-                              "members": [
-                                {
-                                  "type": "SYMBOL",
-                                  "name": "_command_decode_issues"
-                                },
-                                {
-                                  "type": "BLANK"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "FIELD",
-                              "name": "negation",
-                              "content": {
-                                "type": "SYMBOL",
-                                "name": "negation"
-                              }
-                            }
-                          ]
+                          "type": "FIELD",
+                          "name": "negation",
+                          "content": {
+                            "type": "SYMBOL",
+                            "name": "negation"
+                          }
                         },
                         {
                           "type": "BLANK"
@@ -654,17 +484,8 @@
                   ]
                 },
                 {
-                  "type": "SEQ",
-                  "members": [
-                    {
-                      "type": "SYMBOL",
-                      "name": "_command_decode_issues"
-                    },
-                    {
-                      "type": "SYMBOL",
-                      "name": "_command_end"
-                    }
-                  ]
+                  "type": "SYMBOL",
+                  "name": "_command_recovery"
                 }
               ]
             }
@@ -673,58 +494,85 @@
       ]
     },
     "_command_ending": {
-      "type": "SEQ",
+      "type": "CHOICE",
       "members": [
         {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "SYMBOL",
-              "name": "_command_decode_issues"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
+          "type": "SYMBOL",
+          "name": "_command_recovery"
         },
         {
-          "type": "CHOICE",
-          "members": [
-            {
+          "type": "SYMBOL",
+          "name": "_command_end"
+        },
+        {
+          "type": "FIELD",
+          "name": "issue",
+          "content": {
+            "type": "ALIAS",
+            "content": {
               "type": "SYMBOL",
-              "name": "_command_end"
+              "name": "_invalid_missing_command_separator_issue"
             },
-            {
-              "type": "FIELD",
-              "name": "issue",
-              "content": {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_invalid_missing_command_separator_issue"
-                },
-                "named": true,
-                "value": "syntax_issue"
-              }
-            }
-          ]
+            "named": true,
+            "value": "syntax_issue"
+          }
         }
       ]
     },
-    "_command_decode_issues": {
-      "type": "REPEAT1",
+    "_command_recovery": {
+      "type": "PREC_RIGHT",
+      "value": 0,
       "content": {
-        "type": "FIELD",
-        "name": "issue",
-        "content": {
-          "type": "ALIAS",
-          "content": {
-            "type": "SYMBOL",
-            "name": "_invalid_invalid_encoding_issue"
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "FIELD",
+            "name": "issue",
+            "content": {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_invalid_invalid_encoding_issue"
+              },
+              "named": true,
+              "value": "syntax_issue"
+            }
           },
-          "named": true,
-          "value": "syntax_issue"
-        }
+          {
+            "type": "REPEAT",
+            "content": {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "FIELD",
+                  "name": "issue",
+                  "content": {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_invalid_invalid_encoding_issue"
+                    },
+                    "named": true,
+                    "value": "syntax_issue"
+                  }
+                },
+                {
+                  "type": "FIELD",
+                  "name": "issue",
+                  "content": {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_invalid_unexpected_command_text_issue"
+                    },
+                    "named": true,
+                    "value": "syntax_issue"
+                  }
+                }
+              ]
+            }
+          }
+        ]
       }
     },
     "address_clause": {
@@ -1117,8 +965,13 @@
           "type": "CHOICE",
           "members": [
             {
-              "type": "SYMBOL",
-              "name": "address"
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_range_end_address"
+              },
+              "named": true,
+              "value": "address"
             },
             {
               "type": "SYMBOL",
@@ -1154,12 +1007,33 @@
                   }
                 }
               ]
+            },
+            {
+              "type": "SYMBOL",
+              "name": "_decode_boundary"
             }
           ]
         }
       ]
     },
     "address": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "line_address"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "last_line_address"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "regex_address"
+        }
+      ]
+    },
+    "_range_end_address": {
       "type": "CHOICE",
       "members": [
         {
@@ -2082,29 +1956,12 @@
                             "type": "CHOICE",
                             "members": [
                               {
-                                "type": "SEQ",
-                                "members": [
-                                  {
-                                    "type": "CHOICE",
-                                    "members": [
-                                      {
-                                        "type": "SYMBOL",
-                                        "name": "_command_decode_issues"
-                                      },
-                                      {
-                                        "type": "BLANK"
-                                      }
-                                    ]
-                                  },
-                                  {
-                                    "type": "FIELD",
-                                    "name": "negation",
-                                    "content": {
-                                      "type": "SYMBOL",
-                                      "name": "negation"
-                                    }
-                                  }
-                                ]
+                                "type": "FIELD",
+                                "name": "negation",
+                                "content": {
+                                  "type": "SYMBOL",
+                                  "name": "negation"
+                                }
                               },
                               {
                                 "type": "BLANK"
@@ -7069,58 +6926,6 @@
             "type": "SEQ",
             "members": [
               {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_8"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_match_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_0"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
                 "type": "CHOICE",
                 "members": [
                   {
@@ -7171,6 +6976,24 @@
               {
                 "type": "CHOICE",
                 "members": [
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_evaluate_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_match_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
                   {
                     "type": "CHOICE",
                     "members": [
@@ -7330,58 +7153,6 @@
             "type": "SEQ",
             "members": [
               {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_9"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_match_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_1"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
                 "type": "CHOICE",
                 "members": [
                   {
@@ -7432,6 +7203,24 @@
               {
                 "type": "CHOICE",
                 "members": [
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_evaluate_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_match_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
                   {
                     "type": "CHOICE",
                     "members": [
@@ -7591,58 +7380,6 @@
             "type": "SEQ",
             "members": [
               {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_8"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_match_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_2"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
                 "type": "CHOICE",
                 "members": [
                   {
@@ -7693,6 +7430,24 @@
               {
                 "type": "CHOICE",
                 "members": [
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_evaluate_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_match_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
                   {
                     "type": "CHOICE",
                     "members": [
@@ -7856,58 +7611,6 @@
             "type": "SEQ",
             "members": [
               {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_9"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_match_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_3"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
                 "type": "CHOICE",
                 "members": [
                   {
@@ -7958,6 +7661,24 @@
               {
                 "type": "CHOICE",
                 "members": [
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_evaluate_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_match_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
                   {
                     "type": "CHOICE",
                     "members": [
@@ -8117,58 +7838,6 @@
             "type": "SEQ",
             "members": [
               {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_12"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_match_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_4"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
                 "type": "FIELD",
                 "name": "issue",
                 "content": {
@@ -8201,6 +7870,24 @@
               {
                 "type": "CHOICE",
                 "members": [
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_evaluate_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_match_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
                   {
                     "type": "CHOICE",
                     "members": [
@@ -8364,58 +8051,6 @@
             "type": "SEQ",
             "members": [
               {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_match_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_5"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
                 "type": "FIELD",
                 "name": "issue",
                 "content": {
@@ -8448,6 +8083,24 @@
               {
                 "type": "CHOICE",
                 "members": [
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_evaluate_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_match_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
                   {
                     "type": "CHOICE",
                     "members": [
@@ -8611,58 +8264,6 @@
             "type": "SEQ",
             "members": [
               {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_12"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_match_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_6"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
                 "type": "FIELD",
                 "name": "issue",
                 "content": {
@@ -8695,6 +8296,24 @@
               {
                 "type": "CHOICE",
                 "members": [
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_evaluate_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_match_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
                   {
                     "type": "CHOICE",
                     "members": [
@@ -8862,58 +8481,6 @@
             "type": "SEQ",
             "members": [
               {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_match_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_7"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
                 "type": "FIELD",
                 "name": "issue",
                 "content": {
@@ -8946,6 +8513,24 @@
               {
                 "type": "CHOICE",
                 "members": [
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_evaluate_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_match_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
                   {
                     "type": "CHOICE",
                     "members": [
@@ -8998,2038 +8583,6 @@
                   {
                     "type": "SYMBOL",
                     "name": "_flags_0_7"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SYMBOL",
-            "name": "write_flag"
-          }
-        ]
-      }
-    },
-    "_flags_0_8": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_global_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_9"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_print_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_10"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_occurrence"
-                },
-                "named": true,
-                "value": "number"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_12"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_8"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_match_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_8"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_zero_occurrence_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_incomplete_zero_occurrence_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_12"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "CHOICE",
-                    "members": [
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_invalid_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      },
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_incomplete_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_invalid_encoding_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_8"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SYMBOL",
-            "name": "write_flag"
-          }
-        ]
-      }
-    },
-    "_flags_0_9": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_global_flag_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_9"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_print_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_11"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_occurrence"
-                },
-                "named": true,
-                "value": "number"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_9"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_match_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_9"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_zero_occurrence_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_incomplete_zero_occurrence_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "CHOICE",
-                    "members": [
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_invalid_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      },
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_incomplete_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_invalid_encoding_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_9"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SYMBOL",
-            "name": "write_flag"
-          }
-        ]
-      }
-    },
-    "_flags_0_10": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_global_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_11"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_print_flag_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_10"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_occurrence"
-                },
-                "named": true,
-                "value": "number"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_14"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_10"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_match_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_10"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_zero_occurrence_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_incomplete_zero_occurrence_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_14"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "CHOICE",
-                    "members": [
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_invalid_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      },
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_incomplete_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_invalid_encoding_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_10"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SYMBOL",
-            "name": "write_flag"
-          }
-        ]
-      }
-    },
-    "_flags_0_11": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_global_flag_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_11"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_print_flag_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_11"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_occurrence"
-                },
-                "named": true,
-                "value": "number"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_15"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_11"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_match_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_11"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_zero_occurrence_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_incomplete_zero_occurrence_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_15"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "CHOICE",
-                    "members": [
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_invalid_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      },
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_incomplete_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_invalid_encoding_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_11"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SYMBOL",
-            "name": "write_flag"
-          }
-        ]
-      }
-    },
-    "_flags_0_12": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_global_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_print_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_14"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_occurrence_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_12"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_12"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_match_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_12"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_zero_occurrence_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_12"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "CHOICE",
-                    "members": [
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_invalid_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      },
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_incomplete_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_invalid_encoding_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_12"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SYMBOL",
-            "name": "write_flag"
-          }
-        ]
-      }
-    },
-    "_flags_0_13": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_global_flag_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_print_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_15"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_occurrence_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_match_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_zero_occurrence_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "CHOICE",
-                    "members": [
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_invalid_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      },
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_incomplete_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_invalid_encoding_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SYMBOL",
-            "name": "write_flag"
-          }
-        ]
-      }
-    },
-    "_flags_0_14": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_global_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_15"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_print_flag_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_14"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_occurrence_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_14"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_14"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_match_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_14"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_zero_occurrence_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_14"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "CHOICE",
-                    "members": [
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_invalid_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      },
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_incomplete_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_invalid_encoding_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_14"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SYMBOL",
-            "name": "write_flag"
-          }
-        ]
-      }
-    },
-    "_flags_0_15": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_global_flag_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_15"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_print_flag_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_15"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_occurrence_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_15"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_15"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_match_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_15"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_zero_occurrence_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_15"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "CHOICE",
-                    "members": [
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_invalid_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      },
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_incomplete_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_invalid_encoding_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_0_15"
                   },
                   {
                     "type": "BLANK"
@@ -11133,62 +8686,6 @@
             "type": "SEQ",
             "members": [
               {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_8"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_modifier_on_empty_regexp_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_0"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
                 "type": "CHOICE",
                 "members": [
                   {
@@ -11239,6 +8736,28 @@
               {
                 "type": "CHOICE",
                 "members": [
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_evaluate_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
+                  {
+                    "type": "FIELD",
+                    "name": "issue",
+                    "content": {
+                      "type": "ALIAS",
+                      "content": {
+                        "type": "SYMBOL",
+                        "name": "_invalid_modifier_on_empty_regexp_issue"
+                      },
+                      "named": true,
+                      "value": "syntax_issue"
+                    }
+                  },
                   {
                     "type": "CHOICE",
                     "members": [
@@ -11398,62 +8917,6 @@
             "type": "SEQ",
             "members": [
               {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_9"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_modifier_on_empty_regexp_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_1"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
                 "type": "CHOICE",
                 "members": [
                   {
@@ -11504,6 +8967,28 @@
               {
                 "type": "CHOICE",
                 "members": [
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_evaluate_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
+                  {
+                    "type": "FIELD",
+                    "name": "issue",
+                    "content": {
+                      "type": "ALIAS",
+                      "content": {
+                        "type": "SYMBOL",
+                        "name": "_invalid_modifier_on_empty_regexp_issue"
+                      },
+                      "named": true,
+                      "value": "syntax_issue"
+                    }
+                  },
                   {
                     "type": "CHOICE",
                     "members": [
@@ -11663,62 +9148,6 @@
             "type": "SEQ",
             "members": [
               {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_8"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_modifier_on_empty_regexp_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_2"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
                 "type": "CHOICE",
                 "members": [
                   {
@@ -11769,6 +9198,28 @@
               {
                 "type": "CHOICE",
                 "members": [
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_evaluate_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
+                  {
+                    "type": "FIELD",
+                    "name": "issue",
+                    "content": {
+                      "type": "ALIAS",
+                      "content": {
+                        "type": "SYMBOL",
+                        "name": "_invalid_modifier_on_empty_regexp_issue"
+                      },
+                      "named": true,
+                      "value": "syntax_issue"
+                    }
+                  },
                   {
                     "type": "CHOICE",
                     "members": [
@@ -11932,62 +9383,6 @@
             "type": "SEQ",
             "members": [
               {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_9"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_modifier_on_empty_regexp_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_3"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
                 "type": "CHOICE",
                 "members": [
                   {
@@ -12038,6 +9433,28 @@
               {
                 "type": "CHOICE",
                 "members": [
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_evaluate_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
+                  {
+                    "type": "FIELD",
+                    "name": "issue",
+                    "content": {
+                      "type": "ALIAS",
+                      "content": {
+                        "type": "SYMBOL",
+                        "name": "_invalid_modifier_on_empty_regexp_issue"
+                      },
+                      "named": true,
+                      "value": "syntax_issue"
+                    }
+                  },
                   {
                     "type": "CHOICE",
                     "members": [
@@ -12197,62 +9614,6 @@
             "type": "SEQ",
             "members": [
               {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_12"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_modifier_on_empty_regexp_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_4"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
                 "type": "FIELD",
                 "name": "issue",
                 "content": {
@@ -12285,6 +9646,28 @@
               {
                 "type": "CHOICE",
                 "members": [
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_evaluate_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
+                  {
+                    "type": "FIELD",
+                    "name": "issue",
+                    "content": {
+                      "type": "ALIAS",
+                      "content": {
+                        "type": "SYMBOL",
+                        "name": "_invalid_modifier_on_empty_regexp_issue"
+                      },
+                      "named": true,
+                      "value": "syntax_issue"
+                    }
+                  },
                   {
                     "type": "CHOICE",
                     "members": [
@@ -12448,62 +9831,6 @@
             "type": "SEQ",
             "members": [
               {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_modifier_on_empty_regexp_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_5"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
                 "type": "FIELD",
                 "name": "issue",
                 "content": {
@@ -12536,6 +9863,28 @@
               {
                 "type": "CHOICE",
                 "members": [
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_evaluate_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
+                  {
+                    "type": "FIELD",
+                    "name": "issue",
+                    "content": {
+                      "type": "ALIAS",
+                      "content": {
+                        "type": "SYMBOL",
+                        "name": "_invalid_modifier_on_empty_regexp_issue"
+                      },
+                      "named": true,
+                      "value": "syntax_issue"
+                    }
+                  },
                   {
                     "type": "CHOICE",
                     "members": [
@@ -12699,62 +10048,6 @@
             "type": "SEQ",
             "members": [
               {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_12"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_modifier_on_empty_regexp_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_6"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
                 "type": "FIELD",
                 "name": "issue",
                 "content": {
@@ -12787,6 +10080,28 @@
               {
                 "type": "CHOICE",
                 "members": [
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_evaluate_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
+                  {
+                    "type": "FIELD",
+                    "name": "issue",
+                    "content": {
+                      "type": "ALIAS",
+                      "content": {
+                        "type": "SYMBOL",
+                        "name": "_invalid_modifier_on_empty_regexp_issue"
+                      },
+                      "named": true,
+                      "value": "syntax_issue"
+                    }
+                  },
                   {
                     "type": "CHOICE",
                     "members": [
@@ -12954,62 +10269,6 @@
             "type": "SEQ",
             "members": [
               {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_modifier_on_empty_regexp_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_7"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
                 "type": "FIELD",
                 "name": "issue",
                 "content": {
@@ -13042,6 +10301,28 @@
               {
                 "type": "CHOICE",
                 "members": [
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_evaluate_flag"
+                    },
+                    "named": true,
+                    "value": "flag"
+                  },
+                  {
+                    "type": "FIELD",
+                    "name": "issue",
+                    "content": {
+                      "type": "ALIAS",
+                      "content": {
+                        "type": "SYMBOL",
+                        "name": "_invalid_modifier_on_empty_regexp_issue"
+                      },
+                      "named": true,
+                      "value": "syntax_issue"
+                    }
+                  },
                   {
                     "type": "CHOICE",
                     "members": [
@@ -13094,2070 +10375,6 @@
                   {
                     "type": "SYMBOL",
                     "name": "_flags_1_7"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SYMBOL",
-            "name": "write_flag"
-          }
-        ]
-      }
-    },
-    "_flags_1_8": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_global_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_9"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_print_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_10"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_occurrence"
-                },
-                "named": true,
-                "value": "number"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_12"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_8"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_modifier_on_empty_regexp_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_8"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_zero_occurrence_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_incomplete_zero_occurrence_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_12"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "CHOICE",
-                    "members": [
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_invalid_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      },
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_incomplete_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_invalid_encoding_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_8"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SYMBOL",
-            "name": "write_flag"
-          }
-        ]
-      }
-    },
-    "_flags_1_9": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_global_flag_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_9"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_print_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_11"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_occurrence"
-                },
-                "named": true,
-                "value": "number"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_9"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_modifier_on_empty_regexp_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_9"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_zero_occurrence_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_incomplete_zero_occurrence_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "CHOICE",
-                    "members": [
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_invalid_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      },
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_incomplete_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_invalid_encoding_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_9"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SYMBOL",
-            "name": "write_flag"
-          }
-        ]
-      }
-    },
-    "_flags_1_10": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_global_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_11"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_print_flag_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_10"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_occurrence"
-                },
-                "named": true,
-                "value": "number"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_14"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_10"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_modifier_on_empty_regexp_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_10"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_zero_occurrence_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_incomplete_zero_occurrence_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_14"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "CHOICE",
-                    "members": [
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_invalid_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      },
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_incomplete_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_invalid_encoding_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_10"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SYMBOL",
-            "name": "write_flag"
-          }
-        ]
-      }
-    },
-    "_flags_1_11": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_global_flag_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_11"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_print_flag_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_11"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_occurrence"
-                },
-                "named": true,
-                "value": "number"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_15"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_11"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_modifier_on_empty_regexp_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_11"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_zero_occurrence_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_incomplete_zero_occurrence_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_15"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "CHOICE",
-                    "members": [
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_invalid_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      },
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_incomplete_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_invalid_encoding_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_11"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SYMBOL",
-            "name": "write_flag"
-          }
-        ]
-      }
-    },
-    "_flags_1_12": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_global_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_print_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_14"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_occurrence_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_12"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_12"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_modifier_on_empty_regexp_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_12"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_zero_occurrence_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_12"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "CHOICE",
-                    "members": [
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_invalid_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      },
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_incomplete_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_invalid_encoding_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_12"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SYMBOL",
-            "name": "write_flag"
-          }
-        ]
-      }
-    },
-    "_flags_1_13": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_global_flag_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_print_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_15"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_occurrence_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_modifier_on_empty_regexp_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_zero_occurrence_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "CHOICE",
-                    "members": [
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_invalid_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      },
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_incomplete_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_invalid_encoding_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_13"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SYMBOL",
-            "name": "write_flag"
-          }
-        ]
-      }
-    },
-    "_flags_1_14": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_global_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_15"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_print_flag_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_14"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_occurrence_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_14"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_14"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_modifier_on_empty_regexp_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_14"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_zero_occurrence_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_14"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "CHOICE",
-                    "members": [
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_invalid_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      },
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_incomplete_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_invalid_encoding_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_14"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SYMBOL",
-            "name": "write_flag"
-          }
-        ]
-      }
-    },
-    "_flags_1_15": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_global_flag_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_15"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_print_flag_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_15"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_occurrence_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_15"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_evaluate_flag"
-                },
-                "named": true,
-                "value": "flag"
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_15"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_modifier_on_empty_regexp_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_15"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "issue",
-                "content": {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_invalid_duplicate_zero_occurrence_issue"
-                  },
-                  "named": true,
-                  "value": "syntax_issue"
-                }
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_15"
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "CHOICE",
-                    "members": [
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_invalid_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      },
-                      {
-                        "type": "FIELD",
-                        "name": "issue",
-                        "content": {
-                          "type": "ALIAS",
-                          "content": {
-                            "type": "SYMBOL",
-                            "name": "_incomplete_unknown_substitution_flag_issue"
-                          },
-                          "named": true,
-                          "value": "syntax_issue"
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "type": "FIELD",
-                    "name": "issue",
-                    "content": {
-                      "type": "ALIAS",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "_invalid_invalid_encoding_issue"
-                      },
-                      "named": true,
-                      "value": "syntax_issue"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_flags_1_15"
                   },
                   {
                     "type": "BLANK"
@@ -16406,6 +11623,28 @@
       "named": true,
       "value": "invalid_syntax"
     },
+    "_invalid_unexpected_command_text_reason": {
+      "type": "SYMBOL",
+      "name": "_unexpected_command_text"
+    },
+    "_invalid_unexpected_command_text_outcome": {
+      "type": "ALIAS",
+      "content": {
+        "type": "SYMBOL",
+        "name": "_invalid_unexpected_command_text_reason"
+      },
+      "named": true,
+      "value": "unexpected_command_text"
+    },
+    "_invalid_unexpected_command_text_issue": {
+      "type": "ALIAS",
+      "content": {
+        "type": "SYMBOL",
+        "name": "_invalid_unexpected_command_text_outcome"
+      },
+      "named": true,
+      "value": "invalid_syntax"
+    },
     "_invalid_misplaced_character_class_reason": {
       "type": "SEQ",
       "members": [
@@ -17538,6 +12777,14 @@
     {
       "type": "SYMBOL",
       "name": "_command_end"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_unexpected_command_text"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_decode_boundary"
     },
     {
       "type": "SYMBOL",

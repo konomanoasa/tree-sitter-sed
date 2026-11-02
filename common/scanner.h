@@ -39,7 +39,6 @@ enum TermStage {
 };
 enum { SERIALIZED_SIZE = 14 };
 
-// host_* tracks raw input; other regex state tracks decoded input.
 typedef struct {
   uint32_t groups;
   uint8_t delimiter;
@@ -580,11 +579,9 @@ static inline bool completes_character(Unit u, unsigned character) {
   }
   return false;
 }
-// An escaped delimiter can continue numeric digits after EOF.
 static inline bool cut(TSLexer *lexer, Unit u) {
   return lexer->eof(lexer) || u.completion.continued;
 }
-// Delimiter c prevents an encoded backslash pair from becoming invalid \c.
 static inline bool may_fail(const Scanner *s, Unit u) {
   if (u.incomplete)
     return !(u.encoded && u.quoted && u.value == '\\') || s->delimiter != 'c';
@@ -592,7 +589,6 @@ static inline bool may_fail(const Scanner *s, Unit u) {
     (!s->bracket && !(u.encoded && u.quoted) && completes_character(u, '\\'));
 }
 static inline bool completes_interval(Unit u, bool comma, bool close) {
-  // Completing a digitless numeric escape makes it unquoted.
   bool quoted = u.quoted && u.encoded;
   if (
     close &&
@@ -622,7 +618,6 @@ static inline enum TokenType classify_class(TSLexer *lexer, Scanner state) {
     "xdigit:]"
   };
   enum { NAME_COUNT = sizeof(names) / sizeof(names[0]) };
-  // Bits track name positions; failed units span any length.
   uint16_t positions[NAME_COUNT];
   for (size_t i = 0; i < NAME_COUNT; i++) positions[i] = 1;
   bool nonempty = false, terminated = false, at_eof = false;
@@ -1226,6 +1221,7 @@ static inline bool scan_digits(TSLexer *lexer) {
   return zero;
 }
 static inline enum TokenType zero_address(TSLexer *lexer, bool first) {
+  if (!first) return NUMBER;
   advance_blanks(lexer);
   if (lexer->lookahead == '~') {
     advance(lexer);
@@ -1233,21 +1229,32 @@ static inline enum TokenType zero_address(TSLexer *lexer, bool first) {
     while (lexer->lookahead == '0') advance(lexer);
     if (digit(lexer->lookahead)) return NUMBER;
   }
-  if (first) {
+  advance_blanks(lexer);
+  if (lexer->lookahead == ',') {
+    advance(lexer);
     advance_blanks(lexer);
-    if (lexer->lookahead == ',') {
-      advance(lexer);
-      advance_blanks(lexer);
-      if (regex_opening(lexer->lookahead)) return ZERO_NUMBER;
-    } else {
-      while (!decoded(lexer->lookahead)) {
-        advance(lexer);
-        advance_blanks(lexer);
-      }
-      if (lexer->lookahead == 'r') return ZERO_NUMBER;
-    }
-  }
+    if (regex_opening(lexer->lookahead)) return ZERO_NUMBER;
+  } else if (lexer->lookahead == 'r') return ZERO_NUMBER;
+  if (!decoded(lexer->lookahead)) return NUMBER;
   return lexer->eof(lexer) ? PENDING_ZERO : INVALID_ZERO;
+}
+static inline bool
+scan_command_recovery(TSLexer *lexer, Scanner *s, const bool *valid) {
+  if (!decoded(lexer->lookahead)) return invalid_encoding(lexer, s, valid);
+  if (
+    line_end(lexer) ||
+    lexer->lookahead == ';' ||
+    (valid[BLOCK_CLOSE] && lexer->lookahead == '}')
+  )
+    return false;
+  do advance(lexer);
+  while (
+    decoded(lexer->lookahead) &&
+    !line_end(lexer) &&
+    lexer->lookahead != ';' &&
+    !(valid[BLOCK_CLOSE] && lexer->lookahead == '}')
+  );
+  return emit(lexer, valid, UNEXPECTED_COMMAND_TEXT);
 }
 static inline bool address_gap(TSLexer *lexer, const bool *valid) {
   int32_t c = lexer->lookahead;
@@ -1383,6 +1390,10 @@ static inline bool scan_flag(TSLexer *lexer, Scanner *s, const bool *valid) {
 }
 static inline bool scan_normal(TSLexer *lexer, Scanner *s, const bool *valid) {
   s->mode = NORMAL;
+  if (valid[UNEXPECTED_COMMAND_TEXT] && scan_command_recovery(lexer, s, valid))
+    return true;
+  if (valid[DECODE_BOUNDARY] && !decoded(lexer->lookahead))
+    return emit(lexer, valid, DECODE_BOUNDARY);
   if (
     !valid[PATTERN_START] &&
     !valid[TRANSLATION_START] &&
@@ -1471,7 +1482,6 @@ static inline bool scan(void *payload, TSLexer *lexer, const bool *valid) {
   else if (next.mode != NORMAL)
     result = scan_operand(&ahead.lexer, &next, valid);
   else result = scan_normal(&ahead.lexer, &next, valid);
-  // Tree-sitter tracks only the first lookahead byte; advance past multibyte input.
   if (lexer->lookahead >= 0x80 && decoded(lexer->lookahead))
     lexer->advance(lexer, false);
   if (result) {
@@ -1505,7 +1515,6 @@ static inline unsigned serialize(void *payload, char *buffer) {
     s->hyphens << 4);
   for (unsigned i = 0; i < 4; i++)
     buffer[10 + i] = (char)(s->groups >> (i * 8));
-  // Match Tree-sitter's empty initial state.
   for (unsigned i = 0; i < SERIALIZED_SIZE; i++)
     if (buffer[i]) return SERIALIZED_SIZE;
   return 0;

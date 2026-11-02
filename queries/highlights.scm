@@ -23,20 +23,12 @@
 
 (address_operator) @operator
 
-(negation
-  "!" @operator)
+"!" @operator
 
-(duplicate_negation
-  "!" @operator)
-
-(block
-  [
-    "{"
-    "}"
-  ] @punctuation.bracket)
-
-(unmatched_closing_brace
-  "}" @punctuation.bracket)
+[
+  "{"
+  "}"
+] @punctuation.bracket
 
 [
   (delimiter)

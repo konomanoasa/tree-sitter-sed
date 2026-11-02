@@ -850,7 +850,7 @@ Invalid zero initial range "0" — "0~0,1p"
 0:5 - 0:6           name: command_name `p`
 
 ==================
-Invalid zero final range undefined — "1,0p"
+Zero range end is accepted — "1,0p"
 :language(sed)
 :language(sed_ere)
 :cst
@@ -867,15 +867,12 @@ Invalid zero final range undefined — "1,0p"
 0:1 - 0:2           address_separator `,`
 0:2 - 0:3           address
 0:2 - 0:3             line_address
-0:2 - 0:3               issue: syntax_issue
-0:2 - 0:3                 invalid_syntax
-0:2 - 0:3                   invalid_zero_address
-0:2 - 0:3                     number `0`
+0:2 - 0:3               first: number `0`
 0:3 - 0:4         simple_command
 0:3 - 0:4           name: command_name `p`
 
 ==================
-Invalid zero final range "0" — "1,0~0p"
+Zero range end with zero step is accepted — "1,0~0p"
 :language(sed)
 :language(sed_ere)
 :cst
@@ -892,10 +889,7 @@ Invalid zero final range "0" — "1,0~0p"
 0:1 - 0:2           address_separator `,`
 0:2 - 0:5           address
 0:2 - 0:5             line_address
-0:2 - 0:3               issue: syntax_issue
-0:2 - 0:3                 invalid_syntax
-0:2 - 0:3                   invalid_zero_address
-0:2 - 0:3                     number `0`
+0:2 - 0:3               first: number `0`
 0:3 - 0:4               address_operator `~`
 0:4 - 0:5               step: number `0`
 0:5 - 0:6         simple_command
