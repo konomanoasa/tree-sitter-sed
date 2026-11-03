@@ -1,6 +1,6 @@
 {
   "name": "tree-sitter-sed",
-  "version": "0.25.0",
+  "version": "0.25.1",
   "description": "Tree-sitter grammars for GNU sed.",
   "license": "MIT",
   "repository": "git+https://github.com/konomanoasa/tree-sitter-sed.git",
